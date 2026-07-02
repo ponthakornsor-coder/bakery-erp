@@ -116,7 +116,7 @@ function fromSheetData(data){
   const rm=(data.rawMaterials||[]).map(r=>({sku:String(r.RMCode||''),name:r.Name||'',product:r.Category||'Raw Material',variant:r.Variant||'',unit:r.Unit||'g',stock:+r.Stock||0,min:+r.Min||0,cost:+r.Cost||0})).filter(x=>x.sku);
   const bom={}; (data.bom||[]).forEach(b=>{ if(!b.SKU||!b.RMCode)return; bom[b.SKU]=bom[b.SKU]||[]; bom[b.SKU].push({sku:b.RMCode,qty:+b.QtyPerUnit||0,unit:b.Unit||''}); });
   const prodLog=(data.productionLog||[]).map(r=>({id:r.LogID||'',timestamp:r.Timestamp||'',sku:r.SKU||'',product:r.Product||'',qty:+r.Qty||0,expiry:r.ExpiryDate||'',operator:r.Operator||'',remark:r.Remark||'',photo:r.Photo||'',source:r.Source||'Google Sheet',status:r.Status||'Active',voidReason:r.VoidReason||'',voidAt:r.VoidAt||''}));
-  const mov=(data.stockMovement||[]).map(r=>({id:r.MoveID||'',time:r.Timestamp||'',type:r.ItemType||'',sku:r.SKU||'',mode:r.Mode||'',qty:+r.Qty||0,ref:r.Ref||'',remark:r.Remark||'',stock:+r.StockAfter||0,synced:true}));
+  const mov=(data.stockMovement||[]).map(r=>({id:r.MoveID||'',time:r.Timestamp||'',type:r.ItemType||'',sku:r.SKU||'',mode:r.Mode||'',qty:+r.Qty||0,ref:r.Ref||'',remark:r.Remark||'',stock:+r.StockAfter||0,source:r.Source||'',status:r.Status||'Active',synced:true}));
   const orderDays=(data.orders||[]).map(o=>({date:dateISO(o.OrderDate)||String(o.OrderDate||''),total:+o.TotalOrders||0,shipped:+o.CompletedOrders||0,note:o.Remark||'',shortages:[]}));
   db.items=items.length?items:db.items; db.rm=rm.length?rm:db.rm; db.bom=bom; db.prodLog=prodLog; db.mov=mov; db.orderDays=orderDays; db.remote=db.remote||{}; db.remote.lastApiSync=now();
 }
@@ -593,11 +593,39 @@ function voidProductionPrompt(logId){
 }
 async function voidProductionTransaction(logId,reason){
   toast('กำลัง Void Transaction...');
+  const markLocalVoided=()=>{
+    const r=(db.prodLog||[]).find(x=>String(x.id||x.LogID||'')===String(logId));
+    if(r){
+      r.status='Voided'; r.Status='Voided'; r.voidReason=reason; r.VoidReason=reason; r.voidAt=now(); r.VoidAt=now();
+      saveLocalOnly();
+    }
+  };
+  const reloadAndConfirm=async()=>{
+    await sleep(900);
+    await loadFromGoogleSheet();
+    page='trx'; render();
+    const r=(db.prodLog||[]).find(x=>String(x.id||x.LogID||'')===String(logId));
+    const ok=String(r?.status||r?.Status||'').toLowerCase()==='voided';
+    if(ok){ sheetDone('✅ Void สำเร็จ / ERP อัปเดตแล้ว / Stock ถูก Reverse แล้ว'); return true; }
+    return false;
+  };
   try{
     await apiPost({action:'voidproduction',logId,reason,voidBy:'ERP User'});
-    await loadFromGoogleSheet();
-    alert('✅ Void สำเร็จ\nระบบ Reverse Stock แล้ว');
-  }catch(e){console.error(e); alert('Void ไม่สำเร็จ: '+(e.message||e));}
+    markLocalVoided();
+    const ok=await reloadAndConfirm();
+    if(!ok) sheetDone('ส่งคำสั่ง Void แล้ว แต่ยังโหลดข้อมูลใหม่ไม่ทัน กดโหลดข้อมูลจาก Google Sheet อีกครั้ง');
+  }catch(e){
+    console.warn('Void response warning:', e);
+    toast('ส่งคำสั่ง Void แล้ว กำลังตรวจสอบข้อมูลล่าสุด...');
+    try{
+      await sleep(3500);
+      const ok=await reloadAndConfirm();
+      if(!ok) alert('ยังยืนยันผล Void ไม่ได้: '+(e.message||e)+'\nแต่ถ้า Google Sheet อัปเดตแล้ว ให้กดโหลดข้อมูลจาก Google Sheet อีกครั้ง');
+    }catch(e2){
+      console.error(e2);
+      alert('Void อาจสำเร็จแล้ว แต่ ERP โหลดข้อมูลกลับไม่ได้: '+(e2.message||e2));
+    }
+  }
 }
 
 function loadEmbeddedFgLog(){db.prodLog=EMBEDDED_FG_LOG.slice(); save(); render(); toast('โหลด Production Log จากไฟล์ที่ส่งมาแล้ว')}
@@ -925,5 +953,93 @@ function installViewerGuards(){
   const oldRender=render;
   render=function(){ oldRender(); applyViewerUI(); };
 }
+
+/* ===== v9.6 Production Summary Stable: รวมจาก PO + ProductionLog + StockMovement หลัง Refresh ===== */
+function productionSummaryMoveSource(m){
+  const src=String(m.source||m.Source||'').toLowerCase();
+  const ref=String(m.ref||m.Ref||'');
+  const rem=String(m.remark||m.Remark||'').toLowerCase();
+  if(src.includes('produce') || src.includes('erp-manual') || rem.includes('production record')) return 'บันทึกผลผลิต ERP';
+  if(src.includes('google') || src.includes('form') || src.includes('csv') || ref.includes('GS-') || ref.includes('FGP-')) return 'QR / Google Form';
+  return 'บันทึกผลผลิต ERP';
+}
+function productionSummaryAllRows(){
+  const out=[];
+  const poRefs=new Set();
+  const logRefs=new Set();
+  (db.po||[]).forEach(p=>{
+    if(String(p.status||'').toLowerCase()!=='completed') return;
+    const sku=String(p.sku||p.SKU||'');
+    const info=prodSummaryItemInfo(sku);
+    const ref=p.id||p.PO||'';
+    if(ref) poRefs.add(String(ref));
+    out.push({date:dateISO(p.finish||p.FinishAt||p.time||p.CreatedAt||''),timestamp:p.finish||p.FinishAt||p.time||p.CreatedAt||'',source:'คำสั่งผลิต ERP',ref,sku,name:info.name,product:info.product,variant:info.variant,qty:+p.qty||+p.Qty||0});
+  });
+  (db.prodLog||[]).forEach(r=>{
+    const status=String(r.status||r.Status||'Active').toLowerCase();
+    if(status==='voided' || status==='cancelled') return;
+    const sku=String(r.sku||r.SKU||'');
+    const info=prodSummaryItemInfo(sku, r.product||r.Product||'', r.variant||r.Variant||'');
+    const ref=r.id||r.LogID||'';
+    if(ref) logRefs.add(String(ref));
+    out.push({date:dateISO(r.timestamp||r.Timestamp||r.mfgDate||r.MfgDate||''),timestamp:r.timestamp||r.Timestamp||r.mfgDate||r.MfgDate||'',source:prodSummarySourceLabel(r),ref,sku,name:info.name,product:info.product,variant:info.variant,qty:+r.qty||+r.Qty||0});
+  });
+  // สำรองสำคัญ: หลัง Refresh บางแหล่งอาจเหลือใน StockMovement แต่ไม่อยู่ใน ProductionLog
+  // ให้ดึง FG IN จาก StockMovement เฉพาะที่ไม่ซ้ำกับ PO / ProductionLog
+  (db.mov||[]).forEach(m=>{
+    const type=String(m.type||m.ItemType||'').toUpperCase();
+    const mode=String(m.mode||m.Mode||'').toUpperCase();
+    const ref=String(m.ref||m.Ref||'');
+    const qty=+m.qty||+m.Qty||0;
+    if(type!=='FG') return;
+    if(!['IN','ADJ_IN','PRODUCE','PRODUCTION_IN'].includes(mode)) return;
+    if(qty<=0) return;
+    if(ref && (poRefs.has(ref) || logRefs.has(ref))) return;
+    if(ref.startsWith('VOID-')) return;
+    if(String(m.source||'').toLowerCase().includes('void')) return;
+    const sku=String(m.sku||m.SKU||'');
+    const info=prodSummaryItemInfo(sku);
+    out.push({date:dateISO(m.time||m.Timestamp||''),timestamp:m.time||m.Timestamp||'',source:productionSummaryMoveSource(m),ref,sku,name:info.name,product:info.product,variant:info.variant,qty});
+  });
+  return out.filter(x=>x.sku && x.qty>0);
+}
+function productionSummaryPage(m){
+  const today=todayISO();
+  const start=$('sumStart')?.value||today;
+  const end=$('sumEnd')?.value||today;
+  const prodFilter=$('sumProd')?.value||'';
+  const sourceFilter=$('sumSource')?.value||'';
+  const rows=productionSummaryAllRows().filter(r=>{
+    const d=r.date||dateISO(r.timestamp||'');
+    if(start && d && d<start) return false;
+    if(end && d && d>end) return false;
+    if(prodFilter && r.product!==prodFilter) return false;
+    if(sourceFilter && r.source!==sourceFilter) return false;
+    return true;
+  });
+  const map={};
+  rows.forEach(r=>{
+    const key=r.product+'||'+r.variant;
+    if(!map[key]) map[key]={product:r.product,variant:r.variant,qty:0,po:0,qr:0,manual:0,skuCount:new Set(),rows:0};
+    map[key].qty += +r.qty||0;
+    if(r.source==='คำสั่งผลิต ERP') map[key].po += +r.qty||0;
+    else if(r.source==='บันทึกผลผลิต ERP') map[key].manual += +r.qty||0;
+    else map[key].qr += +r.qty||0;
+    map[key].skuCount.add(r.sku); map[key].rows += 1;
+  });
+  const summary=Object.values(map).sort((a,b)=>b.qty-a.qty || String(a.product).localeCompare(String(b.product)));
+  const totalQty=summary.reduce((a,x)=>a+x.qty,0);
+  const totalPO=rows.filter(x=>x.source==='คำสั่งผลิต ERP').reduce((a,x)=>a+x.qty,0);
+  const totalQR=rows.filter(x=>x.source==='QR / Google Form').reduce((a,x)=>a+x.qty,0);
+  const totalManual=rows.filter(x=>x.source==='บันทึกผลผลิต ERP').reduce((a,x)=>a+x.qty,0);
+  m.innerHTML=head('สรุปผลผลิต','รวมจาก 1) คำสั่งผลิต ERP 2) QR ที่พนักงานสแกน 3) บันทึกผลผลิตจาก ERP')+
+  `<div class="toolbar"><div class="row3"><input id="sumStart" type="date" value="${start}" onchange="productionSummaryPage($('main'))"><input id="sumEnd" type="date" value="${end}" onchange="productionSummaryPage($('main'))"><select id="sumProd" onchange="productionSummaryPage($('main'))">${productOptions(prodFilter)}</select></div><div class="row3" style="margin-top:12px"><select id="sumSource" onchange="productionSummaryPage($('main'))"><option value="">ทุกแหล่งที่มา</option><option ${sourceFilter==='คำสั่งผลิต ERP'?'selected':''}>คำสั่งผลิต ERP</option><option ${sourceFilter==='QR / Google Form'?'selected':''}>QR / Google Form</option><option ${sourceFilter==='บันทึกผลผลิต ERP'?'selected':''}>บันทึกผลผลิต ERP</option></select><span></span><button class="ghost" onclick="loadFromGoogleSheet()">Refresh จาก Google Sheet</button></div></div>`+
+  `<div class="kpis"><div class="kpi">ผลิตรวม<b>${totalQty}</b></div><div class="kpi">จากคำสั่งผลิต ERP<b>${totalPO}</b></div><div class="kpi">จาก QR Scan<b>${totalQR}</b></div><div class="kpi">จากบันทึกผลผลิต ERP<b>${totalManual}</b></div></div>`+
+  `<div class="box"><h2>สรุปตาม Product / Variant</h2>${productionSummaryTable(summary,totalQty)}</div>`+
+  `<div class="box"><h2>รายละเอียด SKU + แหล่งที่มา</h2>${productionSkuSummaryTable(rows)}</div>`+
+  `<div class="box"><h2>รายการล่าสุด</h2>${productionSummaryRawTable(rows.slice().sort((a,b)=>String(b.timestamp).localeCompare(String(a.timestamp))).slice(0,80))}</div>`;
+  applyViewerUI?.();
+}
+
 if(VIEWER_ONLY) installViewerGuards(); render(); setupAutoCsvSync(); setTimeout(()=>{ if(apiUrl) loadFromGoogleSheet(); },300);
 </script></body></html>
