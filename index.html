@@ -4,7 +4,7 @@ body.viewer-mode .logo::after{content:' VIEWER';display:inline-block;margin-left
 body.viewer-mode button.viewer-hidden{display:none!important}
 body.viewer-mode button.viewer-disabled{opacity:.45;cursor:not-allowed!important;filter:grayscale(1)}
 body.viewer-mode .viewer-banner{border:2px solid #059669;background:#ecfdf5;color:#065f46;border-radius:18px;padding:14px 18px;margin:0 0 18px;font-weight:700}
-</style></head><body><div class="app"><aside class="side"><div class="logo">🍪 Bakery ERP</div><div class="sub">Full web app v8.1<br>UX แบบ v6.4<br>Google Sheet Direct Movement</div><div class="nav" id="nav"></div></aside><main class="main" id="main"></main></div><div class="toast" id="toast"></div><div class="modal" id="modal"><div id="modalBody"></div></div><script>
+</style></head><body><div class="app"><aside class="side"><div class="logo">🍪 Bakery ERP</div><div class="sub">Full web app v8.3<br>UX แบบ v6.4<br>Batch Movement Fast</div><div class="nav" id="nav"></div></aside><main class="main" id="main"></main></div><div class="toast" id="toast"></div><div class="modal" id="modal"><div id="modalBody"></div></div><script>
 const $ = (id) => document.getElementById(id);
 const ERP_QUERY = new URLSearchParams(window.location.search);
 const VIEWER_ONLY = ERP_QUERY.get('view') === '1' || ERP_QUERY.get('role') === 'viewer';
@@ -47,10 +47,20 @@ async function apiPost(body){
 async function pushMovementsOnly(movements, silent=true){
   const list=(movements||[]).filter(x=>x && !x.synced);
   if(!list.length) return;
-  for(const m of list){
+  const payload=list.map(m=>{
     const q=(String(m.mode).toUpperCase()==='CYCLE_COUNT')?(+m.qty||0):Math.abs(+m.qty||0);
-    await apiPost({action:'movement',data:{MoveID:m.id,Timestamp:m.time,ItemType:m.type,SKU:m.sku,Mode:m.mode,Qty:q,Ref:m.ref||'',Remark:m.remark||'',StockAfter:m.stock||'',Source:'ERP-v8.1'}});
-    m.synced=true;
+    return {MoveID:m.id,Timestamp:m.time,ItemType:m.type,SKU:m.sku,Mode:m.mode,Qty:q,Ref:m.ref||'',Remark:m.remark||'',StockAfter:m.stock||'',Source:'ERP-v8.3-BATCH'};
+  });
+  try{
+    await apiPost({action:'movementbatch',data:payload});
+    list.forEach(m=>m.synced=true);
+  }catch(e){
+    // fallback สำหรับ Apps Script รุ่นเก่า
+    for(let i=0;i<list.length;i++){
+      const m=list[i], d=payload[i];
+      await apiPost({action:'movement',data:d});
+      m.synced=true;
+    }
   }
   saveLocalOnly();
   if(!silent) toast('บันทึก Movement เข้า Google Sheet แล้ว');
@@ -78,6 +88,14 @@ function savePODirect(p){if(!p||!p.id)return; return upsertSheet('ProductionOrde
 function saveOrderDirect(o){if(!o||!o.date)return; return upsertSheet('Orders','OrderNo',orderPayload(o),'Orders');}
 function saveOrderItemDirect(date,s){if(!s||!s.sku)return; return upsertSheet('OrderItems','OrderNo',orderItemPayload(date,s),'OrderItems');}
 function saveCycleDirect(rec,before,counted){return upsertSheet('CycleCount','CountID',cyclePayload(rec,before,counted),'CycleCount');}
+function saveCycleBatchDirect(list){
+  const rows=(list||[]).map(x=>cyclePayload(x.rec,x.before,x.counted));
+  if(!rows.length) return Promise.resolve();
+  return apiPost({action:'cyclebatch',data:rows}).then(()=>toastSaveOK('CycleCount')).catch(e=>{
+    // fallback รุ่นเก่า: ส่งทีละรายการ
+    rows.reduce((p,r)=>p.then(()=>upsertSheet('CycleCount','CountID',r,'CycleCount')),Promise.resolve()).catch(err=>toastSaveFail('CycleCount',err));
+  });
+}
 
 function fromSheetData(data){
   const items=(data.products||[]).map(p=>({sku:String(p.SKU||''),name:p.Name||'',product:p.Product||'',variant:p.Variant||'',weight:p.Weight||'',unit:p.Unit||'pcs',stock:+p.Stock||0,min:+p.Min||0,price:+p.Price||0,cost:+p.Cost||0,type:'FG'})).filter(x=>x.sku);
@@ -247,7 +265,7 @@ function saveCycleCount(){
     let rec={id:'MV-'+Date.now()+'-'+Math.floor(Math.random()*9999),time:now(),type,sku:r.sku,mode:'CYCLE_COUNT',qty:diff,ref,remark:`${reason}${remark?' - '+remark:''} | Before ${before} → After ${r.counted}`,stock:it.stock,synced:false};
     db.mov.push(rec); cycleSaves.push({rec,before,counted:r.counted});
   });
-  saveLocalOnly(); render(); sendNewMovementsSince(startIndex); cycleSaves.forEach(x=>saveCycleDirect(x.rec,x.before,x.counted)); toast('บันทึก Cycle Count '+rows.length+' รายการแล้ว / ส่งเข้า Google Sheet ทันที')
+  saveLocalOnly(); render(); sendNewMovementsSince(startIndex); saveCycleBatchDirect(cycleSaves); toast('บันทึก Cycle Count '+rows.length+' รายการแล้ว / ส่งเข้า Google Sheet ทันที')
 }
 function cycleHistoryTable(){let arr=db.mov.filter(x=>x.mode=='CYCLE_COUNT').slice(-10).reverse(); if(!arr.length)return '<p class="hint">ยังไม่มีประวัติ Cycle Count</p>'; return `<table><tr><th>เวลา</th><th>Type</th><th>SKU</th><th>Diff</th><th>Ref</th><th>Remark</th><th>Stock หลังนับ</th></tr>${arr.map(x=>`<tr><td>${x.time}</td><td>${x.type}</td><td><b>${x.sku}</b></td><td><span class="pill ${x.qty<0?'bad':(x.qty>0?'good':'')}">${x.qty>0?'+':''}${x.qty}</span></td><td>${x.ref}</td><td>${x.remark||''}</td><td>${x.stock}</td></tr>`).join('')}</table>`}
 
