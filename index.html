@@ -117,8 +117,13 @@ function fromSheetData(data){
   const bom={}; (data.bom||[]).forEach(b=>{ if(!b.SKU||!b.RMCode)return; bom[b.SKU]=bom[b.SKU]||[]; bom[b.SKU].push({sku:b.RMCode,qty:+b.QtyPerUnit||0,unit:b.Unit||''}); });
   const prodLog=(data.productionLog||[]).map(r=>({id:r.LogID||'',timestamp:r.Timestamp||'',sku:r.SKU||'',product:r.Product||'',qty:+r.Qty||0,expiry:r.ExpiryDate||'',operator:r.Operator||'',remark:r.Remark||'',photo:r.Photo||'',source:r.Source||'Google Sheet',status:r.Status||'Active',voidReason:r.VoidReason||'',voidAt:r.VoidAt||''}));
   const mov=(data.stockMovement||[]).map(r=>({id:r.MoveID||'',time:r.Timestamp||'',type:r.ItemType||'',sku:r.SKU||'',mode:r.Mode||'',qty:+r.Qty||0,ref:r.Ref||'',remark:r.Remark||'',stock:+r.StockAfter||0,source:r.Source||'',status:r.Status||'Active',synced:true}));
-  const orderDays=(data.orders||[]).map(o=>({date:dateISO(o.OrderDate)||String(o.OrderDate||''),total:+o.TotalOrders||0,shipped:+o.CompletedOrders||0,note:o.Remark||'',shortages:[]}));
-  db.items=items.length?items:db.items; db.rm=rm.length?rm:db.rm; db.bom=bom; db.prodLog=prodLog; db.mov=mov; db.orderDays=orderDays; db.dashboard=data.dashboard||[]; db.remote=db.remote||{}; db.remote.lastApiSync=now();
+  const orderItems=(data.orderItems||[]).map(i=>({orderNo:i.OrderNo||'',sku:i.SKU||'',qty:+i.Qty||0,completedQty:+i.CompletedQty||0,shortQty:+i.ShortQty||0,reason:i.Reason||'',updatedAt:i.UpdatedAt||''}));
+  const orderDays=(data.orders||[]).map(o=>{
+    const date=dateISO(o.OrderDate)||String(o.OrderDate||'');
+    return {date,total:+o.TotalOrders||0,shipped:+o.CompletedOrders||0,note:o.Remark||'',shortages:orderItems.filter(i=>String(i.orderNo||'').startsWith('DAY-'+date+'-')).map(i=>({sku:i.sku,qty:i.shortQty||i.qty,reason:i.reason}))};
+  });
+  const po=(data.productionOrder||[]).map(p=>({id:p.PO||'',sku:p.SKU||'',qty:+p.Qty||0,status:p.Status||'Open',time:p.CreatedAt||'',start:p.StartAt||'',finish:p.FinishAt||'',remark:p.Remark||''})).filter(p=>p.id);
+  db.items=items.length?items:db.items; db.rm=rm.length?rm:db.rm; db.bom=bom; db.prodLog=prodLog; db.mov=mov; db.po=po; db.orderDays=orderDays; db.orderItems=orderItems; db.dashboard=data.dashboard||[]; db.remote=db.remote||{}; db.remote.lastApiSync=now();
 }
 function dashboardValue(key, fallback=0){
   const r=(db.dashboard||[]).find(x=>String(x.Key)===String(key));
@@ -178,7 +183,27 @@ function nav(){ $('nav').innerHTML=pages.map(p=>`<button class="${page==p[0]?'ac
 function render(){try{nav(); const m=$('main'); if(page=='dashboard') return dash(m); if(page=='master') return masterData(m); if(page=='items') return items(m); if(page=='rm') return rm(m); if(page=='stock') return stock(m); if(page=='cycle') return cycleCount(m); if(page=='fglog') return fgLogPage(m); if(page=='prodrecord') return productionRecordPage(m); if(page=='trx') return transactionCenterPage(m); if(page=='prodsummary') return productionSummaryPage(m); if(page=='prod') return prod(m); if(page=='orders') return ordersPage(m); if(page=='bom') return bom(m); if(page=='history') return hist(m); if(page=='google') return googlePage(m); if(page=='settings') return settings(m); return dash(m);}catch(e){console.error(e); $('main').innerHTML='<h1>เกิด Error</h1><div class="box"><b>'+String(e.message||e)+'</b><p class="hint">กด Settings → Reset หรือส่งรูปหน้านี้มาให้ผมดู</p><button class="primary" onclick="localStorage.removeItem(\'bakery_erp_v6_1\');location.reload()">Reset ข้อมูลใน Browser</button></div>';}}
 function head(t,h=''){return `<h1>${t}</h1><div class="hint">${h}</div>`}
 function todayISO(){let d=new Date();return d.toISOString().slice(0,10)}
-function dateISO(t){let m=String(t||'').match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/); if(m){let y=+m[3]; if(y>2400)y-=543; return String(y).padStart(4,'0')+'-'+String(+m[2]).padStart(2,'0')+'-'+String(+m[1]).padStart(2,'0')} let d=new Date(t); return isNaN(d)?'':d.toISOString().slice(0,10)}
+function excelSerialToDate(serial){
+  let n=Number(serial);
+  if(!isFinite(n)) return null;
+  // Google Sheet/Excel serial date: 2026-07-02 = 46205
+  // ถ้า Google ตีปีไทย 2569 จะได้ serial ประมาณ 244532 จึงต้องลบ offset 543 ปี
+  if(n>100000) n -= 198327;
+  const ms=(n-25569)*86400*1000;
+  const d=new Date(ms);
+  return isNaN(d)?null:d;
+}
+function dateISO(t){
+  if(t===null || t===undefined || t==='') return '';
+  if(typeof t==='number' || /^\d+(\.\d+)?$/.test(String(t).trim())){
+    const d=excelSerialToDate(t);
+    return d?d.toISOString().slice(0,10):'';
+  }
+  let s=String(t||'').trim();
+  let m=s.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if(m){let y=+m[3]; if(y>2400)y-=543; return String(y).padStart(4,'0')+'-'+String(+m[2]).padStart(2,'0')+'-'+String(+m[1]).padStart(2,'0')}
+  let d=new Date(s); return isNaN(d)?'':d.toISOString().slice(0,10)
+}
 function dash(m){
   let selDate=$('dashDate')?.value||todayISO();
   let fg=db.items.reduce((a,x)=>a+(+x.stock||0),0), rmv=db.rm.reduce((a,x)=>a+(+x.stock||0),0);
@@ -190,9 +215,10 @@ function dash(m){
   let orderPending=Math.max(0,orderToday-orderShipped);
   if(useTodayCache(selDate)){
     doneToday=dashboardValue('PROD_TODAY', doneToday);
-    orderToday=dashboardValue('ORDER_TODAY', orderToday);
-    orderShipped=dashboardValue('ORDER_SHIPPED_TODAY', orderShipped);
-    orderPending=dashboardValue('ORDER_PENDING_TODAY', Math.max(0,orderToday-orderShipped));
+    // Orders sheet เป็นข้อมูลจริงหลัง Refresh; Cache ใช้เฉพาะกรณี Orders ยังไม่มีค่า
+    orderToday=orderToday || dashboardValue('ORDER_TODAY', 0);
+    orderShipped=orderShipped || dashboardValue('ORDER_SHIPPED_TODAY', 0);
+    orderPending=Math.max(0,orderToday-orderShipped);
   }
   let rmLow=db.rm.filter(x=>(+x.stock||0) <= (x.min??10)).sort((a,b)=>(+a.stock||0)-(+b.stock||0)).slice(0,10);
   let fgLow=db.items.filter(x=>(+x.stock||0) <= (x.min??5)).sort((a,b)=>(+a.stock||0)-(+b.stock||0)).slice(0,10);
