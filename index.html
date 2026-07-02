@@ -118,8 +118,15 @@ function fromSheetData(data){
   const prodLog=(data.productionLog||[]).map(r=>({id:r.LogID||'',timestamp:r.Timestamp||'',sku:r.SKU||'',product:r.Product||'',qty:+r.Qty||0,expiry:r.ExpiryDate||'',operator:r.Operator||'',remark:r.Remark||'',photo:r.Photo||'',source:r.Source||'Google Sheet',status:r.Status||'Active',voidReason:r.VoidReason||'',voidAt:r.VoidAt||''}));
   const mov=(data.stockMovement||[]).map(r=>({id:r.MoveID||'',time:r.Timestamp||'',type:r.ItemType||'',sku:r.SKU||'',mode:r.Mode||'',qty:+r.Qty||0,ref:r.Ref||'',remark:r.Remark||'',stock:+r.StockAfter||0,source:r.Source||'',status:r.Status||'Active',synced:true}));
   const orderDays=(data.orders||[]).map(o=>({date:dateISO(o.OrderDate)||String(o.OrderDate||''),total:+o.TotalOrders||0,shipped:+o.CompletedOrders||0,note:o.Remark||'',shortages:[]}));
-  db.items=items.length?items:db.items; db.rm=rm.length?rm:db.rm; db.bom=bom; db.prodLog=prodLog; db.mov=mov; db.orderDays=orderDays; db.remote=db.remote||{}; db.remote.lastApiSync=now();
+  db.items=items.length?items:db.items; db.rm=rm.length?rm:db.rm; db.bom=bom; db.prodLog=prodLog; db.mov=mov; db.orderDays=orderDays; db.dashboard=data.dashboard||[]; db.remote=db.remote||{}; db.remote.lastApiSync=now();
 }
+function dashboardValue(key, fallback=0){
+  const r=(db.dashboard||[]).find(x=>String(x.Key)===String(key));
+  if(!r) return fallback;
+  const n=Number(r.Value);
+  return isNaN(n)?(r.Value??fallback):n;
+}
+function useTodayCache(selDate){return selDate===todayISO() && (db.dashboard||[]).length>0;}
 async function loadFromGoogleSheet(){
   if(apiBusy)return; apiBusy=true; toast('กำลังโหลดข้อมูลจาก Google Sheet...');
   try{const res=await apiGet('all'); fromSheetData(res.data||{}); saveLocalOnly(); render(); toast('โหลดข้อมูลจาก Google Sheet แล้ว');}
@@ -181,6 +188,12 @@ function dash(m){
   let orderToday=+os.total||0;
   let orderShipped=+os.shipped||0;
   let orderPending=Math.max(0,orderToday-orderShipped);
+  if(useTodayCache(selDate)){
+    doneToday=dashboardValue('PROD_TODAY', doneToday);
+    orderToday=dashboardValue('ORDER_TODAY', orderToday);
+    orderShipped=dashboardValue('ORDER_SHIPPED_TODAY', orderShipped);
+    orderPending=dashboardValue('ORDER_PENDING_TODAY', Math.max(0,orderToday-orderShipped));
+  }
   let rmLow=db.rm.filter(x=>(+x.stock||0) <= (x.min??10)).sort((a,b)=>(+a.stock||0)-(+b.stock||0)).slice(0,10);
   let fgLow=db.items.filter(x=>(+x.stock||0) <= (x.min??5)).sort((a,b)=>(+a.stock||0)-(+b.stock||0)).slice(0,10);
   let pos=db.po.filter(x=>dateISO(x.finish||x.time)==selDate && x.status=='Completed');
@@ -875,7 +888,7 @@ function productionSummaryPage(m){
   const totalManual=rows.filter(x=>x.source==='บันทึกผลผลิต ERP').reduce((a,x)=>a+x.qty,0);
   m.innerHTML=head('สรุปผลผลิต','รวมจาก 1) คำสั่งผลิต ERP 2) QR ที่พนักงานสแกน 3) บันทึกผลผลิตจาก ERP')+
   `<div class="toolbar"><div class="row3"><input id="sumStart" type="date" value="${start}" onchange="productionSummaryPage($('main'))"><input id="sumEnd" type="date" value="${end}" onchange="productionSummaryPage($('main'))"><select id="sumProd" onchange="productionSummaryPage($('main'))">${productOptions(prodFilter)}</select></div><div class="row3" style="margin-top:12px"><select id="sumSource" onchange="productionSummaryPage($('main'))"><option value="">ทุกแหล่งที่มา</option><option ${sourceFilter==='คำสั่งผลิต ERP'?'selected':''}>คำสั่งผลิต ERP</option><option ${sourceFilter==='QR / Google Form'?'selected':''}>QR / Google Form</option><option ${sourceFilter==='บันทึกผลผลิต ERP'?'selected':''}>บันทึกผลผลิต ERP</option></select><span></span><button class="ghost" onclick="productionSummaryPage($('main'))">Refresh</button></div></div>`+
-  `<div class="kpis"><div class="kpi">ผลิตรวม<b>${totalQty}</b></div><div class="kpi">จากคำสั่งผลิต ERP<b>${totalPO}</b></div><div class="kpi">จาก QR Scan<b>${totalQR}</b></div><div class="kpi">จากบันทึกผลผลิต ERP<b>${totalManual}</b></div></div>`+
+  `<div class="kpis"><div class="kpi">ผลิตรวม<b>${totalQty}</b></div><div class="kpi">จากคำสั่งผลิต ERP<b>${totalPO}</b></div><div class="kpi">จาก QR Scan<b>${useTodayCache(start)&&start===end?dashboardValue('PROD_QR_TODAY',totalQR):totalQR}</b></div><div class="kpi">จากบันทึกผลผลิต ERP<b>${useTodayCache(start)&&start===end?dashboardValue('PROD_MANUAL_TODAY',totalManual):totalManual}</b></div></div>`+
   `<div class="box"><h2>สรุปตาม Product / Variant</h2>${productionSummaryTable(summary,totalQty)}</div>`+
   `<div class="box"><h2>รายละเอียด SKU + แหล่งที่มา</h2>${productionSkuSummaryTable(rows)}</div>`+
   `<div class="box"><h2>รายการล่าสุด</h2>${productionSummaryRawTable(rows.slice().sort((a,b)=>String(b.timestamp).localeCompare(String(a.timestamp))).slice(0,80))}</div>`;
@@ -991,12 +1004,12 @@ function productionSummaryAllRows(){
     const mode=String(m.mode||m.Mode||'').toUpperCase();
     const ref=String(m.ref||m.Ref||'');
     const qty=+m.qty||+m.Qty||0;
+    const src=String(m.source||m.Source||'').toLowerCase();
     if(type!=='FG') return;
-    if(!['IN','ADJ_IN','PRODUCE','PRODUCTION_IN'].includes(mode)) return;
     if(qty<=0) return;
+    if(['OUT','ADJ_OUT','SCRAP','ISSUE','CYCLE_COUNT'].includes(mode)) return;
     if(ref && (poRefs.has(ref) || logRefs.has(ref))) return;
-    if(ref.startsWith('VOID-')) return;
-    if(String(m.source||'').toLowerCase().includes('void')) return;
+    if(ref.startsWith('VOID-') || src.includes('void')) return;
     const sku=String(m.sku||m.SKU||'');
     const info=prodSummaryItemInfo(sku);
     out.push({date:dateISO(m.time||m.Timestamp||''),timestamp:m.time||m.Timestamp||'',source:productionSummaryMoveSource(m),ref,sku,name:info.name,product:info.product,variant:info.variant,qty});
@@ -1034,7 +1047,7 @@ function productionSummaryPage(m){
   const totalManual=rows.filter(x=>x.source==='บันทึกผลผลิต ERP').reduce((a,x)=>a+x.qty,0);
   m.innerHTML=head('สรุปผลผลิต','รวมจาก 1) คำสั่งผลิต ERP 2) QR ที่พนักงานสแกน 3) บันทึกผลผลิตจาก ERP')+
   `<div class="toolbar"><div class="row3"><input id="sumStart" type="date" value="${start}" onchange="productionSummaryPage($('main'))"><input id="sumEnd" type="date" value="${end}" onchange="productionSummaryPage($('main'))"><select id="sumProd" onchange="productionSummaryPage($('main'))">${productOptions(prodFilter)}</select></div><div class="row3" style="margin-top:12px"><select id="sumSource" onchange="productionSummaryPage($('main'))"><option value="">ทุกแหล่งที่มา</option><option ${sourceFilter==='คำสั่งผลิต ERP'?'selected':''}>คำสั่งผลิต ERP</option><option ${sourceFilter==='QR / Google Form'?'selected':''}>QR / Google Form</option><option ${sourceFilter==='บันทึกผลผลิต ERP'?'selected':''}>บันทึกผลผลิต ERP</option></select><span></span><button class="ghost" onclick="loadFromGoogleSheet()">Refresh จาก Google Sheet</button></div></div>`+
-  `<div class="kpis"><div class="kpi">ผลิตรวม<b>${totalQty}</b></div><div class="kpi">จากคำสั่งผลิต ERP<b>${totalPO}</b></div><div class="kpi">จาก QR Scan<b>${totalQR}</b></div><div class="kpi">จากบันทึกผลผลิต ERP<b>${totalManual}</b></div></div>`+
+  `<div class="kpis"><div class="kpi">ผลิตรวม<b>${totalQty}</b></div><div class="kpi">จากคำสั่งผลิต ERP<b>${totalPO}</b></div><div class="kpi">จาก QR Scan<b>${useTodayCache(start)&&start===end?dashboardValue('PROD_QR_TODAY',totalQR):totalQR}</b></div><div class="kpi">จากบันทึกผลผลิต ERP<b>${useTodayCache(start)&&start===end?dashboardValue('PROD_MANUAL_TODAY',totalManual):totalManual}</b></div></div>`+
   `<div class="box"><h2>สรุปตาม Product / Variant</h2>${productionSummaryTable(summary,totalQty)}</div>`+
   `<div class="box"><h2>รายละเอียด SKU + แหล่งที่มา</h2>${productionSkuSummaryTable(rows)}</div>`+
   `<div class="box"><h2>รายการล่าสุด</h2>${productionSummaryRawTable(rows.slice().sort((a,b)=>String(b.timestamp).localeCompare(String(a.timestamp))).slice(0,80))}</div>`;
