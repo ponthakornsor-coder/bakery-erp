@@ -5,7 +5,7 @@ button.danger:hover,button.small.danger:hover{background:#fee2e2}
 .box h2,.dashgrid h2{margin:0 0 14px;font-size:19px;color:#6d3000;letter-spacing:.2px}
 .mode-badge{display:inline-flex;align-items:center;gap:6px;font-weight:800;padding:8px 14px;border-radius:12px;margin-top:10px}
 .mode-badge.in{background:#dcfce7;color:#166534}
-.mode-badge.out{background:#fee2e2;color:#991b1b}.pill{display:inline-block;border-radius:999px;padding:5px 10px;font-size:12px;background:#fff1d6;color:#8a4400}.pill.good{background:#dcfce7;color:#166534}.pill.bad{background:#fee2e2;color:#991b1b}.pill.blue{background:#e0f2fe;color:#075985}table{width:100%;border-collapse:separate;border-spacing:0;background:white;border:1px solid var(--line);border-radius:16px;overflow:hidden}th,td{padding:12px 14px;border-bottom:1px solid #f0e3d2;text-align:left;font-size:14px}th{background:#fff3e1;color:#6d3000}tr:last-child td{border-bottom:0}.actions{white-space:nowrap}.toast{position:fixed;right:22px;bottom:22px;background:#321800;color:white;padding:14px 18px;border-radius:14px;box-shadow:var(--shadow);display:none;z-index:5}.modal{position:fixed;inset:0;background:rgba(0,0,0,.3);display:none;align-items:center;justify-content:center;z-index:10}.modal>div{background:var(--panel);border-radius:20px;padding:22px;max-width:760px;width:92%;max-height:90vh;overflow:auto}.danger{color:var(--bad)}@media(max-width:850px){.side{position:static;width:100%;height:auto}.app{display:block}.main{margin:0;width:100%}.row,.row2{grid-template-columns:1fr}.kpis{grid-template-columns:1fr 1fr}}.dashgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.barwrap{background:#fff3e1;border-radius:999px;overflow:hidden;height:12px}.bar{height:12px;background:var(--brand)}.mini{font-size:12px;color:var(--muted)}@media(max-width:1050px){.dashgrid{grid-template-columns:1fr}}
+.mode-badge.out{background:#fee2e2;color:#991b1b}.pill{display:inline-block;border-radius:999px;padding:5px 10px;font-size:12px;background:#fff1d6;color:#8a4400}.pill.good{background:#dcfce7;color:#166534}.pill.bad{background:#fee2e2;color:#991b1b}.pill.blue{background:#e0f2fe;color:#075985}table{width:100%;border-collapse:separate;border-spacing:0;background:white;border:1px solid var(--line);border-radius:16px;overflow:hidden}th,td{padding:12px 14px;border-bottom:1px solid #f0e3d2;text-align:left;font-size:14px}th{background:#fff3e1;color:#6d3000}tr:last-child td{border-bottom:0}.actions{white-space:nowrap}.toast{position:fixed;right:22px;bottom:22px;background:#321800;color:white;padding:14px 18px;border-radius:14px;box-shadow:var(--shadow);display:none;z-index:5}.modal{position:fixed;inset:0;background:rgba(0,0,0,.3);display:none;align-items:center;justify-content:center;z-index:10}.modal>div{background:var(--panel);border-radius:20px;padding:22px;max-width:760px;width:92%;max-height:90vh;overflow:auto}.danger{color:var(--bad)}@media(max-width:850px){.side{position:static;width:100%;height:auto}.app{display:block}.main{margin:0;width:100%}.row,.row2{grid-template-columns:1fr}.kpis{grid-template-columns:1fr 1fr}}.dashgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.dashgrid .box{overflow-x:auto}.barwrap{background:#fff3e1;border-radius:999px;overflow:hidden;height:12px}.bar{height:12px;background:var(--brand)}.mini{font-size:12px;color:var(--muted)}@media(max-width:1050px){.dashgrid{grid-template-columns:1fr}}.sync-overlay{position:fixed;inset:0;background:rgba(50,24,0,.35);z-index:30;display:none;align-items:center;justify-content:center}.sync-overlay-card{background:white;border:2px solid var(--brand);border-radius:18px;padding:26px 34px;box-shadow:var(--shadow);display:flex;align-items:center;gap:14px;min-width:280px;max-width:92vw}.sync-overlay .spinner{width:24px;height:24px;flex:0 0 auto;border:3px solid #f0e3d2;border-top-color:var(--brand);border-radius:50%;animation:syncspin .8s linear infinite}@keyframes syncspin{to{transform:rotate(360deg)}}#syncOverlayMsg{font-size:16px}#syncOverlayResult{font-size:16px}#syncOverlayResult.good{color:var(--good);font-weight:800}#syncOverlayResult.bad{color:var(--bad);font-weight:800}.sync-overlay-close{margin-left:8px;cursor:pointer;color:var(--muted);font-weight:800;padding:4px 8px;flex:0 0 auto}
 body:not(.viewer-mode) .logo::after{content:' STABLE';display:inline-block;margin-left:8px;font-size:11px;background:#e0f2fe;color:#075985;border-radius:999px;padding:3px 8px;vertical-align:middle}
 body.viewer-mode .logo::after{content:' VIEWER';display:inline-block;margin-left:8px;font-size:11px;background:#dcfce7;color:#166534;border-radius:999px;padding:3px 8px;vertical-align:middle}
 body.viewer-mode button.viewer-hidden{display:none!important}
@@ -37,7 +37,7 @@ body.login-locked .app{display:none}
 <input id="loginPw" type="password" placeholder="รหัสผ่าน" autocomplete="off" onkeydown="if(event.key==='Enter')doLogin()">
 <button class="primary" onclick="doLogin()">เข้าสู่ระบบ</button>
 <div class="login-error" id="loginError"></div>
-</div></div><div class="app"><aside class="side"><div class="logo">🍪 Bakery ERP</div><div class="sub">Full web app v9.14<br>Security: API key + RM stock fix</div><div class="nav" id="nav"></div></aside><main class="main" id="main"></main></div><div class="toast" id="toast"></div><div class="modal" id="modal"><div id="modalBody"></div></div><script>
+</div></div><div class="app"><aside class="side"><div class="logo">🍪 Bakery ERP</div><div class="sub">Full web app v9.14<br>Security: API key + RM stock fix</div><div class="nav" id="nav"></div></aside><main class="main" id="main"></main></div><div class="toast" id="toast"></div><div class="sync-overlay" id="syncOverlay"><div class="sync-overlay-card"><div class="spinner" id="syncOverlaySpinner"></div><div id="syncOverlayMsg" style="font-weight:700"></div><div id="syncOverlayResult" style="display:none"></div><span class="sync-overlay-close" id="syncOverlayClose" onclick="$('syncOverlay').style.display='none'" style="display:none">✕</span></div></div><div class="modal" id="modal"><div id="modalBody"></div></div><script>
 const $ = (id) => document.getElementById(id);
 const ERP_QUERY = new URLSearchParams(window.location.search);
 const VIEWER_ONLY = ERP_QUERY.get('view') === '1' || ERP_QUERY.get('role') === 'viewer';
@@ -85,17 +85,60 @@ function apiGet(action='all', params={}){
     s.src=url.toString(); document.body.appendChild(s);
   });
 }
+let syncOverlayActive=0;
+function syncActionLabel(action){
+  const map={movement:'กำลังบันทึกรายการ Stock...',movementbatch:'กำลังบันทึกรายการ Stock...',producebatch:'กำลังบันทึกผลผลิต...',transaction:'กำลังบันทึกรายการ...',flushpending:'กำลังส่งข้อมูลค้างส่ง...',cycletransaction:'กำลังบันทึก Cycle Count...',voidproductionfast:'กำลัง Void รายการ...',voidproduction:'กำลัง Void รายการ...',upsert:'กำลังบันทึกข้อมูล...',upsertbatch:'กำลังบันทึกข้อมูล...',savebom:'กำลังบันทึก BOM...',syncprod:'กำลัง Sync ข้อมูลผลิตเข้า Database...',shippingplanbatch:'กำลังบันทึก ShippingPlan...',createpofromshipping:'กำลังสร้างคำสั่งผลิต...'};
+  return map[String(action||'').toLowerCase()]||'กำลังบันทึกเข้า Google Sheet...';
+}
+function showSyncOverlay(msg){
+  syncOverlayActive++;
+  const el=$('syncOverlay'); if(!el) return;
+  el.style.display='flex';
+  $('syncOverlaySpinner').style.display='block';
+  $('syncOverlayMsg').style.display='block'; $('syncOverlayMsg').textContent=msg||'กำลังบันทึกเข้า Google Sheet...';
+  $('syncOverlayResult').style.display='none';
+  $('syncOverlayClose').style.display='none';
+}
+function hideSyncOverlaySuccess(msg){
+  syncOverlayActive=Math.max(0,syncOverlayActive-1);
+  const el=$('syncOverlay'); if(!el) return;
+  if(syncOverlayActive>0) return; // ยังมีงานอื่นค้างอยู่ อย่าเพิ่งปิด
+  $('syncOverlaySpinner').style.display='none';
+  $('syncOverlayMsg').style.display='none';
+  $('syncOverlayResult').className='good'; $('syncOverlayResult').textContent='✅ '+(msg||'สำเร็จ');
+  $('syncOverlayResult').style.display='block';
+  setTimeout(()=>{ if(syncOverlayActive<=0) el.style.display='none'; },900);
+}
+function hideSyncOverlayError(msg){
+  syncOverlayActive=Math.max(0,syncOverlayActive-1);
+  const el=$('syncOverlay'); if(!el) return;
+  $('syncOverlaySpinner').style.display='none';
+  $('syncOverlayMsg').style.display='none';
+  $('syncOverlayResult').className='bad'; $('syncOverlayResult').textContent='❌ '+(msg||'เกิดข้อผิดพลาด');
+  $('syncOverlayResult').style.display='block';
+  $('syncOverlayClose').style.display='inline-block'; // error ต้องกดปิดเอง กันพลาดไม่เห็น
+}
 async function apiPost(body){
   if(!apiUrl) throw new Error('ยังไม่ได้ใส่ API URL');
+  showSyncOverlay(syncActionLabel(body.action));
   // v9.11: ใช้ fastwrite ก่อน เพื่อลดเวลา setup/recalc ทั้งระบบของ Apps Script
   // ถ้า Apps Script ยังไม่ได้อัปเดต จะ fallback ไป write ตัวเดิมอัตโนมัติ
   try{
-    return await apiGet('fastwrite',{payload:JSON.stringify(body)});
-  }catch(e){
-    const msg=String(e && e.message || e);
-    if(msg.includes('Unknown action') || msg.includes('API error') || msg.includes('fastwrite')){
-      return await apiGet('write',{payload:JSON.stringify(body)});
+    let result;
+    try{
+      result=await apiGet('fastwrite',{payload:JSON.stringify(body)});
+    }catch(e){
+      const msg=String(e && e.message || e);
+      if(msg.includes('Unknown action') || msg.includes('API error') || msg.includes('fastwrite')){
+        result=await apiGet('write',{payload:JSON.stringify(body)});
+      }else{
+        throw e;
+      }
     }
+    hideSyncOverlaySuccess('บันทึกเข้า Google Sheet แล้ว');
+    return result;
+  }catch(e){
+    hideSyncOverlayError(String(e&&e.message||e));
     throw e;
   }
 }
@@ -154,9 +197,9 @@ function dashboardValue(key, fallback=0){
 }
 function useTodayCache(selDate){return selDate===todayISO() && (db.dashboard||[]).length>0;}
 async function loadFromGoogleSheet(){
-  if(apiBusy)return; apiBusy=true; toast('กำลังโหลดข้อมูลจาก Google Sheet...');
-  try{const res=await apiGet('all'); fromSheetData(res.data||{}); saveLocalOnly(); render(); toast('โหลดข้อมูลจาก Google Sheet แล้ว');}
-  catch(e){console.error(e); alert('โหลดไม่ได้: '+(e.message||e));}
+  if(apiBusy)return; apiBusy=true; showSyncOverlay('กำลังโหลดข้อมูลจาก Google Sheet...');
+  try{const res=await apiGet('all'); fromSheetData(res.data||{}); saveLocalOnly(); render(); hideSyncOverlaySuccess('โหลดข้อมูลจาก Google Sheet แล้ว');}
+  catch(e){console.error(e); hideSyncOverlayError('โหลดไม่สำเร็จ: '+(e.message||e));}
   finally{apiBusy=false;}
 }
 async function pushToGoogleSheet(silent=false){
@@ -431,7 +474,7 @@ function dash(m){
   `<div class="kpis" style="margin-top:14px"><div class="kpi">Order วันนี้<b>${orderToday}</b></div><div class="kpi">ส่งสำเร็จวันนี้<b>${orderShipped}</b></div><div class="kpi">Order ค้างส่ง<b>${orderPending}</b></div><div class="kpi">Success Rate<b>${orderToday?Math.round(orderShipped/orderToday*100):0}%</b></div></div>`+
   `<div class="dashgrid"><div class="box"><h2>1) วัตถุดิบใกล้หมด</h2>${lowTable(rmLow,'RM')}</div><div class="box"><h2>สินค้าใกล้หมด</h2>${lowTable(fgLow,'FG')}</div></div>`+
   `<div class="dashgrid"><div class="box"><h2>2) ยอดผลิตวันที่ ${selDate}</h2>${prodRows.length?`<table><tr><th>SKU</th><th>จำนวน</th><th>กราฟ</th></tr>${prodRows.map(r=>`<tr><td><b>${r[0]}</b></td><td>${r[1]}</td><td><div class="barwrap"><div class="bar" style="width:${Math.max(4,r[1]/max*100)}%"></div></div></td></tr>`).join('')}</table>`:'<p class="hint">ยังไม่มียอดผลิตในวันที่เลือก</p>'}</div><div class="box"><h2>3) สถานะงานค้างผลิต</h2><div class="kpis" style="grid-template-columns:repeat(2,1fr)">${status.map(x=>`<div class="kpi">${x.st}<b>${x.count}</b></div>`).join('')}</div></div></div>`+
-  `<div class="dashgrid"><div class="box"><h2>งานค้างล่าสุด</h2>${poTable(pending.slice(-8).reverse())}</div><div class="box"><h2>อื่นๆ ที่ควรเช็ค</h2><p class="hint">SKU ที่ยังไม่ได้ตั้ง BOM ${nobom.length} รายการแรก</p>${nobom.length?`<table><tr><th>SKU</th><th>ชื่อ</th><th>Product</th></tr>${nobom.map(x=>`<tr><td>${x.sku}</td><td>${x.name}</td><td>${x.product}</td></tr>`).join('')}</table>`:'<p class="hint">ตั้ง BOM ครบแล้ว</p>'}</div></div>`+
+  `<div class="dashgrid"><div class="box"><h2>งานค้างล่าสุด</h2>${poTableCompact(pending.slice(-8).reverse())}</div><div class="box"><h2>อื่นๆ ที่ควรเช็ค</h2><p class="hint">SKU ที่ยังไม่ได้ตั้ง BOM ${nobom.length} รายการแรก</p>${nobom.length?`<table><tr><th>SKU</th><th>ชื่อ</th><th>Product</th></tr>${nobom.map(x=>`<tr><td>${x.sku}</td><td>${x.name}</td><td>${x.product}</td></tr>`).join('')}</table>`:'<p class="hint">ตั้ง BOM ครบแล้ว</p>'}</div></div>`+
 
   `<div class="dashgrid"><div class="box"><h2>4) Order วันที่ ${selDate}</h2>${orderDayCard(os)}</div><div class="box"><h2>Order ที่ยังส่งไม่ครบ: อะไร / เท่าไร / ทำไม</h2>${orderShortTable(os.shortages||[])}</div></div>`+
   `<div class="box"><h2>Movement ล่าสุด</h2>${movementTable(db.mov.slice(-8).reverse())}</div>`
@@ -890,6 +933,11 @@ async function createBulkPO(){
   }
 }
 async function createPO(){let sku=$('psku')?.value, qty=+$('pqty')?.value; if(!sku||!qty) return toast('เลือก SKU และจำนวน'); let id='PO-'+String(db.seq).padStart(5,'0'); let p={id,sku,qty,status:'Open',time:now(),start:'',finish:'',remark:$('premark')?.value||''}; toast('กำลังบันทึก '+id+' เข้า Google Sheet...'); try{await savePODirect(p); db.seq++; db.po.push(p); saveLocalOnly(); render(); sheetDone('สร้าง '+id+' เข้า Google Sheet แล้ว');}catch(e){console.error(e); alert('สร้างงานผลิตไม่สำเร็จ: '+(e.message||e));}}
+function poTableCompact(arr){if(!arr.length)return '<p class="hint">ยังไม่มีงาน</p>'; return `<table><tr><th>เวลา</th><th>PO</th><th>SKU</th><th>จำนวน</th><th>สถานะ</th><th></th></tr>${arr.map(p=>{
+  const hasActual=p.actualQty!==undefined&&p.actualQty!==''&&p.actualQty!==null;
+  const qtyDisplay=hasActual&&+p.actualQty!==+p.qty ? `${p.qty}→<b>${p.actualQty}</b>` : p.qty;
+  return `<tr><td>${p.time}</td><td>${p.id}</td><td>${p.sku}</td><td>${qtyDisplay}</td><td>${statusPill(p.status)}</td><td class="actions">${poActions(p)}</td></tr>`;
+}).join('')}</table>`}
 function poTable(arr){if(!arr.length)return '<p class="hint">ยังไม่มีงาน</p>'; return `<table><tr><th>เวลา</th><th>PO</th><th>SKU</th><th>จำนวน</th><th>สถานะ</th><th>RM ที่ต้องใช้</th><th></th></tr>${arr.map(p=>{
   const hasActual=p.actualQty!==undefined&&p.actualQty!==''&&p.actualQty!==null;
   const qtyDisplay=hasActual&&+p.actualQty!==+p.qty
