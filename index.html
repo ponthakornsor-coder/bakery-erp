@@ -131,7 +131,7 @@ function toastSaveOK(name){toast(name+' เข้า Google Sheet แล้ว')
 function toastSaveFail(name,e){console.error(e); alert(name+' ไม่เข้า Google Sheet: '+(e.message||e));}
 function fgPayload(x){return {SKU:x.sku,Name:x.name,Product:x.product||'',Variant:x.variant||'',Weight:x.weight||'',Unit:x.unit||'pcs',Stock:+x.stock||0,Min:+x.min||0,Price:+x.price||0,Cost:+x.cost||0,Status:'Active'};}
 function rmPayload(r){return {RMCode:r.sku,Name:r.name,Category:r.product||'Raw Material',Variant:r.variant||'',Unit:r.unit||'g',Stock:+r.stock||0,Min:+r.min||0,Cost:+r.cost||0,Status:'Active'};}
-function poPayload(p){return {PO:p.id,SKU:p.sku,Qty:+p.qty||0,Status:p.status||'Open',CreatedAt:p.time||'',StartAt:p.start||'',FinishAt:p.finish||'',Remark:p.remark||'',UpdatedAt:now()};}
+function poPayload(p){return {PO:p.id,SKU:p.sku,Qty:+p.qty||0,Status:p.status||'Open',CreatedAt:p.time||'',StartAt:p.start||'',FinishAt:p.finish||'',Remark:p.remark||'',UpdatedAt:now(),ActualQty:(p.actualQty!==undefined&&p.actualQty!==''&&p.actualQty!==null)?+p.actualQty:''};}
 function orderPayload(o){return {OrderNo:'DAY-'+o.date,OrderDate:o.date,TotalOrders:+o.total||0,CompletedOrders:+o.shipped||0,Status:(+o.shipped>=+o.total?'Completed':'Pending'),Remark:o.note||''};}
 function orderItemPayload(date,s){return {OrderNo:'DAY-'+date+'-'+s.sku,SKU:s.sku,Qty:+s.qty||0,CompletedQty:0,ShortQty:+s.qty||0,Reason:s.reason||'',UpdatedAt:now()};}
 function upsertSheet(sheet,key,data,label){return apiPost({action:'upsert',sheet,key,data}).then(()=>toastSaveOK(label)).catch(e=>toastSaveFail(label,e));}
@@ -146,21 +146,6 @@ function saveProductionBatchDirect(list){list=(list||[]).filter(x=>x&&x.SKU&&(+x
 function saveOrderDirect(o){if(!o||!o.date)return; return upsertSheet('Orders','OrderNo',orderPayload(o),'Orders');}
 function saveOrderItemDirect(date,s){if(!s||!s.sku)return; return upsertSheet('OrderItems','OrderNo',orderItemPayload(date,s),'OrderItems');}
 
-function fromSheetData(data){
-  const items=(data.products||[]).map(p=>({sku:String(p.SKU||''),name:p.Name||'',product:p.Product||'',variant:p.Variant||'',weight:p.Weight||'',unit:p.Unit||'pcs',stock:+p.Stock||0,min:+p.Min||0,price:+p.Price||0,cost:+p.Cost||0,type:'FG'})).filter(x=>x.sku);
-  const rm=(data.rawMaterials||[]).map(r=>({sku:String(r.RMCode||''),name:r.Name||'',product:r.Category||'Raw Material',variant:r.Variant||'',unit:r.Unit||'g',stock:+r.Stock||0,min:+r.Min||0,cost:+r.Cost||0})).filter(x=>x.sku);
-  const bom={}; (data.bom||[]).forEach(b=>{ if(!b.SKU||!b.RMCode)return; bom[b.SKU]=bom[b.SKU]||[]; bom[b.SKU].push({sku:b.RMCode,qty:+b.QtyPerUnit||0,unit:b.Unit||''}); });
-  const prodLog=(data.productionLog||[]).map(r=>({id:r.LogID||'',timestamp:r.Timestamp||'',sku:r.SKU||'',product:r.Product||'',variant:r.Variant||'',qty:+r.Qty||0,expiry:r.ExpiryDate||'',operator:r.Operator||'',remark:r.Remark||'',photo:r.Photo||'',source:r.Source||'Google Sheet',status:r.Status||'Active',voidReason:r.VoidReason||'',voidAt:r.VoidAt||''}));
-  const mov=(data.stockMovement||[]).map(r=>({id:r.MoveID||'',time:r.Timestamp||'',type:r.ItemType||'',sku:r.SKU||'',mode:r.Mode||'',qty:+r.Qty||0,ref:r.Ref||'',remark:r.Remark||'',stock:+r.StockAfter||0,source:r.Source||'',status:r.Status||'Active',synced:true}));
-  const orderItems=(data.orderItems||[]).map(i=>({orderNo:i.OrderNo||'',sku:i.SKU||'',qty:+i.Qty||0,completedQty:+i.CompletedQty||0,shortQty:+i.ShortQty||0,reason:i.Reason||'',updatedAt:i.UpdatedAt||''}));
-  const orderDays=(data.orders||[]).map(o=>{
-    const date=dateISO(o.OrderDate)||String(o.OrderDate||'');
-    return {date,total:+o.TotalOrders||0,shipped:+o.CompletedOrders||0,note:o.Remark||'',shortages:orderItems.filter(i=>String(i.orderNo||'').startsWith('DAY-'+date+'-')).map(i=>({sku:i.sku,qty:i.shortQty||i.qty,reason:i.reason}))};
-  });
-  const po=(data.productionOrder||[]).map(p=>({id:p.PO||'',sku:p.SKU||'',qty:+p.Qty||0,status:p.Status||'Open',time:p.CreatedAt||'',start:p.StartAt||'',finish:p.FinishAt||'',remark:p.Remark||''})).filter(p=>p.id);
-  const shippingPlan=(data.shippingPlan||[]).map(r=>({date:dateISO(r.Date)||String(r.Date||''),sku:String(r.SKU||''),baimiang:+r.BaiMiang||0,b2b:+r.B2B||0,b2c:+r.B2C||0,remark:r.Remark||'',updatedAt:r.UpdatedAt||''})).filter(x=>x.sku);
-  db.items=items.length?items:db.items; db.rm=rm.length?rm:db.rm; db.bom=bom; db.prodLog=prodLog; db.mov=mov; db.po=po; db.orderDays=orderDays; db.orderItems=orderItems; db.dashboard=data.dashboard||[]; db.shippingPlan=shippingPlan; db.remote=db.remote||{}; db.remote.lastApiSync=now();
-}
 function dashboardValue(key, fallback=0){
   const r=(db.dashboard||[]).find(x=>String(x.Key)===String(key));
   if(!r) return fallback;
@@ -342,7 +327,10 @@ function importShipPaste(){
   if(!out.length) return toast('ไม่พบ SKU ในข้อมูลที่วาง');
   db.shippingPlan=db.shippingPlan||[];
   out.forEach(r=>{db.shippingPlan=db.shippingPlan.filter(x=>!(x.date===r.date&&String(x.sku)===String(r.sku))); db.shippingPlan.push(r);});
-  saveLocalOnly(); $('modal').style.display='none'; page='shipcheck'; render(); saveShippingPlan();
+  // v9.30 fix: เดิมกด Paste แล้วส่งเข้า Google Sheet ทันที ไม่มีโอกาสตรวจสอบตัวเลขก่อน
+  // ตอนนี้แค่โชว์ในตาราง ERP ให้ตรวจสอบ/แก้ไขก่อน ต้องกด "บันทึก ShippingPlan เข้า Google Sheet" เองอีกที
+  saveLocalOnly(); $('modal').style.display='none'; page='shipcheck'; render();
+  toast('นำเข้า '+out.length+' รายการแล้ว — ตรวจสอบตัวเลขในตารางก่อน แล้วกด "บันทึก ShippingPlan เข้า Google Sheet" เพื่อบันทึกจริง');
 }
 function exportShipCheckCSV(){
   const date=$('shipDate')?.value||todayISO();
@@ -361,7 +349,14 @@ function scheduleAutoPush(){
 
 const EMBEDDED_FG_LOG = [{"id": "FG-1", "timestamp": "2026-06-28 14:56:20", "sku": "TEST", "product": "⭐ Special", "qty": 500.0, "expiry": "2026-09-28", "operator": "Rin", "remark": "WASTETEST", "photo": "https://drive.google.com/open?id=1d4AbHZrJ9JfdmSZ846wih6L6_mhOJiyj", "mfgDate": "28/06/2026", "mfgTime": "14:56:23", "day": "วันอาทิตย์", "source": "Uploaded Production Log"}];
 let db=load(); let page='dashboard';
-function load(){let d=localStorage.getItem('bakery_erp_v6_1'); if(d){let x=JSON.parse(d); x.remote=x.remote||{url:'',autoSync:false,lastSync:''}; x.orders=x.orders||[]; x.orderDays=x.orderDays||[]; x.orderSeq=x.orderSeq||1; x.po=x.po||[]; x.mov=x.mov||[]; x.prodLog=x.prodLog||[]; return x;} return {items:MASTER_SKUS,rm:DEFAULT_RM,bom:{},mov:[],po:[],seq:1,orders:[],orderDays:[],orderSeq:1,prodLog:EMBEDDED_FG_LOG.slice(),remote:{url:'',autoSync:false,lastSync:''}};}
+function load(){
+  // v9.32 fix: เดิมโหลดข้อมูลจาก localStorage ก่อนเสมอ (ถ้ามี) ทำให้บางครั้งเห็นข้อมูลเก่า/ค้าง
+  // ไม่ตรงกับ Google Sheet จริง จนกว่าจะรอโหลดจริงเสร็จ หรือบางบั๊กทำให้ localStorage มีข้อมูลผิดค้างอยู่
+  // ตอนนี้เริ่มต้นด้วยค่าเปล่าเสมอ แล้วให้ loadFromGoogleSheet() (ที่ทำงานอัตโนมัติตอนเปิดแอปอยู่แล้ว)
+  // เป็นแหล่งข้อมูลเดียวเท่านั้น — ข้อเสีย: ถ้าเพิ่งแก้ไขอะไรแล้วเน็ตหลุดก่อน sync เสร็จ รีเฟรชหน้าจะเสียรายการ
+  // นั้นไป (ต่างจากเดิมที่จะ resume จาก localStorage ให้) ต้องรอให้โหลดจาก Sheet เสร็จก่อนค่อยแก้ไขต่อ
+  return {items:MASTER_SKUS,rm:DEFAULT_RM,bom:{},mov:[],po:[],seq:1,orders:[],orderDays:[],orderSeq:1,prodLog:EMBEDDED_FG_LOG.slice(),remote:{url:'',autoSync:false,lastSync:''}};
+}
 function save(){saveLocalOnly();}
 function toast(t){$('toast').textContent=t;$('toast').style.display='block';setTimeout(()=>$('toast').style.display='none',2300)}
 function sheetDone(t){
@@ -646,23 +641,26 @@ async function syncProductionCsv(){
   db.remote=db.remote||{};
   db.remote.csvUrl=url;
   save();
-  toast('กำลัง Sync Google Sheet...');
+  toast('กำลังโหลดตัวอย่างข้อมูลผลิต...');
   try{
     const text=await fetchCsvText(url);
     const rows=parseProductionCsv(text);
     if(!rows.length){
-      alert('Sync ได้ แต่ไม่พบคอลัมน์ SKU/จำนวน\nเช็คว่า Sheet ที่ Publish เป็น Form Responses 1 และ Format เป็น CSV');
+      alert('โหลดได้ แต่ไม่พบคอลัมน์ SKU/จำนวน\nเช็คว่า Sheet ที่ Publish เป็น Form Responses 1 และ Format เป็น CSV');
       return;
     }
+    // v9.29 fix: เดิมบรรทัดนี้เรียก applyFgStockFromProdLog() ซึ่งเขียนทับ db.items[].stock ด้วยค่าที่
+    // คำนวณจาก CSV อย่างเดียว (ไม่รวม StockMovement อื่นๆ) ทำให้ทั้งแอปแสดง Stock เพี้ยนไปทันที
+    // จนกว่าจะกด "Sync เข้า Database" อีกปุ่มเพื่อโหลดค่าที่ถูกต้องจริงกลับมาทับ — เอาบรรทัดนั้นออก
+    // ปุ่มนี้ตอนนี้แค่โชว์ตาราง preview เฉยๆ ไม่แตะ Stock จริงในแอปอีกต่อไป (ปลอดภัย ไม่ทำให้เพี้ยน)
     db.prodLog=rows;
-    applyFgStockFromProdLog();
     db.remote.lastCsvSync=now();
     save();
     render();
-    toast('Sync สำเร็จ '+rows.length+' รายการ / อัปเดต FG Stock แล้ว');
+    toast('โหลดตัวอย่างสำเร็จ '+rows.length+' รายการ — นี่เป็นแค่ตัวอย่าง ต้องกด "Sync เข้า Database" เพื่ออัปเดต Stock จริง');
   }catch(e){
     console.error(e);
-    alert('Sync ไม่สำเร็จ: '+(e.message||e)+'\n\nถ้าเปิดไฟล์จาก C: แล้วติด ให้ใช้วิธี Publish CSV ตามเดิม หรือลองกดอีกครั้ง ระบบมี proxy สำรองให้แล้ว');
+    alert('โหลดตัวอย่างไม่สำเร็จ: '+(e.message||e)+'\n\nไม่กระทบ Stock จริง ลองกด "Sync เข้า Database" ตรงๆ ได้เลยถ้าต้องการอัปเดตข้อมูลจริง');
   }
 }
 
@@ -689,9 +687,9 @@ function fgLogPage(m){
   const skuCount=new Set(todayRows.map(r=>r.sku)).size;
   const url=db.remote?.csvUrl||DEFAULT_PROD_CSV_URL;
   m.innerHTML=head('Production Log FG','ดึงข้อมูลรับเข้า FG จาก Google Sheet โดยตรงแบบ Read-only')+
-  `<div class="box" style="border:2px solid var(--brand)"><h2>✅ Google Sheet Sync รับเข้า FG</h2><p class="hint">กดปุ่มนี้แล้ว ERP จะดึงข้อมูลจาก Google Form/Sheet ล่าสุดมาใช้เอง ไม่แก้ Google Sheet เดิม</p><div class="row3"><input id="prodCsvUrl" value="${escHTML(url)}" placeholder="Google Sheet CSV URL"><button class="primary" onclick="syncProductionCsv()">Sync CSV รับเข้า FG</button><button class="primary" onclick="syncProdToSheet()">Sync เข้า Database</button><button class="ghost" onclick="toggleAutoCsvSync(!db.remote?.autoCsvSync)">${db.remote?.autoCsvSync?'ปิด Auto Sync':'เปิด Auto Sync 60s'}</button></div><p class="mini">Last sync: ${db.remote?.lastCsvSync||'-'}</p></div>`+
+  `<div class="box" style="border:2px solid var(--brand)"><h2>✅ Sync ข้อมูลผลิตจาก Google Form</h2><p class="hint"><b>ปุ่มซ้าย</b> = โหลดมาดูตัวอย่างในเบราว์เซอร์เฉยๆ (ไม่แตะ Stock จริง) &nbsp;|&nbsp; <b>ปุ่มขวา (สีเข้ม)</b> = ตัวจริง เขียนเข้า Google Sheet + อัปเดต Stock จริง ต้องกดปุ่มนี้เสมอถ้าต้องการให้ตัวเลขถูกต้อง</p><div class="row3"><input id="prodCsvUrl" value="${escHTML(url)}" placeholder="Google Sheet CSV URL"><button class="ghost" onclick="syncProductionCsv()">ดูตัวอย่าง (ไม่แตะ Stock จริง)</button><button class="primary" onclick="syncProdToSheet()">Sync เข้า Database (ตัวจริง)</button></div><div class="row3" style="margin-top:8px"><button class="ghost" onclick="toggleAutoCsvSync(!db.remote?.autoCsvSync)">${db.remote?.autoCsvSync?'ปิด Auto Sync':'เปิด Auto Sync 60s (แค่ตัวอย่าง)'}</button><span></span><span></span></div><p class="mini">Last sync: ${db.remote?.lastCsvSync||'-'}</p></div>`+
   `<div class="kpis"><div class="kpi">รายการ Log ทั้งหมด<b>${rows.length}</b></div><div class="kpi">ผลิตวันที่เลือก<b>${qty}</b></div><div class="kpi">SKU วันที่เลือก<b>${skuCount}</b></div><div class="kpi">FG Stock จาก Log<b>${fgFromProdLog()}</b></div></div>`+
-  `<div class="box"><h2>Filter วันที่</h2><div class="row3"><input id="fgDate" type="date" value="${fdate}" onchange="fgLogPage($('main'))"><button class="ghost" onclick="syncProductionCsv()">Refresh / Sync</button><button class="danger" onclick="clearFgLog()">ล้าง Log ใน ERP</button></div></div>`+
+  `<div class="box"><h2>Filter วันที่</h2><div class="row3"><input id="fgDate" type="date" value="${fdate}" onchange="fgLogPage($('main'))"><button class="ghost" onclick="syncProductionCsv()">Refresh ตัวอย่าง</button><button class="danger" onclick="clearFgLog()">ล้าง Log ใน ERP</button></div></div>`+
   `<div class="box"><h2>Stock FG คำนวณจาก Google Sheet</h2>${fgStockTable()}</div>`+
   `<div class="box"><h2>Production Log ล่าสุด</h2>${fgLogTable(rows.slice(0,50))}</div>`;
 }
@@ -892,12 +890,32 @@ async function createBulkPO(){
   }
 }
 async function createPO(){let sku=$('psku')?.value, qty=+$('pqty')?.value; if(!sku||!qty) return toast('เลือก SKU และจำนวน'); let id='PO-'+String(db.seq).padStart(5,'0'); let p={id,sku,qty,status:'Open',time:now(),start:'',finish:'',remark:$('premark')?.value||''}; toast('กำลังบันทึก '+id+' เข้า Google Sheet...'); try{await savePODirect(p); db.seq++; db.po.push(p); saveLocalOnly(); render(); sheetDone('สร้าง '+id+' เข้า Google Sheet แล้ว');}catch(e){console.error(e); alert('สร้างงานผลิตไม่สำเร็จ: '+(e.message||e));}}
-function poTable(arr){if(!arr.length)return '<p class="hint">ยังไม่มีงาน</p>'; return `<table><tr><th>เวลา</th><th>PO</th><th>SKU</th><th>จำนวน</th><th>สถานะ</th><th>RM ที่ต้องใช้</th><th></th></tr>${arr.map(p=>`<tr><td>${p.time}</td><td>${p.id}</td><td>${p.sku}</td><td>${p.qty}</td><td>${statusPill(p.status)}</td><td>${reqText(p.sku,p.qty)}</td><td class="actions">${poActions(p)}</td></tr>`).join('')}</table>`}
+function poTable(arr){if(!arr.length)return '<p class="hint">ยังไม่มีงาน</p>'; return `<table><tr><th>เวลา</th><th>PO</th><th>SKU</th><th>จำนวน</th><th>สถานะ</th><th>RM ที่ต้องใช้</th><th></th></tr>${arr.map(p=>{
+  const hasActual=p.actualQty!==undefined&&p.actualQty!==''&&p.actualQty!==null;
+  const qtyDisplay=hasActual&&+p.actualQty!==+p.qty
+    ? `สั่ง ${p.qty} / <b class="${+p.actualQty>+p.qty?'good':'danger'}">ผลิตจริง ${p.actualQty}</b>`
+    : (hasActual ? `${p.qty} <span class="mini">(ตรงตามแผน)</span>` : p.qty);
+  return `<tr><td>${p.time}</td><td>${p.id}</td><td>${p.sku}</td><td>${qtyDisplay}</td><td>${statusPill(p.status)}</td><td>${reqText(p.sku,p.qty)}</td><td class="actions">${poActions(p)}</td></tr>`;
+}).join('')}</table>`}
 function statusPill(s){let c=s=='Completed'?'good':s=='Cancelled'?'bad':s=='In Progress'?'blue':''; return `<span class="pill ${c}">${s}</span>`}
 function poActions(p){let id=p.id; if(p.status=='Open')return `<button class="small" onclick="setPO('${id}','Released')">Release</button><button class="small danger" onclick="setPO('${id}','Cancelled')">Cancel</button>`; if(p.status=='Released')return `<button class="small" onclick="startPO('${id}')">Start ตัด RM</button>`; if(p.status=='In Progress')return `<button class="small" onclick="setPO('${id}','Finished')">Finish</button>`; if(p.status=='Finished')return `<button class="small" onclick="completePO('${id}')">QC Pass / Complete</button>`; return ''}
 function setPO(id,s){let p=db.po.find(x=>x.id==id); p.status=s; if(s=='Finished')p.finish=now(); saveLocalOnly(); render(); savePODirect(p); toast('เปลี่ยนสถานะแล้ว / ส่งเข้า Google Sheet ทันที')}
 function startPO(id){let p=db.po.find(x=>x.id==id), b=db.bom[p.sku]||[]; if(!b.length&&!confirm('SKU นี้ยังไม่ได้ตั้ง BOM จะ Start โดยไม่ตัด RM?')) return; const before=(db.mov||[]).length; for(const r of b) move('RM',r.sku,'OUT',(+r.qty||0)*p.qty,p.id,'Issue to production'); p.status='In Progress'; p.start=now(); saveLocalOnly(); render(); sendNewMovementsSince(before); savePODirect(p); toast('Start แล้ว / ตัด RM แล้ว / ส่งเข้า Google Sheet')}
-function completePO(id){let p=db.po.find(x=>x.id==id); const before=(db.mov||[]).length; move('FG',p.sku,'IN',+p.qty,p.id,'Production completed'); p.status='Completed'; p.finish=now(); saveLocalOnly(); render(); sendNewMovementsSince(before); savePODirect(p); toast('Completed และรับ FG เข้า Stock แล้ว / ส่งเข้า Google Sheet')}
+function completePO(id){
+  let p=db.po.find(x=>x.id==id); if(!p) return;
+  modal(`<h2>ยืนยันจำนวนที่ผลิตได้จริง</h2><p class="hint">${p.sku} · สั่งผลิต ${p.qty} ชิ้น — ใส่จำนวนที่ทำได้จริง (ถ้าเท่ากับที่สั่งไว้ไม่ต้องแก้)</p><input id="actualQtyInput" type="number" min="0" value="${p.qty}" style="font-size:20px;text-align:center"><br><br><button class="primary" onclick="confirmCompletePO('${id}')">ยืนยัน / รับเข้า Stock</button> <button class="ghost" onclick="$('modal').style.display='none'">ยกเลิก</button>`);
+}
+function confirmCompletePO(id){
+  let p=db.po.find(x=>x.id==id); if(!p) return;
+  let actual=+$('actualQtyInput')?.value;
+  if(isNaN(actual)||actual<0) return toast('ใส่จำนวนที่ผลิตได้จริงก่อน');
+  $('modal').style.display='none';
+  const before=(db.mov||[]).length;
+  move('FG',p.sku,'IN',actual,p.id,'Production completed'+(actual!==+p.qty?` (สั่ง ${p.qty} / ผลิตจริง ${actual})`:''));
+  p.status='Completed'; p.finish=now(); p.actualQty=actual;
+  saveLocalOnly(); render(); sendNewMovementsSince(before); savePODirect(p);
+  toast(actual===+p.qty?'Completed และรับ FG เข้า Stock แล้ว / ส่งเข้า Google Sheet':`Completed รับ FG เข้า Stock ${actual} ชิ้น (สั่ง ${p.qty}) / ส่งเข้า Google Sheet`);
+}
 
 function ordersPage(m){
   db.orderDays=db.orderDays||[];
@@ -1143,7 +1161,7 @@ function applyViewerUI(){
   document.querySelectorAll('button').forEach(btn=>{
     const txt=(btn.textContent||'').trim();
     const oc=btn.getAttribute('onclick')||'';
-    const allowRead = /Refresh|โหลดข้อมูลจาก Google Sheet|Sync CSV รับเข้า FG|เปิด Auto Sync|ปิด Auto Sync|Export|Download|ทดสอบ API|ไปหน้า|Search/i.test(txt+oc);
+    const allowRead = /Refresh|โหลดข้อมูลจาก Google Sheet|ดูตัวอย่าง|เปิด Auto Sync|ปิด Auto Sync|Export|Download|ทดสอบ API|ไปหน้า|Search/i.test(txt+oc);
     const isWrite = writeWords.some(w=>txt.includes(w) || oc.includes(w)) || /save|add|edit|delete|remove|stockMove|create|complete|setPO|startPO|clear|restore|pushToGoogleSheet|syncProdToSheet|commitImport|applyBulk|bulkDelete/i.test(oc);
     if(isWrite && !allowRead){
       btn.classList.add('viewer-disabled');
@@ -1173,7 +1191,7 @@ function installViewerGuards(){
   pullGoogleForm=()=>viewerDeny();
   saveProductDirect=()=>viewerDeny(); saveRawMaterialDirect=()=>viewerDeny(); saveBomDirect=()=>viewerDeny(); savePODirect=()=>viewerDeny(); saveOrderDirect=()=>viewerDeny(); saveOrderItemDirect=()=>viewerDeny();
   stockMoveBulk=()=>viewerDeny(); stockMove=()=>viewerDeny(); move=()=>viewerDeny(); saveCycleCount=()=>viewerDeny();
-  saveProductionRecord=()=>viewerDeny(); fillCheckedProdQty=()=>viewerDeny(); toggleAllProdRec=()=>viewerDeny(); toggleProdRecQty=()=>viewerDeny(); saveProductionBatchDirect=()=>viewerDeny(); createBulkPO=()=>viewerDeny(); createPO=()=>viewerDeny(); setPO=()=>viewerDeny(); startPO=()=>viewerDeny(); completePO=()=>viewerDeny();
+  saveProductionRecord=()=>viewerDeny(); fillCheckedProdQty=()=>viewerDeny(); toggleAllProdRec=()=>viewerDeny(); toggleProdRecQty=()=>viewerDeny(); saveProductionBatchDirect=()=>viewerDeny(); createBulkPO=()=>viewerDeny(); createPO=()=>viewerDeny(); setPO=()=>viewerDeny(); startPO=()=>viewerDeny(); completePO=()=>viewerDeny(); confirmCompletePO=()=>viewerDeny();
   saveOrderDay=()=>viewerDeny(); addShortageLine=()=>viewerDeny(); removeShortageLine=()=>viewerDeny(); updateShortageReason=()=>viewerDeny();
   addBomLine=()=>viewerDeny(); openPasteImport=()=>viewerDeny(); commitImport=()=>viewerDeny(); importCSVFile=()=>viewerDeny(); openBulkEdit=()=>viewerDeny(); applyBulkEdit=()=>viewerDeny(); bulkDeleteMaster=()=>viewerDeny();
   addItem=()=>viewerDeny(); editItem=()=>viewerDeny(); addRM=()=>viewerDeny(); editRM=()=>viewerDeny(); saveNewItem=()=>viewerDeny(); saveEditItem=()=>viewerDeny(); saveNewRM=()=>viewerDeny(); saveEditRM=()=>viewerDeny();
@@ -1279,6 +1297,12 @@ function erpMergeByKey(localArr, remoteArr, keys){
   (remoteArr||[]).forEach(o=>{const k=erpKeyVal(o,keys); if(k) map.set(k,{...(map.get(k)||{}),...o});});
   return Array.from(map.values());
 }
+function erpMergeByFn(localArr, remoteArr, keyFn){
+  const map=new Map();
+  (localArr||[]).forEach(o=>{const k=keyFn(o); if(k) map.set(k,o);});
+  (remoteArr||[]).forEach(o=>{const k=keyFn(o); if(k) map.set(k,{...(map.get(k)||{}),...o});});
+  return Array.from(map.values());
+}
 function erpActive(o){return !['voided','cancelled','deleted'].includes(String(o?.status||o?.Status||'Active').toLowerCase());}
 function fromSheetData(data){
   data=data||{};
@@ -1292,7 +1316,8 @@ function fromSheetData(data){
     const date=dateISO(o.OrderDate)||String(o.OrderDate||'');
     return {date,total:+o.TotalOrders||0,shipped:+o.CompletedOrders||0,note:o.Remark||'',shortages:orderItems.filter(i=>String(i.orderNo||'').startsWith('DAY-'+date+'-')).map(i=>({sku:i.sku,qty:i.shortQty||i.qty,reason:i.reason}))};
   }).filter(x=>x.date);
-  const remotePO=(data.productionOrder||[]).map(p=>({id:p.PO||'',sku:p.SKU||'',qty:+p.Qty||0,status:p.Status||'Open',time:p.CreatedAt||'',start:p.StartAt||'',finish:p.FinishAt||'',remark:p.Remark||''})).filter(p=>p.id);
+  const remotePO=(data.productionOrder||[]).map(p=>({id:p.PO||'',sku:p.SKU||'',qty:+p.Qty||0,status:p.Status||'Open',time:p.CreatedAt||'',start:p.StartAt||'',finish:p.FinishAt||'',remark:p.Remark||'',actualQty:(p.ActualQty!==undefined&&p.ActualQty!=='')?+p.ActualQty:''})).filter(p=>p.id);
+  const remoteShippingPlan=(data.shippingPlan||[]).map(r=>({date:dateISO(r.Date)||String(r.Date||''),sku:String(r.SKU||''),baimiang:+r.BaiMiang||0,b2b:+r.B2B||0,b2c:+r.B2C||0,remark:r.Remark||'',updatedAt:r.UpdatedAt||''})).filter(x=>x.sku);
   if(items.length) db.items=items;
   if(rm.length) db.rm=rm;
   if((data.bom||[]).length) db.bom=bom;
@@ -1301,6 +1326,7 @@ function fromSheetData(data){
   db.po=erpMergeByKey(db.po||[], remotePO, ['id','PO']);
   db.orderDays=erpMergeByKey(db.orderDays||[], remoteOrderDays, ['date']);
   db.orderItems=erpMergeByKey(db.orderItems||[], orderItems, ['orderNo','OrderNo']);
+  db.shippingPlan=erpMergeByFn(db.shippingPlan||[], remoteShippingPlan, x=>shippingKey(x.date,x.sku));
   db.dashboard=(data.dashboard&&data.dashboard.length)?data.dashboard:(db.dashboard||[]);
   db.remote=db.remote||{}; db.remote.lastApiSync=now();
 }
