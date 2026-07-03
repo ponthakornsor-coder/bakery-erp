@@ -67,7 +67,24 @@ let apiBusy = false;
 let autoPushTimer = null;
 const AUTO_PUSH_DELAY_MS = 900;
 function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
-function apiGet(action='all', params={}){
+const SAFE_TO_RETRY_ACTIONS_=['all','sheet'];
+async function apiGet(action='all', params={}, _retriesLeft){
+  // v9.38 fix: การโหลดข้อมูล (action=all/sheet) เป็น read-only ไม่มีผลข้างเคียง ลองใหม่อัตโนมัติได้อย่าง
+  // ปลอดภัยถ้าเชื่อมต่อไม่ติด (ไม่ต้องให้คนกด Refresh เองซ้ำๆ) ส่วน action ที่เป็นการเขียนข้อมูล
+  // (fastwrite/write) ไม่ลองซ้ำอัตโนมัติ เพราะถ้ารอบแรกสำเร็จฝั่ง Server แล้วแค่ client ไม่ทันรู้ผล
+  // การยิงซ้ำอาจกลายเป็นสร้างข้อมูลซ้ำ (บั๊กคลาสเดียวกับที่เจอเรื่อง movement ซ้ำมาก่อน)
+  if(_retriesLeft===undefined) _retriesLeft=SAFE_TO_RETRY_ACTIONS_.includes(action)?2:0;
+  try{
+    return await apiGetOnce(action, params);
+  }catch(e){
+    if(_retriesLeft>0){
+      await new Promise(r=>setTimeout(r,1200));
+      return apiGet(action, params, _retriesLeft-1);
+    }
+    throw e;
+  }
+}
+function apiGetOnce(action='all', params={}){
   if(!apiUrl) return Promise.reject(new Error('ยังไม่ได้ใส่ API URL'));
   const cb='jsonp_'+Date.now()+'_'+Math.floor(Math.random()*9999);
   const url=new URL(apiUrl);
