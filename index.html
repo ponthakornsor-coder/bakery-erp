@@ -135,7 +135,7 @@ function fromSheetData(data){
   const rm=(data.rawMaterials||[]).map(r=>({sku:String(r.RMCode||''),name:r.Name||'',product:r.Category||'Raw Material',variant:r.Variant||'',unit:r.Unit||'g',stock:+r.Stock||0,min:+r.Min||0,cost:+r.Cost||0})).filter(x=>x.sku);
   const bom={}; (data.bom||[]).forEach(b=>{ if(!b.SKU||!b.RMCode)return; bom[b.SKU]=bom[b.SKU]||[]; bom[b.SKU].push({sku:b.RMCode,qty:+b.QtyPerUnit||0,unit:b.Unit||''}); });
   const prodLog=(data.productionLog||[]).map(r=>({id:r.LogID||'',timestamp:r.Timestamp||'',sku:r.SKU||'',product:r.Product||'',variant:r.Variant||'',qty:+r.Qty||0,expiry:r.ExpiryDate||'',operator:r.Operator||'',remark:r.Remark||'',photo:r.Photo||'',source:r.Source||'Google Sheet',status:r.Status||'Active',voidReason:r.VoidReason||'',voidAt:r.VoidAt||''}));
-  const mov=(data.stockMovement||[]).map(r=>({id:r.MoveID||'',time:r.Timestamp||'',type:r.ItemType||'',sku:r.SKU||'',mode:r.Mode||'',qty:+r.Qty||0,ref:r.Ref||'',remark:r.Remark||'',stock:+r.StockAfter||0,source:r.Source||'',status:r.Status||'Active',synced:true}));
+  const mov=(data.stockMovement||[]).map(r=>({id:r.MoveID||'',time:r.Timestamp||'',type:r.ItemType||'',sku:r.SKU||'',mode:r.Mode||'',qty:+r.Qty||0,ref:r.Ref||'',remark:r.Remark||'',stock:(r.StockAfter===undefined||r.StockAfter===null||String(r.StockAfter).trim()===''?'':Number(r.StockAfter)),source:r.Source||'',status:r.Status||'Active',synced:true}));
   const orderItems=(data.orderItems||[]).map(i=>({orderNo:i.OrderNo||'',sku:i.SKU||'',qty:+i.Qty||0,completedQty:+i.CompletedQty||0,shortQty:+i.ShortQty||0,reason:i.Reason||'',updatedAt:i.UpdatedAt||''}));
   const orderDays=(data.orders||[]).map(o=>{
     const date=dateISO(o.OrderDate)||String(o.OrderDate||'');
@@ -307,7 +307,7 @@ function items(m){m.innerHTML=head('สินค้า & สูตร','ดู�
 function filterItemCards(){let q=($('q')?.value||'').toLowerCase(), prod=$('fprod')?.value||''; document.querySelectorAll('#itemGrid .card').forEach(c=>{let ok=(!prod||c.dataset.product==prod) && (c.dataset.search||'').includes(q); c.style.display=ok?'':'none';});}
 function cardItem(x){
   let cost=calcCost(x.sku);
-  const stock=+x.stock||0;
+  const stock=erpStock('FG', x.sku, x.stock);
   const min=+(x.min??5)||5;
   const unit=x.unit||'pcs';
   const stockClass=stock<=0?'zero':(stock<=min?'low':'');
@@ -558,6 +558,30 @@ function fgLogPage(m){
 }
 function fgFromProdLog(){return (db.prodLog||[]).reduce((a,r)=>a+(+r.qty||0),0)}
 function fgStockMap(){let map={}; (db.prodLog||[]).forEach(r=>{if(r.sku)map[r.sku]=(map[r.sku]||0)+(+r.qty||0)}); (db.mov||[]).forEach(r=>{if(r.type=='FG'){let q=+r.qty||0; if(['OUT','ADJOUT','WASTE'].includes(String(r.mode).toUpperCase()))q=-Math.abs(q); if(['IN','ADJIN','SET'].includes(String(r.mode).toUpperCase()))q=Math.abs(q); map[r.sku]=(map[r.sku]||0)+q;}}); return map;}
+
+function latestStockFromMovement(type, sku, fallback){
+  // Source of truth rule:
+  // 1) ProductMaster/RawMaterial.Stock is the current base stock from Google Sheet.
+  // 2) If any StockMovement row has StockAfter, the latest StockAfter overrides the base.
+  // 3) Blank StockAfter is ignored. It must NOT become 0.
+  let found=false, val=Number(fallback)||0;
+  (db.mov||[]).forEach(m=>{
+    if(!m) return;
+    if(String(m.type||m.ItemType||'').toUpperCase()!==String(type||'FG').toUpperCase()) return;
+    if(String(m.sku||m.SKU||'')!==String(sku)) return;
+    if(!erpActive(m)) return;
+    const raw=(m.stock!==undefined?m.stock:m.StockAfter);
+    if(raw===undefined || raw===null || String(raw).trim()==='') return;
+    const n=Number(raw);
+    if(Number.isFinite(n)){ val=n; found=true; }
+  });
+  return found?val:(Number(fallback)||0);
+}
+function erpStock(type, sku, fallback){ return latestStockFromMovement(type, sku, fallback); }
+function applyStockFromMovements(){
+  (db.items||[]).forEach(it=>{ it.stock = erpStock('FG', it.sku, it.stock); });
+  (db.rm||[]).forEach(r=>{ r.stock = erpStock('RM', r.sku, r.stock); });
+}
 function fgStockTable(){let map=fgStockMap(); let arr=Object.keys(map).sort().map(sku=>({sku,stock:map[sku],name:itemName(sku)})); if(!arr.length)return '<p class="hint">ยังไม่มีข้อมูล FG</p>'; return `<table><tr><th>SKU</th><th>ชื่อ</th><th>FG Stock</th></tr>${arr.map(x=>`<tr><td><b>${x.sku}</b></td><td>${x.name}</td><td><b>${x.stock}</b></td></tr>`).join('')}</table>`}
 function fgLogTable(arr){if(!arr.length)return '<p class="hint">ยังไม่มี Production Log</p>'; return `<table><tr><th>เวลา</th><th>SKU</th><th>Product</th><th>Qty</th><th>Expiry</th><th>ผู้บันทึก</th><th>หมายเหตุ</th></tr>${arr.map(r=>`<tr><td>${r.timestamp||r.mfgDate||''}</td><td><b>${r.sku}</b></td><td>${r.product||''}</td><td>${r.qty||0}</td><td>${r.expiry||''}</td><td>${r.operator||''}</td><td>${r.remark||''}</td></tr>`).join('')}</table>`}
 
@@ -1047,7 +1071,7 @@ function installViewerGuards(){
 /* ===== v9.15 Shipping Plan: Google Sheet Database 100% ===== */
 function shippingKey(date,sku){return String(date||'')+'||'+String(sku||'');}
 function getShipRow(date,sku){db.shippingPlan=db.shippingPlan||[]; return db.shippingPlan.find(x=>x.date===date && String(x.sku)===String(sku));}
-function shipStock(sku){const it=(db.items||[]).find(x=>String(x.sku)===String(sku)); return +(it?.stock||0);}
+function shipStock(sku){const it=(db.items||[]).find(x=>String(x.sku)===String(sku)); return erpStock('FG', sku, it?.stock||0);}
 function shipPlanRows(date){
   db.shippingPlan=db.shippingPlan||[];
   const planMap=new Map((db.shippingPlan||[]).filter(x=>!date||x.date===date).map(x=>[shippingKey(x.date,x.sku),x]));
@@ -1055,7 +1079,7 @@ function shipPlanRows(date){
   (db.items||[]).forEach(it=>{
     const p=planMap.get(shippingKey(date,it.sku));
     const total=(+(p?.baimiang||0))+(+(p?.b2b||0))+(+(p?.b2c||0));
-    if(total>0 || date===todayISO()) rows.push({date,sku:it.sku,product:it.product||'',name:it.name||'',baimiang:+(p?.baimiang||0),b2b:+(p?.b2b||0),b2c:+(p?.b2c||0),remark:p?.remark||'',stock:+it.stock||0});
+    if(total>0 || date===todayISO()) rows.push({date,sku:it.sku,product:it.product||'',name:it.name||'',baimiang:+(p?.baimiang||0),b2b:+(p?.b2b||0),b2c:+(p?.b2c||0),remark:p?.remark||'',stock:shipStock(it.sku)});
   });
   (db.shippingPlan||[]).filter(x=>x.date===date && !(db.items||[]).some(it=>String(it.sku)===String(x.sku))).forEach(x=>rows.push({date,sku:x.sku,product:'',name:itemName(x.sku),baimiang:+x.baimiang||0,b2b:+x.b2b||0,b2c:+x.b2c||0,remark:x.remark||'',stock:shipStock(x.sku)}));
   return rows;
@@ -1113,7 +1137,7 @@ function currentShippingShortageRows(){
   return collectShippingRows().map(r=>{
     const it=(db.items||[]).find(x=>String(x.sku)===String(r.sku))||{};
     const total=(+r.baimiang||0)+(+r.b2b||0)+(+r.b2c||0);
-    const stock=+(it.stock||0);
+    const stock=shipStock(r.sku);
     return {date,sku:r.sku,name:it.name||itemName(r.sku),product:it.product||'',total,stock,need:Math.max(0,total-stock)};
   }).filter(r=>r.need>0);
 }
@@ -1259,7 +1283,7 @@ function fromSheetData(data){
   const rm=(data.rawMaterials||[]).map(r=>({sku:String(r.RMCode||''),name:r.Name||'',product:r.Category||'Raw Material',variant:r.Variant||'',unit:r.Unit||'g',stock:+r.Stock||0,min:+r.Min||0,cost:+r.Cost||0})).filter(x=>x.sku);
   const bom={}; (data.bom||[]).forEach(b=>{ if(!b.SKU||!b.RMCode)return; bom[b.SKU]=bom[b.SKU]||[]; bom[b.SKU].push({sku:b.RMCode,qty:+b.QtyPerUnit||0,unit:b.Unit||''}); });
   const remoteProdLog=(data.productionLog||[]).map(r=>({id:r.LogID||'',timestamp:r.Timestamp||'',sku:r.SKU||'',product:r.Product||'',variant:r.Variant||'',qty:+r.Qty||0,expiry:r.ExpiryDate||'',operator:r.Operator||'',remark:r.Remark||'',photo:r.Photo||'',source:r.Source||'Google Sheet',status:r.Status||'Active',voidReason:r.VoidReason||'',voidAt:r.VoidAt||'',voidBy:r.VoidBy||''})).filter(x=>x.id||x.sku);
-  const remoteMov=(data.stockMovement||[]).map(r=>({id:r.MoveID||'',time:r.Timestamp||'',type:r.ItemType||'',sku:r.SKU||'',mode:r.Mode||'',qty:+r.Qty||0,ref:r.Ref||'',remark:r.Remark||'',stock:+r.StockAfter||0,source:r.Source||'',status:r.Status||'Active',synced:true})).filter(x=>x.id||x.sku);
+  const remoteMov=(data.stockMovement||[]).map(r=>({id:r.MoveID||'',time:r.Timestamp||'',type:r.ItemType||'',sku:r.SKU||'',mode:r.Mode||'',qty:+r.Qty||0,ref:r.Ref||'',remark:r.Remark||'',stock:(r.StockAfter===undefined||r.StockAfter===null||String(r.StockAfter).trim()===''?'':Number(r.StockAfter)),source:r.Source||'',status:r.Status||'Active',synced:true})).filter(x=>x.id||x.sku);
   const orderItems=(data.orderItems||[]).map(i=>({orderNo:i.OrderNo||'',sku:i.SKU||'',qty:+i.Qty||0,completedQty:+i.CompletedQty||0,shortQty:+i.ShortQty||0,reason:i.Reason||'',updatedAt:i.UpdatedAt||''}));
   const remoteShippingPlan=(data.shippingPlan||[]).map(s=>({date:dateISO(s.Date||s.date||''),sku:String(s.SKU||s.sku||''),baimiang:+(s.BaiMiang||s.baimiang||0),b2b:+(s.B2B||s.b2b||0),b2c:+(s.B2C||s.b2c||0),remark:s.Remark||s.remark||'',updatedAt:s.UpdatedAt||s.updatedAt||''})).filter(x=>x.date&&x.sku);
   const remoteOrderDays=(data.orders||[]).map(o=>{
@@ -1277,6 +1301,7 @@ function fromSheetData(data){
   db.orderItems=erpMergeByKey(db.orderItems||[], orderItems, ['orderNo','OrderNo']);
   db.shippingPlan=erpMergeByKey(db.shippingPlan||[], remoteShippingPlan, ['date','sku']);
   db.dashboard=(data.dashboard&&data.dashboard.length)?data.dashboard:(db.dashboard||[]);
+  applyStockFromMovements();
   db.remote=db.remote||{}; db.remote.lastApiSync=now();
 }
 function saveCycleCount(){
