@@ -76,10 +76,12 @@ function apiGet(action='all', params={}){
   Object.entries(params||{}).forEach(([k,v])=>url.searchParams.set(k,v));
   return new Promise((resolve,reject)=>{
     const s=document.createElement('script');
-    const timer=setTimeout(()=>{cleanup();reject(new Error('API timeout'))},60000);
+    // v9.25: ข้อมูลโตขึ้นเรื่อยๆ Apps Script อาจใช้เวลานานกว่าเดิม เพิ่ม timeout จาก 60s เป็น 150s
+    // และงานส่วนใหญ่ (Sync, Cycle Count, ฯลฯ) ยังทำสำเร็จฝั่ง Server แม้ browser จะ timeout ก่อนก็ตาม
+    const timer=setTimeout(()=>{cleanup();reject(new Error('รอผลนานเกินไป (150 วินาที) แต่งานอาจจะสำเร็จฝั่ง Server แล้ว ลองกด Refresh/Sync อีกครั้งเพื่อเช็คผลจริง'))},150000);
     function cleanup(){clearTimeout(timer); delete window[cb]; s.remove();}
     window[cb]=data=>{cleanup(); data&&data.ok?resolve(data):reject(new Error(data?.error||'API error'))};
-    s.onerror=()=>{cleanup();reject(new Error('โหลด API ไม่ได้'))};
+    s.onerror=()=>{cleanup();reject(new Error('เชื่อมต่อ API ไม่ได้ งานอาจจะสำเร็จฝั่ง Server แล้วก็ได้ ลองกด Refresh/Sync อีกครั้งเพื่อเช็คผลจริง'))};
     s.src=url.toString(); document.body.appendChild(s);
   });
 }
@@ -211,8 +213,17 @@ async function pushToGoogleSheet(silent=false){
   }finally{apiBusy=false;}
 }
 async function syncProdToSheet(){
-  try{toast('กำลัง Sync Production Log ที่ Apps Script...'); await apiPost({action:'syncprod'}); await loadFromGoogleSheet();}
-  catch(e){alert('Sync Production Log ไม่สำเร็จ: '+(e.message||e));}
+  toast('กำลัง Sync Production Log ที่ Apps Script...');
+  let syncError=null;
+  try{ await apiPost({action:'syncprod'}); }
+  catch(e){ syncError=e; }
+  // v9.27 fix: เดิมถ้า apiPost ข้างบน timeout (แต่ Apps Script ทำงานเสร็จจริงฝั่ง Server) โค้ดจะกระโดดเข้า
+  // catch ทันที ไม่ทัน loadFromGoogleSheet() เลย ทำให้ ERP ค้างแสดงข้อมูลเก่า ต้องกด Refresh เองอีกที
+  // ตอนนี้ไม่ว่า sync ข้างบนจะสำเร็จหรือไม่ ก็จะพยายามโหลดข้อมูลล่าสุดให้เสมอ
+  try{ await loadFromGoogleSheet(); }catch(e2){ console.error('refresh after sync failed', e2); }
+  if(syncError){
+    alert('การเชื่อมต่อตอน Sync มีปัญหา (Server มักทำงานเสร็จจริงแล้ว แค่ตอบกลับช้า): '+(syncError.message||syncError)+'\n\nระบบโหลดข้อมูลล่าสุดให้อัตโนมัติแล้ว ลองเช็คตัวเลขว่าถูกต้องหรือยัง');
+  }
 }
 /* ===== เช็ค Stock พอส่ง (ShippingPlan) — บันทึกลง Google Sheet ชีต ShippingPlan โดยตรง ===== */
 function shippingKey(date,sku){return String(date||'')+'||'+String(sku||'');}
@@ -1314,12 +1325,16 @@ function saveCycleCount(){
 async function voidProductionTransaction(logId,reason){
   if(!logId)return;
   toast('กำลัง Void แบบเร็ว...');
+  let voidError=null;
   try{
     await apiPost({action:'voidproductionfast',logId,reason,voidBy:'ERP User'});
     const r=(db.prodLog||[]).find(x=>String(x.id||x.LogID||'')===String(logId));
     if(r){r.status='Voided'; r.Status='Voided'; r.voidReason=reason; r.VoidReason=reason; r.voidAt=now(); r.VoidAt=now();}
-    await loadFromGoogleSheet(); page='trx'; render(); sheetDone('Void สำเร็จ / ERP อัปเดตแล้ว');
-  }catch(e){console.error(e); alert('Void ไม่สำเร็จ: '+(e.message||e));}
+  }catch(e){ voidError=e; }
+  // v9.27 fix: refresh เสมอไม่ว่า Void ข้างบนจะรายงานสำเร็จหรือไม่ (เซิร์ฟเวอร์มักทำงานเสร็จจริงแม้ client รอไม่ทัน)
+  try{ await loadFromGoogleSheet(); page='trx'; render(); }catch(e2){ console.error('refresh after void failed', e2); }
+  if(voidError) alert('การเชื่อมต่อตอน Void มีปัญหา (Server มักทำงานเสร็จจริงแล้ว): '+(voidError.message||voidError)+'\n\nระบบโหลดข้อมูลล่าสุดให้แล้ว เช็คในตารางว่า Void สำเร็จหรือยัง');
+  else sheetDone('Void สำเร็จ / ERP อัปเดตแล้ว');
 }
 
 /* === v9.14 login screen: รหัสผ่านเดียวใช้ร่วมกันทั้งร้าน ผูกกับ API Key เดิม === */
