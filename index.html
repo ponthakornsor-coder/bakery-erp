@@ -1,4 +1,4 @@
-<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Bakery ERP v9.3 Stable Current</title><style>
+<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Bakery ERP v9.13 Stability Fix</title><style>
 :root{--bg:#fff7e8;--panel:#fffaf1;--card:#fff;--line:#ead8bf;--text:#321800;--muted:#8b755d;--brand:#df6518;--good:#059669;--bad:#dc2626;--warn:#d97706;--shadow:0 10px 25px rgba(72,36,0,.08);--r:18px}*{box-sizing:border-box}body{margin:0;background:var(--bg);font-family:Inter,Segoe UI,Tahoma,sans-serif;color:var(--text)}.app{display:flex;min-height:100vh}.side{width:280px;background:#fff3dc;border-right:1px solid var(--line);padding:24px 20px;position:fixed;height:100vh;overflow:auto}.logo{font-size:24px;font-weight:800;margin-bottom:22px}.sub{font-size:13px;color:var(--muted);line-height:1.35;margin-bottom:18px}.nav button{display:block;width:100%;text-align:left;border:0;background:transparent;padding:14px;border-radius:14px;margin:5px 0;font-size:16px;color:var(--text);cursor:pointer}.nav button.active,.nav button:hover{background:white;box-shadow:var(--shadow);font-weight:700}.main{margin-left:280px;padding:28px;width:calc(100% - 280px)}h1{margin:0;font-size:30px}.hint{color:var(--muted);margin:4px 0 18px}.toolbar,.box{background:rgba(255,255,255,.7);border:1px solid var(--line);border-radius:var(--r);padding:18px;margin:18px 0}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:16px}.kpis{display:grid;grid-template-columns:repeat(4,minmax(160px,1fr));gap:14px}.kpi,.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:18px;box-shadow:var(--shadow)}.kpi b{display:block;font-size:28px;margin-top:8px}.card h3{margin:0 0 5px;font-size:20px}.meta{color:var(--muted);font-size:13px}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}.stat{background:#fafafa;border-radius:12px;padding:10px;text-align:center}.stat b{display:block}.row{display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:10px;align-items:center}.row2{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:10px}.row3{display:grid;grid-template-columns:1fr 1fr auto;gap:10px}input,select,textarea{width:100%;border:1px solid var(--line);border-radius:13px;padding:13px 14px;font-size:16px;background:white}button.primary{border:0;background:var(--brand);color:#fff;border-radius:13px;padding:13px 22px;font-size:16px;font-weight:800;cursor:pointer}button.ghost,button.small{border:1px solid var(--line);background:#fff;border-radius:12px;padding:10px 14px;cursor:pointer}button.small{font-size:13px;padding:7px 10px;margin:2px}.pill{display:inline-block;border-radius:999px;padding:5px 10px;font-size:12px;background:#fff1d6;color:#8a4400}.pill.good{background:#dcfce7;color:#166534}.pill.bad{background:#fee2e2;color:#991b1b}.pill.blue{background:#e0f2fe;color:#075985}table{width:100%;border-collapse:separate;border-spacing:0;background:white;border:1px solid var(--line);border-radius:16px;overflow:hidden}th,td{padding:12px 14px;border-bottom:1px solid #f0e3d2;text-align:left;font-size:14px}th{background:#fff3e1;color:#6d3000}tr:last-child td{border-bottom:0}.actions{white-space:nowrap}.toast{position:fixed;right:22px;bottom:22px;background:#321800;color:white;padding:14px 18px;border-radius:14px;box-shadow:var(--shadow);display:none;z-index:5}.modal{position:fixed;inset:0;background:rgba(0,0,0,.3);display:none;align-items:center;justify-content:center;z-index:10}.modal>div{background:var(--panel);border-radius:20px;padding:22px;max-width:760px;width:92%;max-height:90vh;overflow:auto}.danger{color:var(--bad)}@media(max-width:850px){.side{position:static;width:100%;height:auto}.app{display:block}.main{margin:0;width:100%}.row,.row2{grid-template-columns:1fr}.kpis{grid-template-columns:1fr 1fr}}.dashgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.barwrap{background:#fff3e1;border-radius:999px;overflow:hidden;height:12px}.bar{height:12px;background:var(--brand)}.mini{font-size:12px;color:var(--muted)}@media(max-width:1050px){.dashgrid{grid-template-columns:1fr}}
 body:not(.viewer-mode) .logo::after{content:' STABLE';display:inline-block;margin-left:8px;font-size:11px;background:#e0f2fe;color:#075985;border-radius:999px;padding:3px 8px;vertical-align:middle}
 body.viewer-mode .logo::after{content:' VIEWER';display:inline-block;margin-left:8px;font-size:11px;background:#dcfce7;color:#166534;border-radius:999px;padding:3px 8px;vertical-align:middle}
@@ -15,7 +15,7 @@ body.viewer-mode .viewer-banner{border:2px solid #059669;background:#ecfdf5;colo
 .card.stock-focus h3{font-size:18px;margin-bottom:4px}.card.stock-focus .meta{min-height:20px}
 .card.stock-focus .secondary-stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
 .card.stock-focus .secondary-stats .stat b{font-size:16px}.card.stock-focus .secondary-stats .stat{padding:8px;background:#fffaf1}
-</style></head><body><div class="app"><aside class="side"><div class="logo">🍪 Bakery ERP</div><div class="sub">Full web app v9.3<br>UX แบบ v6.4<br>Stable Current</div><div class="nav" id="nav"></div></aside><main class="main" id="main"></main></div><div class="toast" id="toast"></div><div class="modal" id="modal"><div id="modalBody"></div></div><script>
+</style></head><body><div class="app"><aside class="side"><div class="logo">🍪 Bakery ERP</div><div class="sub">Full web app v9.13<br>Refresh Persist + Fast Void/Cycle</div><div class="nav" id="nav"></div></aside><main class="main" id="main"></main></div><div class="toast" id="toast"></div><div class="modal" id="modal"><div id="modalBody"></div></div><script>
 const $ = (id) => document.getElementById(id);
 const ERP_QUERY = new URLSearchParams(window.location.search);
 const VIEWER_ONLY = ERP_QUERY.get('view') === '1' || ERP_QUERY.get('role') === 'viewer';
@@ -208,25 +208,41 @@ function sheetDone(t){
 function nav(){ $('nav').innerHTML=pages.map(p=>`<button class="${page==p[0]?'active':''}" onclick="go('${p[0]}')">${p[1]}</button>`).join('') } function go(p){page=p;render()}
 function render(){try{nav(); const m=$('main'); if(page=='dashboard') return dash(m); if(page=='master') return masterData(m); if(page=='items') return items(m); if(page=='rm') return rm(m); if(page=='stock') return stock(m); if(page=='cycle') return cycleCount(m); if(page=='fglog') return fgLogPage(m); if(page=='prodrecord') return productionRecordPage(m); if(page=='trx') return transactionCenterPage(m); if(page=='prodsummary') return productionSummaryPage(m); if(page=='prod') return prod(m); if(page=='orders') return ordersPage(m); if(page=='bom') return bom(m); if(page=='history') return hist(m); if(page=='google') return googlePage(m); if(page=='settings') return settings(m); return dash(m);}catch(e){console.error(e); $('main').innerHTML='<h1>เกิด Error</h1><div class="box"><b>'+String(e.message||e)+'</b><p class="hint">กด Settings → Reset หรือส่งรูปหน้านี้มาให้ผมดู</p><button class="primary" onclick="localStorage.removeItem(\'bakery_erp_v6_1\');location.reload()">Reset ข้อมูลใน Browser</button></div>';}}
 function head(t,h=''){return `<h1>${t}</h1><div class="hint">${h}</div>`}
-function todayISO(){let d=new Date();return d.toISOString().slice(0,10)}
-function excelSerialToDate(v){
-  let n=Number(v);
-  if(!isFinite(n)) return null;
-  if(n>100000) n -= 198327;
-  const ms=(n-25569)*86400*1000;
-  const d=new Date(ms);
-  return isNaN(d)?null:d;
+function todayISO(){
+  const d=new Date();
+  return `${d.getFullYear()}-${erpPad(d.getMonth()+1)}-${erpPad(d.getDate())}`;
 }
 function dateISO(t){
   if(t===null || t===undefined || t==='') return '';
   if(typeof t==='number' || /^\d+(\.\d+)?$/.test(String(t).trim())){
     const d=excelSerialToDate(t);
-    return d?d.toISOString().slice(0,10):'';
+    if(!d || isNaN(d)) return '';
+    return `${d.getFullYear()}-${erpPad(d.getMonth()+1)}-${erpPad(d.getDate())}`;
   }
   let s=String(t||'').trim();
+  // ISO หรือ yyyy-mm-dd / yyyy/mm/dd รวมกรณีปี พ.ศ. 2569 จาก Google Sheet
+  let iso=s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
+  if(iso){
+    let y=+iso[1], mo=+iso[2], da=+iso[3];
+    if(y>2400) y-=543;
+    return String(y).padStart(4,'0')+'-'+erpPad(mo)+'-'+erpPad(da);
+  }
+  // รองรับ Google Form แบบ M/D/YYYY และไทยแบบ D/M/YYYY
   let m=s.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-  if(m){let y=+m[3]; if(y>2400)y-=543; return String(y).padStart(4,'0')+'-'+String(+m[2]).padStart(2,'0')+'-'+String(+m[1]).padStart(2,'0')}
-  let d=new Date(s); return isNaN(d)?'':d.toISOString().slice(0,10)
+  if(m){
+    let a=+m[1], b=+m[2], y=+m[3];
+    if(y>2400)y-=543;
+    let mo, da;
+    if(b>12){ mo=a; da=b; }      // M/D/YYYY เช่น 7/2/2026
+    else if(a>12){ da=a; mo=b; } // D/M/YYYY เช่น 28/6/2026
+    else { mo=a; da=b; }         // ถ้ากำกวม ใช้ M/D เพราะข้อมูล Google Form เป็นแนวนี้
+    return String(y).padStart(4,'0')+'-'+erpPad(mo)+'-'+erpPad(da);
+  }
+  let d=new Date(s);
+  if(isNaN(d)) return '';
+  let y=d.getFullYear();
+  if(y>2400) y-=543;
+  return String(y).padStart(4,'0')+'-'+erpPad(d.getMonth()+1)+'-'+erpPad(d.getDate());
 }
 function dash(m){
   let selDate=$('dashDate')?.value||todayISO();
@@ -1101,6 +1117,70 @@ function productionSummaryPage(m){
   `<div class="box"><h2>รายละเอียด SKU + แหล่งที่มา</h2>${productionSkuSummaryTable(rows)}</div>`+
   `<div class="box"><h2>รายการล่าสุด</h2>${productionSummaryRawTable(rows.slice().sort((a,b)=>String(b.timestamp).localeCompare(String(a.timestamp))).slice(0,80))}</div>`;
   applyViewerUI?.();
+}
+
+
+
+/* === v9.13 stability overrides: refresh merge + fast cycle/void === */
+function erpKeyVal(o, keys){ for(const k of keys){ if(o && o[k]!==undefined && o[k]!==null && String(o[k])!=='') return String(o[k]); } return ''; }
+function erpMergeByKey(localArr, remoteArr, keys){
+  const map=new Map();
+  (localArr||[]).forEach(o=>{const k=erpKeyVal(o,keys); if(k) map.set(k,o);});
+  (remoteArr||[]).forEach(o=>{const k=erpKeyVal(o,keys); if(k) map.set(k,{...(map.get(k)||{}),...o});});
+  return Array.from(map.values());
+}
+function erpActive(o){return !['voided','cancelled','deleted'].includes(String(o?.status||o?.Status||'Active').toLowerCase());}
+function fromSheetData(data){
+  data=data||{};
+  const items=(data.products||[]).map(p=>({sku:String(p.SKU||''),name:p.Name||'',product:p.Product||'',variant:p.Variant||'',weight:p.Weight||'',unit:p.Unit||'pcs',stock:+p.Stock||0,min:+p.Min||0,price:+p.Price||0,cost:+p.Cost||0,type:'FG'})).filter(x=>x.sku);
+  const rm=(data.rawMaterials||[]).map(r=>({sku:String(r.RMCode||''),name:r.Name||'',product:r.Category||'Raw Material',variant:r.Variant||'',unit:r.Unit||'g',stock:+r.Stock||0,min:+r.Min||0,cost:+r.Cost||0})).filter(x=>x.sku);
+  const bom={}; (data.bom||[]).forEach(b=>{ if(!b.SKU||!b.RMCode)return; bom[b.SKU]=bom[b.SKU]||[]; bom[b.SKU].push({sku:b.RMCode,qty:+b.QtyPerUnit||0,unit:b.Unit||''}); });
+  const remoteProdLog=(data.productionLog||[]).map(r=>({id:r.LogID||'',timestamp:r.Timestamp||'',sku:r.SKU||'',product:r.Product||'',variant:r.Variant||'',qty:+r.Qty||0,expiry:r.ExpiryDate||'',operator:r.Operator||'',remark:r.Remark||'',photo:r.Photo||'',source:r.Source||'Google Sheet',status:r.Status||'Active',voidReason:r.VoidReason||'',voidAt:r.VoidAt||'',voidBy:r.VoidBy||''})).filter(x=>x.id||x.sku);
+  const remoteMov=(data.stockMovement||[]).map(r=>({id:r.MoveID||'',time:r.Timestamp||'',type:r.ItemType||'',sku:r.SKU||'',mode:r.Mode||'',qty:+r.Qty||0,ref:r.Ref||'',remark:r.Remark||'',stock:+r.StockAfter||0,source:r.Source||'',status:r.Status||'Active',synced:true})).filter(x=>x.id||x.sku);
+  const orderItems=(data.orderItems||[]).map(i=>({orderNo:i.OrderNo||'',sku:i.SKU||'',qty:+i.Qty||0,completedQty:+i.CompletedQty||0,shortQty:+i.ShortQty||0,reason:i.Reason||'',updatedAt:i.UpdatedAt||''}));
+  const remoteOrderDays=(data.orders||[]).map(o=>{
+    const date=dateISO(o.OrderDate)||String(o.OrderDate||'');
+    return {date,total:+o.TotalOrders||0,shipped:+o.CompletedOrders||0,note:o.Remark||'',shortages:orderItems.filter(i=>String(i.orderNo||'').startsWith('DAY-'+date+'-')).map(i=>({sku:i.sku,qty:i.shortQty||i.qty,reason:i.reason}))};
+  }).filter(x=>x.date);
+  const remotePO=(data.productionOrder||[]).map(p=>({id:p.PO||'',sku:p.SKU||'',qty:+p.Qty||0,status:p.Status||'Open',time:p.CreatedAt||'',start:p.StartAt||'',finish:p.FinishAt||'',remark:p.Remark||''})).filter(p=>p.id);
+  if(items.length) db.items=items;
+  if(rm.length) db.rm=rm;
+  if((data.bom||[]).length) db.bom=bom;
+  db.prodLog=erpMergeByKey(db.prodLog||[], remoteProdLog, ['id','LogID']);
+  db.mov=erpMergeByKey(db.mov||[], remoteMov, ['id','MoveID']);
+  db.po=erpMergeByKey(db.po||[], remotePO, ['id','PO']);
+  db.orderDays=erpMergeByKey(db.orderDays||[], remoteOrderDays, ['date']);
+  db.orderItems=erpMergeByKey(db.orderItems||[], orderItems, ['orderNo','OrderNo']);
+  db.dashboard=(data.dashboard&&data.dashboard.length)?data.dashboard:(db.dashboard||[]);
+  db.remote=db.remote||{}; db.remote.lastApiSync=now();
+}
+function saveCycleCount(){
+  let type=$('ctype')?.value||'FG', reason=$('creason')?.value||'Cycle Count', remark=$('cremark')?.value||'';
+  let rows=[...document.querySelectorAll('.cycleChk:checked')].map(c=>{let sku=c.dataset.sku, v=$('ccount_'+sku)?.value; return {sku,counted:v===''?null:+v};}).filter(x=>x.counted!==null && x.counted>=0);
+  if(!rows.length)return toast('ติ๊ก SKU และใส่ยอดนับจริงก่อน');
+  let ref='CC-'+Date.now(); const cycleRows=[]; const movRows=[];
+  rows.forEach(r=>{
+    let arr=type=='RM'?db.rm:db.items, it=arr.find(x=>x.sku==r.sku); if(!it)return;
+    let before=+it.stock||0, diff=r.counted-before; it.stock=r.counted;
+    let rec={id:'MV-'+Date.now()+'-'+Math.floor(Math.random()*9999),time:now(),type,sku:r.sku,mode:'CYCLE_COUNT',qty:diff,ref,remark:`${reason}${remark?' - '+remark:''} | Before ${before} → After ${r.counted}`,stock:it.stock,synced:false,source:'ERP-CYCLE-v9.13'};
+    db.mov.push(rec);
+    movRows.push({MoveID:rec.id,Timestamp:rec.time,ItemType:type,SKU:r.sku,Mode:'CYCLE_COUNT',Qty:diff,Ref:ref,Remark:rec.remark,StockAfter:r.counted,Source:'ERP-CYCLE-v9.13'});
+    cycleRows.push({CountID:rec.id,Timestamp:rec.time,ItemType:type,SKU:r.sku,SystemQty:before,CountQty:r.counted,Diff:diff,Remark:rec.remark});
+  });
+  saveLocalOnly(); render(); toast('กำลังบันทึก Cycle Count แบบเร็ว...');
+  apiPost({action:'cycletransaction',data:{movements:movRows,cycles:cycleRows}})
+    .then(()=>{movRows.forEach(m=>{let x=db.mov.find(v=>v.id===m.MoveID); if(x)x.synced=true;}); saveLocalOnly(); sheetDone('Cycle Count เข้า Google Sheet แล้ว');})
+    .catch(e=>{console.error(e); alert('Cycle Count ไม่สำเร็จ: '+(e.message||e));});
+}
+async function voidProductionTransaction(logId,reason){
+  if(!logId)return;
+  toast('กำลัง Void แบบเร็ว...');
+  try{
+    await apiPost({action:'voidproductionfast',logId,reason,voidBy:'ERP User'});
+    const r=(db.prodLog||[]).find(x=>String(x.id||x.LogID||'')===String(logId));
+    if(r){r.status='Voided'; r.Status='Voided'; r.voidReason=reason; r.VoidReason=reason; r.voidAt=now(); r.VoidAt=now();}
+    await loadFromGoogleSheet(); page='trx'; render(); sheetDone('Void สำเร็จ / ERP อัปเดตแล้ว');
+  }catch(e){console.error(e); alert('Void ไม่สำเร็จ: '+(e.message||e));}
 }
 
 if(VIEWER_ONLY) installViewerGuards(); render(); setupAutoCsvSync(); setTimeout(()=>{ if(apiUrl) loadFromGoogleSheet(); },300);
