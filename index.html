@@ -376,7 +376,11 @@ async function createPOFromShippingShortage(){
     poRows.forEach(p=>{ const i=db.po.findIndex(x=>x.id===p.id); if(i>=0) db.po[i]=p; else db.po.push(p); });
     saveLocalOnly();
     page='prod'; render();
-    sheetDone('สร้างคำสั่งผลิตจากรายการที่ขาดแล้ว '+poRows.length+' รายการ (สถานะ Open รอตรวจสอบที่หน้าสั่งผลิต)');
+    const skipped=res?.skipped||[];
+    // v9.39 fix: เดิมไม่บอกเลยว่ามี SKU ไหนถูกข้ามไปเพราะมี PO เปิดอยู่แล้ว (กันสร้างซ้ำ) ทำให้ดูเหมือน
+    // "บางตัวไม่ขึ้น" ทั้งที่จริงๆ ระบบข้ามให้โดยตั้งใจ ตอนนี้บอกให้ชัดว่าข้ามอะไรไปบ้างและทำไม
+    const skipMsg=skipped.length?(' | ข้าม '+skipped.length+' SKU เพราะมี PO เปิดอยู่แล้วจาก ShippingPlan วันนี้: '+skipped.slice(0,10).join(', ')+(skipped.length>10?'...':'')):'';
+    sheetDone('สร้างคำสั่งผลิตจากรายการที่ขาดแล้ว '+poRows.length+' รายการ (สถานะ Open รอตรวจสอบที่หน้าสั่งผลิต)'+skipMsg);
   }catch(e){console.error(e); alert('สร้างคำสั่งผลิตไม่สำเร็จ: '+(e.message||e));}
 }
 function openShipPaste(){
@@ -917,7 +921,13 @@ async function saveProductionRecord(){
 
 function trxStatusPill(s){s=String(s||'Active'); return s.toLowerCase()==='voided'?'<span class="pill bad">Voided</span>':'<span class="pill good">Active</span>';}
 function productionTransactions(){
-  return (db.prodLog||[]).map(r=>{let it=(db.items||[]).find(x=>String(x.sku)==String(r.sku))||{}; return {id:r.id||r.LogID||'',time:r.timestamp||r.Timestamp||'',type:r.source||r.Source||'Production',sku:r.sku||r.SKU||'',name:it.name||'',product:it.product||r.product||r.Product||'',variant:it.variant||it.weight||'',qty:+(r.qty||r.Qty||0),operator:r.operator||r.Operator||'',remark:r.remark||r.Remark||'',status:r.status||r.Status||'Active',voidReason:r.voidReason||r.VoidReason||'',voidAt:r.voidAt||r.VoidAt||''};});
+  const fromLog=(db.prodLog||[]).map(r=>{let it=(db.items||[]).find(x=>String(x.sku)==String(r.sku))||{}; return {id:r.id||r.LogID||'',time:r.timestamp||r.Timestamp||'',type:r.source||r.Source||'Production',sku:r.sku||r.SKU||'',name:it.name||'',product:it.product||r.product||r.Product||'',variant:it.variant||it.weight||'',qty:+(r.qty||r.Qty||0),operator:r.operator||r.Operator||'',remark:r.remark||r.Remark||'',status:r.status||r.Status||'Active',voidReason:r.voidReason||r.VoidReason||'',voidAt:r.voidAt||r.VoidAt||''};});
+  // v9.39 fix: กันเหนียวเผื่อ QR scan บางรายการอยู่ใน StockMovement แต่ไม่มาโผล่ใน ProductionLog
+  // (เช่น ช่วง sync ไม่สมบูรณ์) ดึงมาโชว์เพิ่มด้วย กันไม่ให้หายไปจากหน้านี้เฉยๆ
+  const seenIds=new Set(fromLog.map(x=>String(x.id)));
+  const fromMovAuto=(db.mov||[]).filter(mv=>String(mv.source||'')==='GoogleFormCSV-auto' && String(mv.type||'').toUpperCase()==='FG' && mv.ref && !seenIds.has(String(mv.ref)))
+    .map(mv=>{let it=(db.items||[]).find(x=>String(x.sku)==String(mv.sku))||{}; return {id:mv.ref,time:mv.time,type:'QR / Google Form (movement)',sku:mv.sku,name:it.name||'',product:it.product||'',variant:it.variant||'',qty:+mv.qty||0,operator:'',remark:mv.remark||'',status:'Active',voidReason:'',voidAt:''};});
+  return fromLog.concat(fromMovAuto);
 }
 function transactionCenterPage(m){
   let q=($('trxQ')?.value||'').toLowerCase();
@@ -941,43 +951,6 @@ function voidProductionPrompt(logId){
   if(!confirm('Void รายการ '+logId+' ?\nระบบจะ Reverse FG/RM Stock อัตโนมัติ'))return;
   voidProductionTransaction(logId,reason);
 }
-async function voidProductionTransaction(logId,reason){
-  toast('กำลัง Void Transaction...');
-  const markLocalVoided=()=>{
-    const r=(db.prodLog||[]).find(x=>String(x.id||x.LogID||'')===String(logId));
-    if(r){
-      r.status='Voided'; r.Status='Voided'; r.voidReason=reason; r.VoidReason=reason; r.voidAt=now(); r.VoidAt=now();
-      saveLocalOnly();
-    }
-  };
-  const reloadAndConfirm=async()=>{
-    await sleep(900);
-    await loadFromGoogleSheet();
-    page='trx'; render();
-    const r=(db.prodLog||[]).find(x=>String(x.id||x.LogID||'')===String(logId));
-    const ok=String(r?.status||r?.Status||'').toLowerCase()==='voided';
-    if(ok){ sheetDone('✅ Void สำเร็จ / ERP อัปเดตแล้ว / Stock ถูก Reverse แล้ว'); return true; }
-    return false;
-  };
-  try{
-    await apiPost({action:'voidproduction',logId,reason,voidBy:'ERP User'});
-    markLocalVoided();
-    const ok=await reloadAndConfirm();
-    if(!ok) sheetDone('ส่งคำสั่ง Void แล้ว แต่ยังโหลดข้อมูลใหม่ไม่ทัน กดโหลดข้อมูลจาก Google Sheet อีกครั้ง');
-  }catch(e){
-    console.warn('Void response warning:', e);
-    toast('ส่งคำสั่ง Void แล้ว กำลังตรวจสอบข้อมูลล่าสุด...');
-    try{
-      await sleep(3500);
-      const ok=await reloadAndConfirm();
-      if(!ok) alert('ยังยืนยันผล Void ไม่ได้: '+(e.message||e)+'\nแต่ถ้า Google Sheet อัปเดตแล้ว ให้กดโหลดข้อมูลจาก Google Sheet อีกครั้ง');
-    }catch(e2){
-      console.error(e2);
-      alert('Void อาจสำเร็จแล้ว แต่ ERP โหลดข้อมูลกลับไม่ได้: '+(e2.message||e2));
-    }
-  }
-}
-
 function loadEmbeddedFgLog(){db.prodLog=EMBEDDED_FG_LOG.slice(); save(); render(); toast('โหลด Production Log จากไฟล์ที่ส่งมาแล้ว')}
 function clearFgLog(){if(!confirm('ล้าง Production Log ที่เก็บใน ERP? ไม่กระทบ Google Sheet'))return; db.prodLog=[]; save(); render(); toast('ล้าง Log ใน ERP แล้ว')}
 function parsePasteRows(text){let lines=String(text||'').trim().split(/\r?\n/).filter(Boolean); if(!lines.length)return []; let sep=lines[0].includes('\t')?'\t':','; return lines.map(line=>{let out=[], cur='', q=false; for(let i=0;i<line.length;i++){let ch=line[i]; if(ch=='"'){q=!q; continue;} if(ch==sep && !q){out.push(cur); cur='';} else cur+=ch;} out.push(cur); return out.map(x=>x.trim());});}
@@ -994,17 +967,28 @@ function toggleAllPO(checked){document.querySelectorAll('.poChk').forEach(c=>{c.
 function togglePoQty(sku){let q=$('poqty_'+sku), chk=document.querySelector(`.poChk[data-sku="${sku}"]`); if(chk?.checked && !q.value) q.value=$('bulkQty')?.value||1; updateBulkReq(sku)}
 function fillCheckedQty(){let v=+$('bulkQty').value||0; if(!v)return toast('ใส่จำนวนก่อน'); document.querySelectorAll('.poChk:checked').forEach(c=>{let q=$('poqty_'+c.dataset.sku); q.value=v; updateBulkReq(c.dataset.sku)});}
 function updateBulkReq(sku){let q=+$('poqty_'+sku)?.value||0; let el=$('poreq_'+sku); if(el)el.innerHTML=reqText(sku,q)}
+function nextPoSeq(){
+  // v9.39 fix: db.seq เป็นตัวนับในเครื่องล้วนๆ ตั้งแต่เลิกอ่าน localStorage (v9.32) มันจะรีเซ็ตเป็น 1
+  // ทุกครั้งที่โหลดหน้าใหม่ ทำให้ PO ใหม่ได้เลขซ้ำกับของเดิมที่เคยมีอยู่แล้ว (เช่น PO-00001 ซ้ำ)
+  // แล้ว "ทับ" ของเดิมหายไปเงียบๆ เพราะระบบ upsert ด้วย key เดียวกัน ตอนนี้คำนวณเลขถัดไปจาก
+  // ข้อมูล PO จริงที่โหลดมาจาก Google Sheet แทน ไม่พึ่งตัวนับในเครื่องอีกต่อไป
+  let max=0;
+  (db.po||[]).forEach(p=>{
+    const m=String(p.id||'').match(/^PO-(\d+)$/);
+    if(m) max=Math.max(max, parseInt(m[1],10));
+  });
+  return max+1;
+}
 async function createBulkPO(){
   let rows=[...document.querySelectorAll('.poChk:checked')].map(c=>({sku:c.dataset.sku,qty:+$('poqty_'+c.dataset.sku).value||0})).filter(x=>x.qty>0);
   if(!rows.length)return toast('ติ๊ก SKU และใส่จำนวนก่อน');
   let remark=$('bulkRemark')?.value||'';
-  const baseSeq=+(db.seq||1);
+  const baseSeq=nextPoSeq();
   const created=rows.map((r,i)=>({id:'PO-'+String(baseSeq+i).padStart(5,'0'),sku:r.sku,qty:r.qty,status:'Open',time:now(),start:'',finish:'',remark}));
   toast('กำลังบันทึกสั่งผลิต '+created.length+' รายการเข้า Google Sheet...');
   try{
     await savePOBatchDirect(created);
     db.po.push(...created);
-    db.seq=baseSeq+created.length;
     saveLocalOnly();
     render();
     sheetDone('สั่งผลิต '+created.length+' รายการเข้า Google Sheet แล้ว');
@@ -1013,7 +997,7 @@ async function createBulkPO(){
     alert('สั่งผลิตไม่สำเร็จ / ยังไม่บันทึกใน ERP: '+(e.message||e));
   }
 }
-async function createPO(){let sku=$('psku')?.value, qty=+$('pqty')?.value; if(!sku||!qty) return toast('เลือก SKU และจำนวน'); let id='PO-'+String(db.seq).padStart(5,'0'); let p={id,sku,qty,status:'Open',time:now(),start:'',finish:'',remark:$('premark')?.value||''}; toast('กำลังบันทึก '+id+' เข้า Google Sheet...'); try{await savePODirect(p); db.seq++; db.po.push(p); saveLocalOnly(); render(); sheetDone('สร้าง '+id+' เข้า Google Sheet แล้ว');}catch(e){console.error(e); alert('สร้างงานผลิตไม่สำเร็จ: '+(e.message||e));}}
+async function createPO(){let sku=$('psku')?.value, qty=+$('pqty')?.value; if(!sku||!qty) return toast('เลือก SKU และจำนวน'); let id='PO-'+String(nextPoSeq()).padStart(5,'0'); let p={id,sku,qty,status:'Open',time:now(),start:'',finish:'',remark:$('premark')?.value||''}; toast('กำลังบันทึก '+id+' เข้า Google Sheet...'); try{await savePODirect(p); db.po.push(p); saveLocalOnly(); render(); sheetDone('สร้าง '+id+' เข้า Google Sheet แล้ว');}catch(e){console.error(e); alert('สร้างงานผลิตไม่สำเร็จ: '+(e.message||e));}}
 function poTableCompact(arr){if(!arr.length)return '<p class="hint">ยังไม่มีงาน</p>'; return `<table><tr><th>เวลา</th><th>PO</th><th>SKU</th><th>จำนวน</th><th>สถานะ</th><th></th></tr>${arr.map(p=>{
   const hasActual=p.actualQty!==undefined&&p.actualQty!==''&&p.actualQty!==null;
   const qtyDisplay=hasActual&&+p.actualQty!==+p.qty ? `${p.qty}→<b>${p.actualQty}</b>` : p.qty;
@@ -1394,16 +1378,31 @@ function saveCycleCount(){
 async function voidProductionTransaction(logId,reason){
   if(!logId)return;
   toast('กำลัง Void แบบเร็ว...');
-  let voidError=null;
+  const r=(db.prodLog||[]).find(x=>String(x.id||x.LogID||'')===String(logId));
   try{
     await apiPost({action:'voidproductionfast',logId,reason,voidBy:'ERP User'});
-    const r=(db.prodLog||[]).find(x=>String(x.id||x.LogID||'')===String(logId));
-    if(r){r.status='Voided'; r.Status='Voided'; r.voidReason=reason; r.VoidReason=reason; r.voidAt=now(); r.VoidAt=now();}
-  }catch(e){ voidError=e; }
-  // v9.27 fix: refresh เสมอไม่ว่า Void ข้างบนจะรายงานสำเร็จหรือไม่ (เซิร์ฟเวอร์มักทำงานเสร็จจริงแม้ client รอไม่ทัน)
-  try{ await loadFromGoogleSheet(); page='trx'; render(); }catch(e2){ console.error('refresh after void failed', e2); }
-  if(voidError) alert('การเชื่อมต่อตอน Void มีปัญหา (Server มักทำงานเสร็จจริงแล้ว): '+(voidError.message||voidError)+'\n\nระบบโหลดข้อมูลล่าสุดให้แล้ว เช็คในตารางว่า Void สำเร็จหรือยัง');
-  else sheetDone('Void สำเร็จ / ERP อัปเดตแล้ว');
+    if(r){
+      r.status='Voided'; r.Status='Voided'; r.voidReason=reason; r.VoidReason=reason; r.voidAt=now(); r.VoidAt=now();
+      // v9.39 fix: เดิมโหลดข้อมูลทั้งหมดใหม่ทุกครั้งหลัง Void (ช้ามาก) ตอนนี้คำนวณ reverse Stock ในเครื่อง
+      // ทันที (ลด FG คืน RM ตาม BOM) เหมือนที่ Server ทำเป๊ะๆ ไม่ต้องรอโหลดใหม่ทั้งหมด ข้อมูลจริงจะ
+      // sync ครบอีกทีตอนกด Refresh ปกติหรือเปลี่ยนหน้าไปมา
+      const sku=String(r.sku||r.SKU||''), qty=+(r.qty||r.Qty||0);
+      if(sku && qty){
+        const it=(db.items||[]).find(x=>String(x.sku)===sku);
+        if(it) it.stock=(+it.stock||0)-qty;
+        (db.bom?.[sku]||[]).forEach(b=>{
+          const rmItem=(db.rm||[]).find(x=>String(x.sku)===String(b.sku));
+          if(rmItem) rmItem.stock=(+rmItem.stock||0)+qty*(+b.qty||0);
+        });
+      }
+    }
+    saveLocalOnly(); page='trx'; render();
+    sheetDone('Void สำเร็จ / Stock อัปเดตแล้ว');
+  }catch(e){
+    // เชื่อมต่อมีปัญหาจริง ไม่รู้ผลชัวร์ ต้องโหลดใหม่ทั้งหมดเพื่อเช็คสถานะจริง (กรณีนี้เท่านั้นถึงจะช้า)
+    try{ await loadFromGoogleSheet(); page='trx'; render(); }catch(e2){ console.error('refresh after void failed', e2); }
+    alert('การเชื่อมต่อตอน Void มีปัญหา (Server มักทำงานเสร็จจริงแล้ว): '+(e.message||e)+'\n\nระบบโหลดข้อมูลล่าสุดให้แล้ว เช็คในตารางว่า Void สำเร็จหรือยัง');
+  }
 }
 
 /* === v9.14 login screen: รหัสผ่านเดียวใช้ร่วมกันทั้งร้าน ผูกกับ API Key เดิม === */
