@@ -16,6 +16,8 @@
 .alert-ic{width:34px;height:34px;border-radius:10px;background:#fff3e1;display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-size:15px}
 .alert-txt b{display:block;font-size:13px}
 .alert-txt span{font-size:11.5px;color:var(--muted)}
+.chip{border:1px solid var(--line);background:#fff;border-radius:999px;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;color:var(--text)}
+.chip.active{background:var(--brand);color:#fff;border-color:var(--brand)}
 .donut-legend-item{display:flex;align-items:center;gap:8px;font-size:13px;margin:6px 0}
 .donut-legend-dot{width:10px;height:10px;border-radius:50%;flex:0 0 auto}
 
@@ -372,11 +374,10 @@ function shipPlanRows(date){
 }
 function shipCheckPage(m){
   const date=$('shipDate')?.value||todayISO();
-  const prod=$('shipProd')?.value||'';
   const q=($('shipQ')?.value||'').toLowerCase();
   const onlyShort=$('shipOnlyShort')?$('shipOnlyShort').checked:false;
   const onlyOrdered=$('shipOnlyOrdered')?$('shipOnlyOrdered').checked:true;
-  let rows=shipPlanRows(date).filter(r=>(!prod||r.product===prod) && (!q||(r.sku+' '+r.name+' '+r.product).toLowerCase().includes(q)));
+  let rows=shipPlanRows(date).filter(r=>matchesProdFilter('shipcheck',r.product) && (!q||(r.sku+' '+r.name+' '+r.product).toLowerCase().includes(q)));
   const need=rows.reduce((a,r)=>a+r.baimiang+r.b2b+r.b2c,0);
   const shortage=rows.reduce((a,r)=>a+Math.max(0,(r.baimiang+r.b2b+r.b2c)-r.stock),0);
   const ok=rows.filter(r=>r.stock>=(r.baimiang+r.b2b+r.b2c)).length;
@@ -384,7 +385,7 @@ function shipCheckPage(m){
   if(onlyOrdered) shownRows=shownRows.filter(r=>(r.baimiang+r.b2b+r.b2c)>0);
   if(onlyShort) shownRows=shownRows.filter(r=>r.stock<(r.baimiang+r.b2b+r.b2c));
   m.innerHTML=head('เช็ค Stock พอส่ง','ข้อมูลหน้านี้บันทึกลง Google Sheet ชีต ShippingPlan — Refresh แล้วไม่หาย')+
-  `<div class="toolbar"><div class="row3"><input id="shipDate" type="date" value="${date}" onchange="shipCheckPage($('main'))"><select id="shipProd" onchange="shipCheckPage($('main'))">${productOptions(prod)}</select><input id="shipQ" value="${escHTML(q)}" oninput="rerenderKeepFocus(()=>shipCheckPage($('main')))" placeholder="ค้นหา SKU / ชื่อ"></div>`+
+  `<div class="toolbar"><div class="row3"><input id="shipDate" type="date" value="${date}" onchange="shipCheckPage($('main'))"><span></span><input id="shipQ" value="${escHTML(q)}" oninput="rerenderKeepFocus(()=>shipCheckPage($('main')))" placeholder="ค้นหา SKU / ชื่อ"></div>${productChipsHTML('shipcheck','shipCheckPage')}`+
   `<div style="display:flex;gap:20px;flex-wrap:wrap;margin-top:10px"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input id="shipOnlyOrdered" type="checkbox" ${onlyOrdered?'checked':''} onchange="shipCheckPage($('main'))" style="width:20px;height:20px"> แสดงเฉพาะ SKU ที่มีคำสั่งซื้อ</label><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input id="shipOnlyShort" type="checkbox" ${onlyShort?'checked':''} onchange="shipCheckPage($('main'))" style="width:20px;height:20px"> แสดงเฉพาะ SKU ที่ของไม่ครบ</label></div>`+
   `<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap"><button class="primary" onclick="saveShippingPlan()">บันทึก ShippingPlan เข้า Google Sheet</button><button class="ghost" onclick="loadFromGoogleSheet()">Refresh จาก Google Sheet</button><button class="ghost" onclick="openShipPaste()">Paste จาก Excel</button><button class="primary" onclick="createPOFromShippingShortage()">สร้างคำสั่งผลิตจากรายการที่ขาด</button><button class="ghost" onclick="exportShipCheckCSV()">Export CSV</button></div></div>`+
   `<div class="kpis"><div class="kpi">Order ต้องส่งรวม<b>${need}</b></div><div class="kpi">SKU OK<b>${ok}</b></div><div class="kpi">SKU ต้องผลิต<b>${rows.length-ok}</b></div><div class="kpi">ต้องผลิตเพิ่มรวม<b>${shortage}</b></div></div>`+
@@ -508,15 +509,14 @@ function salesOutRows(date){
 function salesOutTotal(row){return SALES_CHANNELS.reduce((a,[k])=>a+(+row[k]||0),0);}
 function salesOutPage(m){
   const date=$('soDate')?.value||todayISO();
-  const prod=$('soProd')?.value||'';
   const q=($('soQ')?.value||'').toLowerCase();
   const onlySold=$('soOnlySold')?$('soOnlySold').checked:true;
-  let rows=salesOutRows(date).filter(r=>(!prod||r.product===prod) && (!q||(r.sku+' '+r.name+' '+r.product).toLowerCase().includes(q)));
+  let rows=salesOutRows(date).filter(r=>matchesProdFilter('salesout',r.product) && (!q||(r.sku+' '+r.name+' '+r.product).toLowerCase().includes(q)));
   const totalSold=rows.reduce((a,r)=>a+salesOutTotal(r),0);
   const skuSold=rows.filter(r=>salesOutTotal(r)>0).length;
   const shownRows=onlySold?rows.filter(r=>salesOutTotal(r)>0):rows;
   m.innerHTML=head('ขายออก','บันทึกยอดขายจริงต่อช่องทาง — กดบันทึกแล้วตัด FG Stock ทันที (คนละหน้ากับ ShippingPlan ที่เป็นแค่แผน)')+
-  `<div class="toolbar"><div class="row3"><input id="soDate" type="date" value="${date}" onchange="salesOutPage($('main'))"><select id="soProd" onchange="salesOutPage($('main'))">${productOptions(prod)}</select><input id="soQ" value="${escHTML(q)}" oninput="rerenderKeepFocus(()=>salesOutPage($('main')))" placeholder="ค้นหา SKU / ชื่อ"></div>`+
+  `<div class="toolbar"><div class="row3"><input id="soDate" type="date" value="${date}" onchange="salesOutPage($('main'))"><span></span><input id="soQ" value="${escHTML(q)}" oninput="rerenderKeepFocus(()=>salesOutPage($('main')))" placeholder="ค้นหา SKU / ชื่อ"></div>${productChipsHTML('salesout','salesOutPage')}`+
   `<label style="display:flex;align-items:center;gap:8px;margin-top:10px;cursor:pointer;width:fit-content"><input id="soOnlySold" type="checkbox" ${onlySold?'checked':''} onchange="salesOutPage($('main'))" style="width:20px;height:20px"> แสดงเฉพาะ SKU ที่มียอดขาย</label>`+
   `<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap"><button class="primary" onclick="saveSalesOut()">บันทึกขายออก + ตัด Stock</button><button class="ghost" onclick="loadFromGoogleSheet()">Refresh จาก Google Sheet</button></div></div>`+
   `<div class="kpis"><div class="kpi">ขายรวมวันนี้<b>${totalSold}</b></div><div class="kpi">SKU ที่ขายได้<b>${skuSold}</b></div></div>`+
@@ -725,6 +725,27 @@ function renderDashboardCharts(status,trendDays,trendTopSku,skuDayTotals){
 function lowTable(arr,type){if(!arr.length)return '<p class="hint">ยังไม่มีรายการใกล้หมด</p>'; return `<table><tr><th>SKU</th><th>ชื่อ</th><th>คงคลัง</th><th>Min</th></tr>${arr.map(x=>`<tr><td><b>${x.sku}</b></td><td>${x.name}</td><td><span class="pill ${(+x.stock||0)<=0?'bad':''}">${x.stock||0} ${x.unit||'pcs'}</span></td><td>${x.min??(type=='RM'?10:5)}</td></tr>`).join('')}</table>`}
 function movementTable(arr){if(!arr.length)return '<p class="hint">ยังไม่มี Movement</p>'; return `<table><tr><th>เวลา</th><th>Type</th><th>SKU</th><th>Mode</th><th>Qty</th><th>Ref</th></tr>${arr.map(x=>`<tr><td>${x.time}</td><td>${x.type}</td><td>${x.sku}</td><td>${x.mode}</td><td>${x.qty}</td><td>${x.ref||''}</td></tr>`).join('')}</table>`}
 function productOptions(sel=''){let ps=[...new Set(db.items.map(x=>x.product).filter(Boolean))].sort(); return `<option value="">ทุก Product</option>`+ps.map(p=>`<option ${p==sel?'selected':''}>${p}</option>`).join('')}
+let multiProdFilters={};
+function getProdFilter(pageKey){ return multiProdFilters[pageKey]||[]; }
+function toggleProdFilter(pageKey,product,rerenderFnName){
+  const arr=multiProdFilters[pageKey]=multiProdFilters[pageKey]||[];
+  const i=arr.indexOf(product);
+  if(i>=0) arr.splice(i,1); else arr.push(product);
+  window[rerenderFnName]($('main'));
+}
+function clearProdFilter(pageKey,rerenderFnName){
+  multiProdFilters[pageKey]=[];
+  window[rerenderFnName]($('main'));
+}
+function productChipsHTML(pageKey,rerenderFnName,optionsList){
+  const selected=getProdFilter(pageKey);
+  const products=optionsList||[...new Set(db.items.map(x=>x.product).filter(Boolean))].sort();
+  return `<div style="display:flex;gap:6px;flex-wrap:wrap;margin:12px 0"><button type="button" class="chip ${selected.length===0?'active':''}" onclick="clearProdFilter('${pageKey}','${rerenderFnName}')">ทั้งหมด</button>${products.map(p=>`<button type="button" class="chip ${selected.includes(p)?'active':''}" onclick="toggleProdFilter('${pageKey}','${escHTML(p)}','${rerenderFnName}')">${escHTML(p)}</button>`).join('')}</div>`;
+}
+function matchesProdFilter(pageKey,product){
+  const selected=getProdFilter(pageKey);
+  return selected.length===0 || selected.includes(product);
+}
 
 function itemName(sku){
   let x=(db.items||[]).find(i=>String(i.sku)==String(sku));
@@ -736,7 +757,8 @@ function itemName(sku){
 
 function itemOptions(product='', sel=''){let arr=db.items.filter(x=>!product||x.product==product); return arr.map(x=>`<option value="${x.sku}" ${x.sku==sel?'selected':''}>${x.sku} · ${x.name}</option>`).join('')}
 function rmOptions(sel=''){return db.rm.map(x=>`<option value="${x.sku}" ${x.sku==sel?'selected':''}>${x.sku} · ${x.name}</option>`).join('')}
-function items(m){m.innerHTML=head('สินค้า & สูตร','ดูยอดคงคลังเป็นหลัก / ค้นหา SKU หรือ Product ได้')+`<div class="toolbar row3"><select id="fprod" onchange="filterItemCards()">${productOptions('')}</select><input id="q" oninput="filterItemCards()" placeholder="ค้นหา SKU / ชื่อ / Product"><button class="primary" onclick="addItem()">เพิ่มสินค้า</button></div><div class="grid" id="itemGrid">${db.items.map(cardItem).join('')}</div>`}
+function items(m){m.innerHTML=head('สินค้า & สูตร','ดูยอดคงคลังเป็นหลัก / ค้นหา SKU หรือ Product ได้')+`<div class="toolbar row3"><span></span><input id="q" oninput="rerenderKeepFocus(()=>filterItemCards())" placeholder="ค้นหา SKU / ชื่อ / Product"><button class="primary" onclick="addItem()">เพิ่มสินค้า</button></div>${productChipsHTML('items','filterItemCardsFull')}<div class="grid" id="itemGrid">${db.items.filter(x=>matchesProdFilter('items',x.product)).map(cardItem).join('')}</div>`}
+function filterItemCardsFull(){items($('main'))}
 function filterItemCards(){let q=($('q')?.value||'').toLowerCase(), prod=$('fprod')?.value||''; document.querySelectorAll('#itemGrid .card').forEach(c=>{let ok=(!prod||c.dataset.product==prod) && (c.dataset.search||'').includes(q); c.style.display=ok?'':'none';});}
 function cardItem(x){
   let cost=calcCost(x.sku);
@@ -783,8 +805,12 @@ function cardRM(x){
     <button class="small" onclick="editRM('${x.sku}')" style="width:100%;margin-top:10px">แก้ไข</button>
   </div>`;
 }
-function rm(m){m.innerHTML=head('วัตถุดิบ','ค้นหา/ดูวัตถุดิบแบบ Card เหมือนหน้าสินค้า')+`<div class="toolbar row3"><select id="frgrp" onchange="filterRMCards()">${rmGroupOptions('')}</select><input id="rq" oninput="filterRMCards()" placeholder="ค้นหา RM Code / ชื่อ / กลุ่ม / หน่วย"><button class="primary" onclick="addRM()">เพิ่มวัตถุดิบ</button></div><div class="grid" id="rmGrid">${db.rm.map(cardRM).join('')}</div>`}
-function filterRMCards(){let q=($('rq')?.value||'').toLowerCase(), grp=$('frgrp')?.value||''; document.querySelectorAll('#rmGrid .card').forEach(c=>{let ok=(!grp||c.dataset.group==grp) && (c.dataset.search||'').includes(q); c.style.display=ok?'':'none';});}
+function rm(m){
+  const groups=[...new Set(db.rm.map(x=>x.product||x.variant||'Raw Material'))].filter(Boolean).sort();
+  m.innerHTML=head('วัตถุดิบ','ค้นหา/ดูวัตถุดิบแบบ Card เหมือนหน้าสินค้า')+`<div class="toolbar row3"><span></span><input id="rq" oninput="rerenderKeepFocus(()=>filterRMCards())" placeholder="ค้นหา RM Code / ชื่อ / กลุ่ม / หน่วย"><button class="primary" onclick="addRM()">เพิ่มวัตถุดิบ</button></div>${productChipsHTML('rm','filterRMCardsFull',groups)}<div class="grid" id="rmGrid">${db.rm.filter(x=>matchesProdFilter('rm',x.product||x.variant||'Raw Material')).map(cardRM).join('')}</div>`;
+}
+function filterRMCardsFull(){rm($('main'))}
+function filterRMCards(){let q=($('rq')?.value||'').toLowerCase(); document.querySelectorAll('#rmGrid .card').forEach(c=>{let ok=(c.dataset.search||'').includes(q); c.style.display=ok?'':'none';});}
 function stock(m){
   let type=$('stype')?.value||'FG', prod=$('sprod')?.value||'';
   let mode=$('smode')?.value||'IN';
@@ -1492,13 +1518,12 @@ function productionSummaryPage(m){
   const today=todayISO();
   const start=$('sumStart')?.value||today;
   const end=$('sumEnd')?.value||today;
-  const prodFilter=$('sumProd')?.value||'';
   const sourceFilter=$('sumSource')?.value||'';
   const rows=productionSummaryAllRows().filter(r=>{
     const d=r.date||dateISO(r.timestamp||'');
     if(start && d && d<start) return false;
     if(end && d && d>end) return false;
-    if(prodFilter && r.product!==prodFilter) return false;
+    if(!matchesProdFilter('prodsummary',r.product)) return false;
     if(sourceFilter && r.source!==sourceFilter) return false;
     return true;
   });
@@ -1518,7 +1543,7 @@ function productionSummaryPage(m){
   const totalQR=rows.filter(x=>x.source==='QR / Google Form').reduce((a,x)=>a+x.qty,0);
   const totalManual=rows.filter(x=>x.source==='บันทึกผลผลิต ERP').reduce((a,x)=>a+x.qty,0);
   m.innerHTML=head('สรุปผลผลิต','รวมจาก 1) คำสั่งผลิต ERP 2) QR ที่พนักงานสแกน 3) บันทึกผลผลิตจาก ERP')+
-  `<div class="toolbar"><div class="row3"><input id="sumStart" type="date" value="${start}" onchange="productionSummaryPage($('main'))"><input id="sumEnd" type="date" value="${end}" onchange="productionSummaryPage($('main'))"><select id="sumProd" onchange="productionSummaryPage($('main'))">${productOptions(prodFilter)}</select></div><div class="row3" style="margin-top:12px"><select id="sumSource" onchange="productionSummaryPage($('main'))"><option value="">ทุกแหล่งที่มา</option><option ${sourceFilter==='คำสั่งผลิต ERP'?'selected':''}>คำสั่งผลิต ERP</option><option ${sourceFilter==='QR / Google Form'?'selected':''}>QR / Google Form</option><option ${sourceFilter==='บันทึกผลผลิต ERP'?'selected':''}>บันทึกผลผลิต ERP</option></select><span></span><button class="ghost" onclick="loadFromGoogleSheet()">Refresh จาก Google Sheet</button></div></div>`+
+  `<div class="toolbar"><div class="row3"><input id="sumStart" type="date" value="${start}" onchange="productionSummaryPage($('main'))"><input id="sumEnd" type="date" value="${end}" onchange="productionSummaryPage($('main'))"><select id="sumSource" onchange="productionSummaryPage($('main'))"><option value="">ทุกแหล่งที่มา</option><option ${sourceFilter==='คำสั่งผลิต ERP'?'selected':''}>คำสั่งผลิต ERP</option><option ${sourceFilter==='QR / Google Form'?'selected':''}>QR / Google Form</option><option ${sourceFilter==='บันทึกผลผลิต ERP'?'selected':''}>บันทึกผลผลิต ERP</option></select></div>${productChipsHTML('prodsummary','productionSummaryPage')}<button class="ghost" onclick="loadFromGoogleSheet()">Refresh จาก Google Sheet</button></div>`+
   `<div class="kpis"><div class="kpi">ผลิตรวม<b>${totalQty}</b></div><div class="kpi">จากคำสั่งผลิต ERP<b>${totalPO}</b></div><div class="kpi">จาก QR Scan<b>${useTodayCache(start)&&start===end?dashboardValue('PROD_QR_TODAY',totalQR):totalQR}</b></div><div class="kpi">จากบันทึกผลผลิต ERP<b>${useTodayCache(start)&&start===end?dashboardValue('PROD_MANUAL_TODAY',totalManual):totalManual}</b></div></div>`+
   `<div class="box"><h2>สรุปตาม Product / Variant</h2>${productionSummaryTable(summary,totalQty)}</div>`+
   `<div class="box"><h2>รายละเอียด SKU + แหล่งที่มา</h2>${productionSkuSummaryTable(rows)}</div>`+
