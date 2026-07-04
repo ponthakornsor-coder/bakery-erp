@@ -56,11 +56,13 @@ body.login-locked .app{display:none}
 </style></head><body><div class="login-screen" id="loginScreen"><div class="login-card">
 <div class="logo-big">🍪</div>
 <h2>Bakery ERP</h2>
-<p class="hint">กรอกรหัสผ่านร้านเพื่อเข้าใช้งาน</p>
+<p class="hint">เข้าสู่ระบบด้วยบัญชีของคุณ</p>
+<input id="loginUser" type="text" placeholder="Username" autocomplete="off" onkeydown="if(event.key==='Enter')$('loginPw').focus()">
+<br><br>
 <input id="loginPw" type="password" placeholder="รหัสผ่าน" autocomplete="off" onkeydown="if(event.key==='Enter')doLogin()">
 <button class="primary" onclick="doLogin()">เข้าสู่ระบบ</button>
 <div class="login-error" id="loginError"></div>
-</div></div><div class="app"><aside class="side"><div class="logo">🍪 Bakery ERP <span class="ver-badge">v9.14</span></div><div class="sub">Full web app<br>Security: API key + RM stock fix</div><div class="nav" id="nav"></div><div class="side-footer">📘 คู่มือการใช้งาน</div></aside><div class="main-wrap"><div class="topbar"><button class="icon-btn" onclick="document.querySelector('.side').classList.toggle('side-hidden')">☰</button><div class="topbar-search"><input placeholder="ค้นหา SKU, Order, เมนู... (Ctrl+K)"></div><div class="topbar-right"><span class="topbar-date" id="topbarDate"></span><button class="icon-btn" title="แจ้งเตือน" onclick="go('dashboard')">🔔<span class="badge" id="topbarAlertBadge" style="display:none"></span></button><button class="icon-btn" title="ตั้งค่า" onclick="go('settings')">⚙️</button><div class="user-chip" onclick="go('settings')"><div class="avatar">E</div><div><div class="u-name">ERP User</div><div class="u-role">Admin</div></div></div></div></div><main class="main" id="main"></main></div></div><div class="toast" id="toast"></div><div class="sync-overlay" id="syncOverlay"><div class="sync-overlay-card"><div class="spinner" id="syncOverlaySpinner"></div><div id="syncOverlayMsg" style="font-weight:700"></div><div id="syncOverlayResult" style="display:none"></div><span class="sync-overlay-close" id="syncOverlayClose" onclick="$('syncOverlay').style.display='none'" style="display:none">✕</span></div></div><div class="modal" id="modal"><div id="modalBody"></div></div><script>
+</div></div><div class="app"><aside class="side"><div class="logo">🍪 Bakery ERP <span class="ver-badge">v9.14</span></div><div class="sub">Full web app<br>Security: API key + RM stock fix</div><div class="nav" id="nav"></div><div class="side-footer">📘 คู่มือการใช้งาน</div></aside><div class="main-wrap"><div class="topbar"><button class="icon-btn" onclick="document.querySelector('.side').classList.toggle('side-hidden')">☰</button><div class="topbar-search"><input placeholder="ค้นหา SKU, Order, เมนู... (Ctrl+K)"></div><div class="topbar-right"><span class="topbar-date" id="topbarDate"></span><button class="icon-btn" title="แจ้งเตือน" onclick="go('dashboard')">🔔<span class="badge" id="topbarAlertBadge" style="display:none"></span></button><button class="icon-btn" title="ตั้งค่า" onclick="go('settings')">⚙️</button><div class="user-chip" onclick="go('settings')"><div class="avatar" id="userAvatar">E</div><div><div class="u-name" id="userNameChip">ERP User</div><div class="u-role" id="userRoleChip">Admin</div></div></div></div></div><main class="main" id="main"></main></div></div><div class="toast" id="toast"></div><div class="sync-overlay" id="syncOverlay"><div class="sync-overlay-card"><div class="spinner" id="syncOverlaySpinner"></div><div id="syncOverlayMsg" style="font-weight:700"></div><div id="syncOverlayResult" style="display:none"></div><span class="sync-overlay-close" id="syncOverlayClose" onclick="$('syncOverlay').style.display='none'" style="display:none">✕</span></div></div><div class="modal" id="modal"><div id="modalBody"></div></div><script>
 const $ = (id) => document.getElementById(id);
 // v9.40 fix: หน้าที่มี filter แบบพิมพ์ค้นหา (oninput) เดิมเรียก re-render ทั้งหน้าทุกครั้งที่พิมพ์
 // ทำให้ input ถูกสร้างใหม่ (DOM element ใหม่) เสีย focus ไป ต้องกดกลับเข้าช่องเดิมทุกตัวอักษร
@@ -83,7 +85,7 @@ const ERP_QUERY = new URLSearchParams(window.location.search);
 const VIEWER_ONLY = ERP_QUERY.get('view') === '1' || ERP_QUERY.get('role') === 'viewer';
 const MASTER_SKUS = [{"sku": "DB-250", "name": "Dried Banana (M)", "product": "Dried Banana", "variant": "M", "weight": "250g", "type": "FG", "stock": 0, "price": 0}, {"sku": "DB-90", "name": "Dried Banana (S)", "product": "Dried Banana", "variant": "S", "weight": "90g", "type": "FG", "stock": 0, "price": 0}, {"sku": "CT-MC-180", "name": "Cluster - Mixed Cluster", "product": "Cluster", "variant": "Mixed Cluster", "weight": "180g", "type": "FG", "stock": 0, "price": 0}, {"sku": "CT-ML-180", "name": "Cluster - Matcha Latte", "product": "Cluster", "variant": "Matcha Latte", "weight": "180g", "type": "FG", "stock": 0, "price": 0}, {"sku": "CT-WC-180", "name": "Cluster - White Choc Coffee", "product": "Cluster", "variant": "White Choc Coffee", "weight": "180g", "type": "FG", "stock": 0, "price": 0}, {"sku": "CT-DO-180", "name": "Cluster - Dark Choc Orange", "product": "Cluster", "variant": "Dark Choc Orange", "weight": "180g", "type": "FG", "stock": 0, "price": 0}, {"sku": "CT-MS-180", "name": "Cluster - Mocha Strawberry", "product": "Cluster", "variant": "Mocha Strawberry", "weight": "180g", "type": "FG", "stock": 0, "price": 0}, {"sku": "CT-QS-180", "name": "Cluster - Dark Choc Quinoa Sea Salt", "product": "Cluster", "variant": "Dark Choc Quinoa Sea Salt", "weight": "180g", "type": "FG", "stock": 0, "price": 0}, {"sku": "CT-PZ-180", "name": "Cluster - Dark Choc Pretzel Pink Salt", "product": "Cluster", "variant": "Dark Choc Pretzel Pink Salt", "weight": "180g", "type": "FG", "stock": 0, "price": 0}, {"sku": "CT-HL-180", "name": "Cluster - Hojicha Latte", "product": "Cluster", "variant": "Hojicha Latte", "weight": "180g", "type": "FG", "stock": 0, "price": 0}, {"sku": "CT-BC-180", "name": "Cluster - Almond Biscuit", "product": "Cluster", "variant": "Almond Biscuit", "weight": "180g", "type": "FG", "stock": 0, "price": 0}, {"sku": "CT-KC-180", "name": "Cluster - KETO", "product": "Cluster", "variant": "KETO", "weight": "180g", "type": "FG", "stock": 0, "price": 0}, {"sku": "CT-TT-180", "name": "Cluster - Thai Tea", "product": "Cluster", "variant": "Thai Tea", "weight": "180g", "type": "FG", "stock": 0, "price": 0}, {"sku": "NC-OR-70", "name": "Nacho - Original (S)", "product": "Nacho", "variant": "Original (S)", "weight": "60g", "type": "FG", "stock": 0, "price": 0}, {"sku": "NC-SS-60", "name": "Nacho - Sea Salt (S)", "product": "Nacho", "variant": "Sea Salt (S)", "weight": "60g", "type": "FG", "stock": 0, "price": 0}, {"sku": "NC-BR-70", "name": "Nacho - Berries (S)", "product": "Nacho", "variant": "Berries (S)", "weight": "60g", "type": "FG", "stock": 0, "price": 0}, {"sku": "NC-BC-70", "name": "Nacho - Brownies Crunch (S)", "product": "Nacho", "variant": "Brownies Crunch (S)", "weight": "60g", "type": "FG", "stock": 0, "price": 0}, {"sku": "NC-LZ-60", "name": "Nacho - Larb Zaap (S)", "product": "Nacho", "variant": "Larb Zaap (S)", "weight": "60g", "type": "FG", "stock": 0, "price": 0}, {"sku": "NC-BQ-60", "name": "Nacho - Barbecue (S)", "product": "Nacho", "variant": "Barbecue (S)", "weight": "60g", "type": "FG", "stock": 0, "price": 0}, {"sku": "NC-SC-60", "name": "Nacho - Sweet Corn (S)", "product": "Nacho", "variant": "Sweet Corn (S)", "weight": "60g", "type": "FG", "stock": 0, "price": 0}, {"sku": "NC-SE-60", "name": "Nacho - Salted Egg (S)", "product": "Nacho", "variant": "Salted Egg (S)", "weight": "60g", "type": "FG", "stock": 0, "price": 0}, {"sku": "NC-CF-60", "name": "Nacho - Spicy Chicken Floss (S)", "product": "Nacho", "variant": "Spicy Chicken Floss (S)", "weight": "60g", "type": "FG", "stock": 0, "price": 0}, {"sku": "NC-SO-60", "name": "Nacho - Sour Cream & Onion (S)", "product": "Nacho", "variant": "Sour Cream & Onion (S)", "weight": "60g", "type": "FG", "stock": 0, "price": 0}, {"sku": "NCD-CC-70", "name": "Nacho - Corn Cheese", "product": "Nacho", "variant": "Corn Cheese", "weight": "60g", "type": "FG", "stock": 0, "price": 0}, {"sku": "NCK-OR-60", "name": "Nacho KETO - Original (S)", "product": "Nacho KETO", "variant": "Original (S)", "weight": "60g", "type": "FG", "stock": 0, "price": 0}, {"sku": "NCK-PK-60", "name": "Nacho KETO - Prik Pao (S)", "product": "Nacho KETO", "variant": "Prik Pao (S)", "weight": "60g", "type": "FG", "stock": 0, "price": 0}, {"sku": "NCK-CH-60", "name": "Nacho KETO - Cheesy (S)", "product": "Nacho KETO", "variant": "Cheesy (S)", "weight": "60g", "type": "FG", "stock": 0, "price": 0}, {"sku": "NCK-WZ-60", "name": "Nacho KETO - Wing Zaap (S)", "product": "Nacho KETO", "variant": "Wing Zaap (S)", "weight": "60g", "type": "FG", "stock": 0, "price": 0}, {"sku": "NCK-CN-60", "name": "Nacho KETO - Cacao Nibs (S)", "product": "Nacho KETO", "variant": "Cacao Nibs (S)", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "PS-RT-100", "name": "Protein Stick - Rose Tea", "product": "Protein Stick", "variant": "Rose Tea", "weight": "100g", "type": "FG", "stock": 0, "price": 0}, {"sku": "PS-EG-100", "name": "Protein Stick - Earl Grey Tea", "product": "Protein Stick", "variant": "Earl Grey Tea", "weight": "100g", "type": "FG", "stock": 0, "price": 0}, {"sku": "PS-DC-100", "name": "Protein Stick - Dark Cacao", "product": "Protein Stick", "variant": "Dark Cacao", "weight": "100g", "type": "FG", "stock": 0, "price": 0}, {"sku": "PS-GM-100", "name": "Protein Stick - Genmaicha", "product": "Protein Stick", "variant": "Genmaicha", "weight": "100g", "type": "FG", "stock": 0, "price": 0}, {"sku": "PS-ML-100", "name": "Protein Stick - Milo", "product": "Protein Stick", "variant": "Milo", "weight": "100g", "type": "FG", "stock": 0, "price": 0}, {"sku": "PS-HB-100", "name": "Protein Stick - Hojicha Black Sesame", "product": "Protein Stick", "variant": "Hojicha Black Sesame", "weight": "100g", "type": "FG", "stock": 0, "price": 0}, {"sku": "PS-SS-100", "name": "Protein Stick - Spinach Sea Salt", "product": "Protein Stick", "variant": "Spinach Sea Salt", "weight": "100g", "type": "FG", "stock": 0, "price": 0}, {"sku": "PS-PP-100", "name": "Protein Stick - Pumpkin Popcorn", "product": "Protein Stick", "variant": "Pumpkin Popcorn", "weight": "100g", "type": "FG", "stock": 0, "price": 0}, {"sku": "PS-CZ-100", "name": "Protein Stick - Chick Zaap", "product": "Protein Stick", "variant": "Chick Zaap", "weight": "100g", "type": "FG", "stock": 0, "price": 0}, {"sku": "PS-CC-100", "name": "Protein Stick - Cocomalt", "product": "Protein Stick", "variant": "Cocomalt", "weight": "100g", "type": "FG", "stock": 0, "price": 0}, {"sku": "PS-SC-130", "name": "Protein Stick - Snow Crunch", "product": "Protein Stick", "variant": "Snow Crunch", "weight": "130g", "type": "FG", "stock": 0, "price": 0}, {"sku": "PS-CA-130", "name": "Protein Stick - Cacao Crunch", "product": "Protein Stick", "variant": "Cacao Crunch", "weight": "130g", "type": "FG", "stock": 0, "price": 0}, {"sku": "PS-UJ-130", "name": "Protein Stick - Uji Matcha Crunch", "product": "Protein Stick", "variant": "Uji Matcha Crunch", "weight": "130g", "type": "FG", "stock": 0, "price": 0}, {"sku": "PS-TT-130", "name": "Protein Stick - Thai Tea Crunch", "product": "Protein Stick", "variant": "Thai Tea Crunch", "weight": "130g", "type": "FG", "stock": 0, "price": 0}, {"sku": "PS-CM-130", "name": "Protein Stick - Cookies Muncher", "product": "Protein Stick", "variant": "Cookies Muncher", "weight": "130g", "type": "FG", "stock": 0, "price": 0}, {"sku": "PS-BC-130", "name": "Protein Stick - Bis-Coff", "product": "Protein Stick", "variant": "Bis-Coff", "weight": "130g", "type": "FG", "stock": 0, "price": 0}, {"sku": "PN-MT-1", "name": "Protein-Nola - Matcha", "product": "Protein-Nola", "variant": "Matcha", "weight": "200g", "type": "FG", "stock": 0, "price": 0}, {"sku": "PN-CT-1", "name": "Protein-Nola - Chocolate", "product": "Protein-Nola", "variant": "Chocolate", "weight": "200g", "type": "FG", "stock": 0, "price": 0}, {"sku": "PN-OG-1", "name": "Protein-Nola - Original", "product": "Protein-Nola", "variant": "Original", "weight": "200g", "type": "FG", "stock": 0, "price": 0}, {"sku": "PN-BC-1", "name": "Protein-Nola - Bis-Coff", "product": "Protein-Nola", "variant": "Bis-Coff", "weight": "200g", "type": "FG", "stock": 0, "price": 0}, {"sku": "PN-Set-2", "name": "Protein-Nola - Set (2 bags)", "product": "Protein-Nola", "variant": "Set (2 bags)", "weight": "400g", "type": "FG", "stock": 0, "price": 0}, {"sku": "PB-CS", "name": "Protein Biscuit Chocolate Sea Salt", "product": "Protein Biscuit", "variant": "Chocolate Sea Salt", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "PB-MG", "name": "Protein Biscuit Matcha Gingerbread", "product": "Protein Biscuit", "variant": "Matcha Gingerbread", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "LS-BC", "name": "Loaf - Black Cacao", "product": "Loaf", "variant": "Black Cacao", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "LS-SC", "name": "Loaf - Spicy Chicken Floss Quinoa", "product": "Loaf", "variant": "Spicy Chicken Floss Quinoa", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "LS-PC", "name": "Loaf - Pumpkin Chicken Floss Macadamia", "product": "Loaf", "variant": "Pumpkin Chicken Floss Macadamia", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "LM-MC", "name": "Loaf - Mariah Carrot", "product": "Loaf", "variant": "Mariah Carrot", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "LM-MA", "name": "Loaf - Fresh Milk Almond", "product": "Loaf", "variant": "Fresh Milk Almond", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "LM-SP", "name": "Loaf - Strawberry Pink Milk", "product": "Loaf", "variant": "Strawberry Pink Milk", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "LM-TT", "name": "Loaf - Two-Tone", "product": "Loaf", "variant": "Two-Tone", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "LM-BC", "name": "Loaf - Bla'tcha", "product": "Loaf", "variant": "Bla'tcha", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "LM-RV", "name": "Loaf - Red Velvet Cream Cheese", "product": "Loaf", "variant": "Red Velvet Cream Cheese", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "LM-LL", "name": "Loaf - Love & Loyaltea", "product": "Loaf", "variant": "Love & Loyaltea", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "Christmas #3", "name": "Loaf - Toffee Nut Cracker", "product": "Loaf", "variant": "Toffee Nut Cracker", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "Christmas #4", "name": "Loaf - Chocolate Moose", "product": "Loaf", "variant": "Chocolate Moose", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "LM-MR", "name": "Loaf - Matcha Ryokucha", "product": "Loaf", "variant": "Matcha Ryokucha", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "LM-VF", "name": "Loaf - Vegan Ferraro", "product": "Loaf", "variant": "Vegan Ferraro", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "LM-MW", "name": "Loaf - Milky Whey", "product": "Loaf", "variant": "Milky Whey", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "LM-MM", "name": "Loaf - Mocha Mint", "product": "Loaf", "variant": "Mocha Mint", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "LM-RB", "name": "Loaf - Rasp-Barbie", "product": "Loaf", "variant": "Rasp-Barbie", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "LM-HL", "name": "Loaf - Hazelnut Latte", "product": "Loaf", "variant": "Hazelnut Latte", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "LM-CCC", "name": "Loaf - Chestnut Cream Cheese", "product": "Loaf", "variant": "Chestnut Cream Cheese", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "LM-UM", "name": "Loaf - Ube Matcha Cheese Cake", "product": "Loaf", "variant": "Ube Matcha Cheese Cake", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "LM-PB", "name": "Loaf - Crunchy PB Brownie", "product": "Loaf", "variant": "Crunchy PB Brownie", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "LM-TC", "name": "Loaf - Taro Coconut Cloud", "product": "Loaf", "variant": "Taro Coconut Cloud", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "LP-SC", "name": "Lucky Pop - Sunshine Curd", "product": "Lucky Pop", "variant": "Sunshine Curd", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "CT-ST-1", "name": "Crustic - Strawberry Cranberry Almond", "product": "Crustic", "variant": "Strawberry Cranberry Almond", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "CT-OR-1", "name": "Crustic - Orange Fig Walnut", "product": "Crustic", "variant": "Orange Fig Walnut", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "CT-DC-1", "name": "Crustic - Dark Choc 70% Hazelnut & Macadamia", "product": "Crustic", "variant": "Dark Choc 70% Hazelnut & Macadamia", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "CT-PS-1", "name": "Crustic - Purple Sweet Potato & Taro & Chestnut", "product": "Crustic", "variant": "Purple Sweet Potato & Taro & Chestnut", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "CT-SS-1", "name": "Crustic - Spinach & Spicy Chicken Floss", "product": "Crustic", "variant": "Spinach & Spicy Chicken Floss", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "CT-NC-1", "name": "Crustic - Nut Butter Chicken Floss", "product": "Crustic", "variant": "Nut Butter Chicken Floss", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "CT-CO-1", "name": "Crustic - Coffee Orange", "product": "Crustic", "variant": "Coffee Orange", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "CT-MY-1", "name": "Crustic - Matcha Yuzu Azuki", "product": "Crustic", "variant": "Matcha Yuzu Azuki", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "CT-SC-1", "name": "Crustic - Seriously Chocolate", "product": "Crustic", "variant": "Seriously Chocolate", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "CT-S59-5", "name": "Crustic - Set (59THB - 5 pcs.)", "product": "Crustic", "variant": "Set (59THB - 5 pcs.)", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "JP-CK", "name": "Just Pretz - Chicken Floss", "product": "Just Pretz", "variant": "Chicken Floss", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "JP-OS", "name": "Just Pretz - Old School Sandwich", "product": "Just Pretz", "variant": "Old School Sandwich", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "JP-CF", "name": "Just pretz - Chicken Farm", "product": "Just Pretz", "variant": "Chicken Farm", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "JP-VC", "name": "Just Pretz - Vegan Chocolate Babka 80%", "product": "Just Pretz", "variant": "Vegan Chocolate Babka 80%", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "JP-PC", "name": "Just Pretz - Pizza Chicken Farm", "product": "Just Pretz", "variant": "Pizza Chicken Farm", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "BB-TR", "name": "Boli - Taro & Beniharuka Sweet potato", "product": "Bagel", "variant": "Taro & Beniharuka Sweet potato", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "BB-CB", "name": "Boli - Cream Cheese & Beniharuka Sweet potato", "product": "Bagel", "variant": "Cream Cheese & Beniharuka Sweet potato", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "BB-MC", "name": "Boli - Matcha & Beniharuka Sweet potato", "product": "Bagel", "variant": "Matcha & Beniharuka Sweet potato", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "BM-SP", "name": "Boli - Mi-yong - Spicy Prik Pao", "product": "Mi-yong", "variant": "Spicy Prik Pao", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "BM-DC", "name": "Boli - Mi-yong - Double Cheese", "product": "Mi-yong", "variant": "Double Cheese", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "BM-CH", "name": "Boli - Mi-yong - Chocolaty Cranberry", "product": "Mi-yong", "variant": "Chocolaty Cranberry", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "BM-SE", "name": "Boli - Mi-yong - Spicy Sesame", "product": "Mi-yong", "variant": "Spicy Sesame", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "BM-NC", "name": "Boli - Mi-yong - Nori Chicken Floss", "product": "Mi-yong", "variant": "Nori Chicken Floss", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "BM-SS", "name": "Boli - Mi-yong x Sasa's (น้ำพริกอกไก่กรอบ)", "product": "Mi-yong", "variant": "น้ำพริกอกไก่กรอบ", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "B-BT", "name": "Boli - Buttertoek", "product": "Boli", "variant": "Buttertoek", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "CD-CD", "name": "Corn Dog - Spicy Chicken Floss & Beniharuka", "product": "Corn Dog", "variant": "Spicy Chicken Floss & Beniharuka", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "CD-TC", "name": "Corn Dog - Taro & Coconut", "product": "Corn Dog", "variant": "Taro & Coconut", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "BG-VC", "name": "Bagel - Vegan Cheesey", "product": "Bagel", "variant": "Vegan Cheesey", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "BG-WT", "name": "Bagel - Vegan Taro & Walnut", "product": "Bagel", "variant": "Vegan Taro & Walnut", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "BG-CC", "name": "Bagel - Chocolate Crunchy", "product": "Bagel", "variant": "Chocolate Crunchy", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "BG-PB", "name": "Bagel - Plain Berry", "product": "Bagel", "variant": "Plain Berry", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "BG-SC", "name": "Bagel - Spinach Cheese", "product": "Bagel", "variant": "Spinach Cheese", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "BG-MC", "name": "Bagel - Vegan Matcha Choc Chunk", "product": "Bagel", "variant": "Vegan Matcha Choc Chunk", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "BG-PL", "name": "Bagel - Walnut Sesame (Plain)", "product": "Bagel", "variant": "Walnut Sesame (Plain)", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "BG-PL-4", "name": "Bagel - Plain (Set 4 pcs.)", "product": "Bagel", "variant": "Plain (Set 4 pcs.)", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "BG-CM", "name": "Bagel - Cranberry Mascarpone & Chicky Lean Ham", "product": "Bagel", "variant": "Cranberry Mascarpone & Chicky Lean Ham", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "BG-VS", "name": "Bagel - Spinach Tuna Veggies Sriracha", "product": "Bagel", "variant": "Spinach Tuna Veggies Sriracha", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "BG-EC", "name": "Bagel - Spinach Tuna Ebiko Cheese", "product": "Bagel", "variant": "Spinach Tuna Ebiko Cheese", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "BG-ED", "name": "Bagel - Edamame Cheese", "product": "Bagel", "variant": "Edamame Cheese", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "BG-CS", "name": "Bagel - Caesar Smoked Chicken", "product": "Bagel", "variant": "Caesar Smoked Chicken", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "BG-EC", "name": "Bagel - Edamame Cheese & Smoked Chicken", "product": "Bagel", "variant": "Edamame Cheese & Smoked Chicken", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "PN", "name": "Panini", "product": "Panini", "variant": "Panini", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "SPECIAL", "name": "Macadamia & Strawberry Chocolate Fondue", "product": "Special", "variant": "Macadamia & Strawberry Chocolate Fondue", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "DB-CC", "name": "Dubai Chewy Cookie", "product": "Dubai", "variant": "Chewy Cookie", "weight": "80g", "type": "FG", "stock": 0, "price": 0}, {"sku": "DB-KB", "name": "Dubai Kimbap", "product": "Dubai", "variant": "Kimbap", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "BG-TO", "name": "Bagel - Taro Chicken Floss", "product": "Bagel", "variant": "Taro Chicken Floss", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "JP-PB", "name": "Just Pretz - PB Chicken Farm", "product": "Just Pretz", "variant": "PB Chicken Farm", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "JP-TK", "name": "Just Pretz - Takoyaki", "product": "Just Pretz", "variant": "Takoyaki", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "BM-MG", "name": "Boli - Pain Mi-Gom", "product": "Mi-yong", "variant": "Pain Mi-Gom", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "BM-TR", "name": "Boli - Taro Chicken Floss", "product": "Mi-yong", "variant": "Taro Chicken Floss", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "CT-PB-1", "name": "Crustic - PB Chicken Floss", "product": "Crustic", "variant": "PB Chicken Floss", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "CT-TR-1", "name": "Crustic - Taro", "product": "Crustic", "variant": "Taro", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "BG-CP", "name": "Bagel - Chocolate Plain", "product": "Bagel", "variant": "Chocolate Plain", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "BG-TW", "name": "Bagel - Taro Walnut", "product": "Bagel", "variant": "Taro Walnut", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "PS-CO-130", "name": "Protein Stick - Cacao Orange", "product": "Protein Stick", "variant": "Cacao Orange", "weight": "130g", "type": "FG", "stock": 0, "price": 0}, {"sku": "BG-SW", "name": "Bagel - Spinach Walnut (Pain)", "product": "Bagel", "variant": "Spinach Walnut(Pain)", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "CR-SM", "name": "Cereal - S'More (s)", "product": "Cereal", "variant": "S'More (s)", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "CR-BN", "name": "Cereal - Banoffee (s)", "product": "Cereal", "variant": "Banoffee (s)", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "CR-HK", "name": "Cereal - Hokkaido (s)", "product": "Cereal", "variant": "Hokkaido (s)", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "CR-ML", "name": "Cereal - Marliyn Milo (s)", "product": "Cereal", "variant": "Marliyn Milo (s)", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "CR-NP", "name": "Cereal - Nutpresso(s)", "product": "Cereal", "variant": "Nutpresso(s)", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "CR-TC", "name": "Cereal - Triple Choc (s)", "product": "Cereal", "variant": "Triple Choc (s)", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "CR-MM", "name": "Cereal - Malt & More (s)", "product": "Cereal", "variant": "Malt & More (s)", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "CT-CH-1", "name": "Clustic - Choc", "product": "Crustic", "variant": "Choc", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "BC-CH", "name": "Biscuit - Chocolate", "product": "Biscuit", "variant": "Chocolate", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "SC-DD", "name": "Soft Cookie-Dubai Doubel Dubai", "product": "Soft Cookie", "variant": "Doubel Dubai", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "SC-LK", "name": "Soft Cookie-Lookie Lava", "product": "Soft Cookie", "variant": "Lookkie Lava", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "SC-OG", "name": "Soft cookie-OG Cookkie", "product": "Soft Cookie", "variant": "OG Cookkie", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "CR-PB", "name": "Cereal-Peanut Butter (s)", "product": "Cereal", "variant": "Peanut Butter", "weight": "Finished Goods", "type": "FG", "stock": 0, "price": 0}, {"sku": "CR-CC", "name": "Cereal-Charcoalio", "product": "Cereal", "variant": "Charcoalio", "weight": "Finished Goods", "type": "FG", "stock": 0, "price": 0}, {"sku": "NPD-Cake", "name": "NPD-Cake ฟ้าโบราณ", "product": "Cake", "variant": "เค้กฟ้าโบราณ", "weight": "", "type": "FG", "stock": 0, "price": 0}, {"sku": "PD-PO", "name": "Pretz Dog-Pork", "product": "Pretz Dog", "variant": "Pork", "weight": "", "type": "FG", "stock": 0, "price": 0}];
 const DEFAULT_RM = [{"sku": "RM-BANANA", "name": "กล้วยอบแห้ง", "product": "Raw Material", "variant": "Banana", "unit": "g", "stock": 0, "cost": 0}, {"sku": "RM-ALMOND", "name": "อัลมอนด์", "product": "Raw Material", "variant": "Almond", "unit": "g", "stock": 0, "cost": 0}, {"sku": "RM-CASHEW", "name": "เม็ดมะม่วงหิมพานต์", "product": "Raw Material", "variant": "Cashew", "unit": "g", "stock": 0, "cost": 0}, {"sku": "RM-CHOC", "name": "ช็อกโกแลต", "product": "Raw Material", "variant": "Chocolate", "unit": "g", "stock": 0, "cost": 0}, {"sku": "RM-FLOUR", "name": "แป้ง", "product": "Raw Material", "variant": "Flour", "unit": "g", "stock": 0, "cost": 0}, {"sku": "RM-SUGAR", "name": "น้ำตาล", "product": "Raw Material", "variant": "Sugar", "unit": "g", "stock": 0, "cost": 0}, {"sku": "RM-BUTTER", "name": "เนย", "product": "Raw Material", "variant": "Butter", "unit": "g", "stock": 0, "cost": 0}, {"sku": "PK-JAR", "name": "กระปุก/แพ็คเกจ", "product": "Packaging", "variant": "Jar", "unit": "pcs", "stock": 0, "cost": 0}];
-const pages=[['dashboard','Dashboard','🏠'],['master','Master Data','🗂️'],['items','สินค้า & สูตร','📦'],['rm','วัตถุดิบ','🧺'],['stock','รับเข้า-ออก Stock','↕️'],['cycle','Cycle Count','🔄'],['fglog','Production Log FG','📋'],['prodrecord','บันทึกผลผลิต','📝'],['trx','Transaction Center','🏦'],['prodsummary','สรุปผลผลิต','📊'],['shipcheck','เช็ค Stock พอส่ง','🛒'],['salesout','ขายออก','🧾'],['prod','สั่งผลิต','⚙️'],['orders','Order / ส่งของ','🚚'],['bom','BOM / สูตร','🧮'],['history','ประวัติ','🕘'],['google','Google Form/Sheets','🔗'],['settings','ตั้งค่า','⚙️']];
+const pages=[['dashboard','Dashboard','🏠'],['master','Master Data','🗂️'],['items','สินค้า & สูตร','📦'],['rm','วัตถุดิบ','🧺'],['stock','รับเข้า-ออก Stock','↕️'],['cycle','Cycle Count','🔄'],['fglog','Production Log FG','📋'],['prodrecord','บันทึกผลผลิต','📝'],['trx','Transaction Center','🏦'],['prodsummary','สรุปผลผลิต','📊'],['shipcheck','เช็ค Stock พอส่ง / ขายออก','🛒'],['prod','สั่งผลิต','⚙️'],['orders','Order / ส่งของ','🚚'],['bom','BOM / สูตร','🧮'],['voidapproval','อนุมัติ Void','✅',true],['users','จัดการ User','👥',true],['history','ประวัติ','🕘'],['google','Google Form/Sheets','🔗'],['settings','ตั้งค่า','⚙️']];
 const now=()=>new Date().toLocaleString('th-TH');
 
 /* === hotfix v9.13.1: missing helper functions === */
@@ -103,6 +105,10 @@ if(savedApiUrl.includes('AKfycbws3d-qZR6bFAEAQA')) savedApiUrl = '';
 let apiUrl = savedApiUrl || DEFAULT_API_URL;
 localStorage.setItem('bakery_api_url', apiUrl);
 let apiKey = localStorage.getItem('bakery_api_key') || '';
+let sessionToken = localStorage.getItem('bakery_session_token') || '';
+let userRole = localStorage.getItem('bakery_user_role') || '';
+let userDisplayName = localStorage.getItem('bakery_user_display_name') || '';
+let userUsername = localStorage.getItem('bakery_user_username') || '';
 let apiBusy = false;
 let autoPushTimer = null;
 const AUTO_PUSH_DELAY_MS = 900;
@@ -130,6 +136,7 @@ function apiGetOnce(action='all', params={}){
   const url=new URL(apiUrl);
   url.searchParams.set('action',action); url.searchParams.set('callback',cb);
   if(apiKey) url.searchParams.set('key',apiKey);
+  if(sessionToken) url.searchParams.set('session',sessionToken);
   Object.entries(params||{}).forEach(([k,v])=>url.searchParams.set(k,v));
   return new Promise((resolve,reject)=>{
     const s=document.createElement('script');
@@ -360,116 +367,61 @@ function shipHasAutoPO(date,sku){
   const tag='ShippingPlan '+date;
   return (db.po||[]).some(p=>String(p.sku||p.SKU||'')===String(sku) && String(p.remark||p.Remark||'').includes(tag));
 }
-function shipPlanRows(date){
-  db.shippingPlan=db.shippingPlan||[];
-  const planMap=new Map((db.shippingPlan||[]).filter(x=>!date||x.date===date).map(x=>[shippingKey(x.date,x.sku),x]));
-  const rows=[];
-  (db.items||[]).forEach(it=>{
-    const p=planMap.get(shippingKey(date,it.sku));
-    const total=(+(p?.baimiang||0))+(+(p?.b2b||0))+(+(p?.b2c||0));
-    if(total>0 || date===todayISO()) rows.push({date,sku:it.sku,product:it.product||'',name:it.name||'',baimiang:+(p?.baimiang||0),b2b:+(p?.b2b||0),b2c:+(p?.b2c||0),remark:p?.remark||'',stock:shipStock(it.sku)});
-  });
-  (db.shippingPlan||[]).filter(x=>x.date===date && !(db.items||[]).some(it=>String(it.sku)===String(x.sku))).forEach(x=>rows.push({date,sku:x.sku,product:'',name:itemName(x.sku),baimiang:+x.baimiang||0,b2b:+x.b2b||0,b2c:+x.b2c||0,remark:x.remark||'',stock:shipStock(x.sku)}));
-  return rows;
-}
 function shipCheckPage(m){
-  const date=$('shipDate')?.value||todayISO();
-  const q=($('shipQ')?.value||'').toLowerCase();
-  const onlyShort=$('shipOnlyShort')?$('shipOnlyShort').checked:false;
-  const onlyOrdered=$('shipOnlyOrdered')?$('shipOnlyOrdered').checked:true;
-  // v9.51 fix: เดิม KPI และ "รายการต้องผลิตเพิ่ม" คำนวณจากข้อมูลที่ถูกกรองด้วย Product filter อยู่แล้ว
-  // ทำให้ถ้ากรอกข้อมูล Nacho บันทึกแล้ว เปลี่ยนไปกรอก Nacho KETO ต่อ ตัวสรุปรวม/รายการต้องผลิต
-  // จะเห็นแค่ Nacho KETO เหมือน Nacho หายไป (ทั้งที่ข้อมูลจริงใน Google Sheet ไม่ได้หายเลย แค่ตัวสรุป
-  // มองไม่เห็นเพราะ filter บัง) ตอนนี้แยกชัดเจน: allRows = ทุก Product (ใช้กับ KPI/รายการต้องผลิตเพิ่ม)
-  // ส่วน rows = เฉพาะที่กรองไว้ (ใช้กับตารางกรอกข้อมูลเท่านั้น)
-  const allRows=shipPlanRows(date);
+  const date=$('soDate')?.value||todayISO();
+  const q=($('soQ')?.value||'').toLowerCase();
+  const onlyShort=$('soOnlyShort')?$('soOnlyShort').checked:false;
+  const onlyOrdered=$('soOnlyOrdered')?$('soOnlyOrdered').checked:true;
+  const allRows=salesOutRows(date);
   let rows=allRows.filter(r=>matchesProdFilter('shipcheck',r.product) && (!q||(r.sku+' '+r.name+' '+r.product).toLowerCase().includes(q)));
-  const need=allRows.reduce((a,r)=>a+r.baimiang+r.b2b+r.b2c,0);
-  const shortage=allRows.reduce((a,r)=>a+Math.max(0,(r.baimiang+r.b2b+r.b2c)-r.stock),0);
-  const ok=allRows.filter(r=>r.stock>=(r.baimiang+r.b2b+r.b2c)).length;
+  const need=allRows.reduce((a,r)=>a+salesOutTotal(r),0);
+  const shortage=allRows.reduce((a,r)=>a+Math.max(0,salesOutTotal(r)-r.stock),0);
+  const ok=allRows.filter(r=>r.stock>=salesOutTotal(r)).length;
   let shownRows=rows;
-  if(onlyOrdered) shownRows=shownRows.filter(r=>(r.baimiang+r.b2b+r.b2c)>0);
-  if(onlyShort) shownRows=shownRows.filter(r=>r.stock<(r.baimiang+r.b2b+r.b2c));
-  m.innerHTML=head('เช็ค Stock พอส่ง','ข้อมูลหน้านี้บันทึกลง Google Sheet ชีต ShippingPlan — Refresh แล้วไม่หาย')+
-  `<div class="toolbar"><div class="row3"><input id="shipDate" type="date" value="${date}" onchange="shipCheckPage($('main'))"><span></span><input id="shipQ" value="${escHTML(q)}" oninput="rerenderKeepFocus(()=>shipCheckPage($('main')))" placeholder="ค้นหา SKU / ชื่อ"></div>${productChipsHTML('shipcheck','shipCheckPage')}<p class="mini">Filter/ค้นหาด้านบนมีผลกับ "ตารางกรอกข้อมูล" ด้านล่างเท่านั้น — KPI และ "รายการต้องผลิตเพิ่ม" นับรวมทุก Product เสมอ</p>`+
-  `<div style="display:flex;gap:20px;flex-wrap:wrap;margin-top:10px"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input id="shipOnlyOrdered" type="checkbox" ${onlyOrdered?'checked':''} onchange="shipCheckPage($('main'))" style="width:20px;height:20px"> แสดงเฉพาะ SKU ที่มีคำสั่งซื้อ</label><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input id="shipOnlyShort" type="checkbox" ${onlyShort?'checked':''} onchange="shipCheckPage($('main'))" style="width:20px;height:20px"> แสดงเฉพาะ SKU ที่ของไม่ครบ</label></div>`+
-  `<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap"><button class="primary" onclick="saveShippingPlan()">บันทึก ShippingPlan เข้า Google Sheet</button><button class="ghost" onclick="loadFromGoogleSheet()">Refresh จาก Google Sheet</button><button class="ghost" onclick="openShipPaste()">Paste จาก Excel</button><button class="primary" onclick="createPOFromShippingShortage()">สร้างคำสั่งผลิตจากรายการที่ขาด</button><button class="ghost" onclick="exportShipCheckCSV()">Export CSV</button></div></div>`+
-  `<div class="kpis"><div class="kpi">Order ต้องส่งรวม<b>${need}</b></div><div class="kpi">SKU OK<b>${ok}</b></div><div class="kpi">SKU ต้องผลิต<b>${allRows.length-ok}</b></div><div class="kpi">ต้องผลิตเพิ่มรวม<b>${shortage}</b></div></div>`+
-  `<div class="box"><h2>ตารางเช็ค Stock (${shownRows.length} จาก ${rows.length} SKU)</h2>${shipCheckTable(shownRows,date)}</div>`+
+  if(onlyOrdered) shownRows=shownRows.filter(r=>salesOutTotal(r)>0);
+  if(onlyShort) shownRows=shownRows.filter(r=>r.stock<salesOutTotal(r));
+  m.innerHTML=head('เช็ค Stock พอส่ง / ขายออก','กรอกยอดขายจริงต่อช่องทาง กดบันทึกแล้วตัด FG Stock ทันที (รวมเป็นหน้าเดียวกับขายออกแล้ว ไม่ต้องกรอกซ้ำ)')+
+  `<div class="toolbar"><div class="row3"><input id="soDate" type="date" value="${date}" onchange="shipCheckPage($('main'))"><span></span><input id="soQ" value="${escHTML(q)}" oninput="rerenderKeepFocus(()=>shipCheckPage($('main')))" placeholder="ค้นหา SKU / ชื่อ"></div>${productChipsHTML('shipcheck','shipCheckPage')}<p class="mini">Filter/ค้นหาด้านบนมีผลกับตารางกรอกข้อมูลเท่านั้น — KPI และ "รายการต้องผลิตเพิ่ม" นับรวมทุก Product เสมอ</p>`+
+  `<div style="display:flex;gap:20px;flex-wrap:wrap;margin-top:10px"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input id="soOnlyOrdered" type="checkbox" ${onlyOrdered?'checked':''} onchange="shipCheckPage($('main'))" style="width:20px;height:20px"> แสดงเฉพาะ SKU ที่มียอดขาย</label><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input id="soOnlyShort" type="checkbox" ${onlyShort?'checked':''} onchange="shipCheckPage($('main'))" style="width:20px;height:20px"> แสดงเฉพาะ SKU ที่ของไม่ครบ</label></div>`+
+  `<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap"><button class="primary" onclick="saveSalesOut()">บันทึกขายออก + ตัด Stock ทันที</button><button class="ghost" onclick="loadFromGoogleSheet()">Refresh จาก Google Sheet</button><button class="ghost" onclick="openShipPaste()">Paste จาก Excel</button><button class="primary" onclick="createPOFromShippingShortage()">สร้างคำสั่งผลิตจากรายการที่ขาด</button><button class="ghost" onclick="exportShipCheckCSV()">Export CSV</button></div></div>`+
+  `<div class="kpis"><div class="kpi">ยอดขายรวม<b>${need}</b></div><div class="kpi">SKU OK<b>${ok}</b></div><div class="kpi">SKU ต้องผลิต<b>${allRows.length-ok}</b></div><div class="kpi">ต้องผลิตเพิ่มรวม<b>${shortage}</b></div></div>`+
+  `<div class="box"><h2>ตารางขายออก (${shownRows.length} จาก ${rows.length} SKU)</h2>${shipCheckTable(shownRows,date)}</div>`+
   `<div class="box"><h2>รายการต้องผลิตเพิ่ม (รวมทุก Product)</h2>${shipShortTable(allRows)}</div>`;
   applyViewerUI?.();
 }
 function shipCheckTable(rows,date){
   if(!rows.length) return '<p class="hint">ไม่มีรายการตรงกับตัวกรอง</p>';
-  return `<table><tr><th>Date</th><th>SKU</th><th>Product</th><th>Product Name</th><th>BaiMiang</th><th>B2B</th><th>B2C</th><th>Total</th><th>Stock</th><th>Diff</th><th>Status</th><th>Remark</th></tr>${rows.map(r=>{
-    const total=r.baimiang+r.b2b+r.b2c;
+  const chHeaders=SALES_CHANNELS.map(([,label])=>`<th>${label}</th>`).join('');
+  return `<table><tr><th>SKU</th><th>ชื่อ</th>${chHeaders}<th>รวม</th><th>Stock</th><th>Diff</th><th>Status</th><th>หมายเหตุ</th></tr>${rows.map(r=>{
+    const total=salesOutTotal(r);
     const diff=r.stock-total;
     const wasShort=shipHasAutoPO(r.date||date,r.sku);
     const statusMain=diff<0?'<span class="pill bad">Production</span>':'<span class="pill good">OK</span>';
     const statusExtra=(diff>=0 && wasShort)?' <span class="pill" style="background:#fff3cd;color:#7a5b00">เคยขาด • สั่งผลิตแล้ว</span>':'';
-    return `<tr><td>${r.date}</td><td><b>${r.sku}</b></td><td>${escHTML(r.product)}</td><td>${escHTML(r.name)}</td><td><input id="ship_baimiang_${r.sku}" type="number" value="${r.baimiang||0}" min="0" style="max-width:90px" oninput="updateShipTotal('${r.sku}',${r.stock})" onkeydown="gridKeyNav(event,this)"></td><td><input id="ship_b2b_${r.sku}" type="number" value="${r.b2b||0}" min="0" style="max-width:90px" oninput="updateShipTotal('${r.sku}',${r.stock})" onkeydown="gridKeyNav(event,this)"></td><td><input id="ship_b2c_${r.sku}" type="number" value="${r.b2c||0}" min="0" style="max-width:90px" oninput="updateShipTotal('${r.sku}',${r.stock})" onkeydown="gridKeyNav(event,this)"></td><td><b id="ship_total_${r.sku}">${total}</b></td><td><b>${r.stock}</b></td><td><span id="ship_diff_${r.sku}" class="pill ${diff<0?'bad':'good'}">${diff}</span></td><td><span id="ship_status_${r.sku}">${statusMain}</span>${statusExtra}</td><td><input id="ship_remark_${r.sku}" value="${escHTML(r.remark||'')}" placeholder="หมายเหตุ" onkeydown="gridKeyNav(event,this)"></td></tr>`;
+    const inputs=SALES_CHANNELS.map(([k])=>`<td><input id="so_${k}_${r.sku}" type="number" value="${r[k]||0}" min="0" style="max-width:80px" oninput="updateSalesOutTotal('${r.sku}');updateShipStatus('${r.sku}',${r.stock})" onkeydown="gridKeyNav(event,this)"></td>`).join('');
+    return `<tr><td><b>${r.sku}</b></td><td>${escHTML(r.name)}</td>${inputs}<td><b id="so_total_${r.sku}">${total}</b></td><td><b>${r.stock}</b></td><td><span id="ship_diff_${r.sku}" class="pill ${diff<0?'bad':'good'}">${diff}</span></td><td><span id="ship_status_${r.sku}">${statusMain}</span>${statusExtra}</td><td><input id="so_remark_${r.sku}" value="${escHTML(r.remark||'')}" placeholder="หมายเหตุ" style="min-width:120px" onkeydown="gridKeyNav(event,this)"></td></tr>`;
   }).join('')}</table>`;
 }
-function updateShipTotal(sku,stock){
-  let total=0;
-  ['baimiang','b2b','b2c'].forEach(k=>{ total+=+($('ship_'+k+'_'+sku)?.value||0); });
-  const totalEl=$('ship_total_'+sku); if(totalEl) totalEl.textContent=total;
+function updateShipStatus(sku,stock){
+  const total=SALES_CHANNELS.reduce((a,[k])=>a+(+($('so_'+k+'_'+sku)?.value||0)),0);
   const diff=stock-total;
   const diffEl=$('ship_diff_'+sku); if(diffEl){ diffEl.textContent=diff; diffEl.className='pill '+(diff<0?'bad':'good'); }
   const statusEl=$('ship_status_'+sku); if(statusEl){ statusEl.innerHTML=diff<0?'<span class="pill bad">Production</span>':'<span class="pill good">OK</span>'; }
 }
 function shipShortTable(rows){
-  const arr=rows.map(r=>({...r,total:r.baimiang+r.b2b+r.b2c,diff:r.stock-(r.baimiang+r.b2b+r.b2c)})).filter(r=>r.diff<0).sort((a,b)=>a.diff-b.diff);
+  const arr=rows.map(r=>({...r,total:salesOutTotal(r),diff:r.stock-salesOutTotal(r)})).filter(r=>r.diff<0).sort((a,b)=>a.diff-b.diff);
   if(!arr.length) return '<p class="hint">Stock พอส่งทั้งหมด</p>';
   return `<table><tr><th>SKU</th><th>ชื่อ</th><th>ต้องส่ง</th><th>Stock</th><th>ต้องผลิตเพิ่ม</th></tr>${arr.map(r=>`<tr><td><b>${r.sku}</b></td><td>${escHTML(r.name)}</td><td>${r.total}</td><td>${r.stock}</td><td><b class="danger">${Math.abs(r.diff)}</b></td></tr>`).join('')}</table><br><button class="primary" onclick="createPOFromShippingShortage()">สร้างคำสั่งผลิตจากรายการที่ขาดทั้งหมด</button>`;
 }
-function collectShippingRows(){
-  const date=$('shipDate')?.value||todayISO();
-  const rows=[];
-  document.querySelectorAll('[id^="ship_baimiang_"]').forEach(el=>{
-    const sku=el.id.replace('ship_baimiang_','');
-    const baimiang=+el.value||0, b2b=+($('ship_b2b_'+sku)?.value||0), b2c=+($('ship_b2c_'+sku)?.value||0), remark=$('ship_remark_'+sku)?.value||'';
-    if(baimiang||b2b||b2c||remark) rows.push({date,sku,baimiang,b2b,b2c,remark});
-  });
-  return rows;
-}
-async function saveShippingPlan(){
-  const rows=collectShippingRows();
-  const date=$('shipDate')?.value||todayISO();
-  toast('กำลังบันทึก ShippingPlan เข้า Google Sheet...');
-  try{
-    // v9.46 fix: แบ่งส่งเป็นชุดละ 15 SKU กัน URL ยาวเกินตอนมีหลาย SKU พร้อมกัน (Backend อัปเดตเป็น
-    // upsert ทีละแถวแล้ว ปลอดภัยเวลาส่งหลายชุดต่อกัน ไม่ทับ SKU ของชุดก่อนหน้า)
-    if(rows.length) await apiPostBatched('shippingplanbatch',rows,15,chunk=>({data:{date,rows:chunk}}));
-    // v9.52 fix: เดิมลบทุกแถวของ "วันนี้" ใน cache เครื่องทิ้งก่อนแล้วใส่กลับแค่ที่เพิ่งบันทึกรอบนี้
-    // (db.shippingPlan.filter(x=>x.date!==date) แล้ว push เฉพาะ rows) ทำให้ถ้ากรอง Product ไว้ตอนบันทึก
-    // (เห็นแค่บาง SKU บนจอ) ข้อมูล SKU ของ Product อื่นที่เคยบันทึกไปแล้วในวันเดียวกันหายไปจาก cache
-    // เครื่องทันที (แม้ Google Sheet จริงไม่หาย เพราะ Backend upsert ทีละแถวอยู่แล้ว) ตอนนี้เปลี่ยนเป็น
-    // upsert ทีละ SKU เข้า cache เครื่องแทน ไม่แตะ SKU อื่นที่ไม่ได้อยู่ใน rows ที่เพิ่งบันทึก
-    db.shippingPlan=db.shippingPlan||[];
-    rows.forEach(r=>{
-      const i=db.shippingPlan.findIndex(x=>x.date===date && String(x.sku)===String(r.sku));
-      const updated={...r,updatedAt:now()};
-      if(i>=0) db.shippingPlan[i]=updated; else db.shippingPlan.push(updated);
-    });
-    saveLocalOnly();
-    page='shipcheck'; render();
-    sheetDone('บันทึก ShippingPlan เข้า Google Sheet แล้ว / หน้านี้ไม่หายหลังบันทึก');
-  }catch(e){console.error(e); alert('ShippingPlan ไม่เข้า Google Sheet: '+(e.message||e));}
-}
 function currentShippingShortageRows(){
-  const date=$('shipDate')?.value||todayISO();
-  // v9.51 fix: เดิมอ่านค่าจาก input ที่กำลังโชว์อยู่บนจอเท่านั้น (collectShippingRows) ถ้ามี Product filter
-  // กรองไว้ จะเห็นแค่ SKU ที่กรองอยู่ ทำให้ "สร้างคำสั่งผลิตจากรายการที่ขาด" พลาด SKU ของ Product อื่น
-  // ที่บันทึกไปแล้วก่อนหน้า ตอนนี้ใช้ข้อมูลที่บันทึกจริงในชีต (shipPlanRows) ครบทุก Product เสมอ
-  // ข้อควรรู้: ต้องกด "บันทึก ShippingPlan เข้า Google Sheet" ก่อน ถึงจะรวมยอดที่เพิ่งกรอกในรอบนี้ด้วย
-  return shipPlanRows(date).map(r=>{
-    const total=r.baimiang+r.b2b+r.b2c;
+  const date=$('soDate')?.value||todayISO();
+  return salesOutRows(date).map(r=>{
+    const total=salesOutTotal(r);
     return {date,sku:r.sku,name:r.name,product:r.product,total,stock:r.stock,need:Math.max(0,total-r.stock)};
   }).filter(r=>r.need>0);
 }
 async function createPOFromShippingShortage(){
-  const date=$('shipDate')?.value||todayISO();
+  const date=$('soDate')?.value||todayISO();
   const shortage=currentShippingShortageRows();
   if(!shortage.length) return toast('ไม่มีรายการที่ต้องผลิตเพิ่ม');
   const msg='สร้างคำสั่งผลิต '+shortage.length+' SKU จากรายการ Stock ไม่พอ?\n\n'+shortage.slice(0,12).map(x=>x.sku+' ต้องผลิต '+x.need).join('\n')+(shortage.length>12?'\n...':'');
@@ -483,33 +435,39 @@ async function createPOFromShippingShortage(){
     saveLocalOnly();
     page='prod'; render();
     const skipped=res?.skipped||[];
-    // v9.39 fix: เดิมไม่บอกเลยว่ามี SKU ไหนถูกข้ามไปเพราะมี PO เปิดอยู่แล้ว (กันสร้างซ้ำ) ทำให้ดูเหมือน
-    // "บางตัวไม่ขึ้น" ทั้งที่จริงๆ ระบบข้ามให้โดยตั้งใจ ตอนนี้บอกให้ชัดว่าข้ามอะไรไปบ้างและทำไม
-    const skipMsg=skipped.length?(' | ข้าม '+skipped.length+' SKU เพราะมี PO เปิดอยู่แล้วจาก ShippingPlan วันนี้: '+skipped.slice(0,10).join(', ')+(skipped.length>10?'...':'')):'';
+    const skipMsg=skipped.length?(' | ข้าม '+skipped.length+' SKU เพราะมี PO เปิดอยู่แล้ว: '+skipped.slice(0,10).join(', ')+(skipped.length>10?'...':'')):'';
     sheetDone('สร้างคำสั่งผลิตจากรายการที่ขาดแล้ว '+poRows.length+' รายการ (สถานะ Open รอตรวจสอบที่หน้าสั่งผลิต)'+skipMsg);
   }catch(e){console.error(e); alert('สร้างคำสั่งผลิตไม่สำเร็จ: '+(e.message||e));}
 }
 function openShipPaste(){
-  modal(`<h2>Paste ShippingPlan จาก Excel</h2><p class="hint">รองรับ Header: Date, SKU_ID/SKU, Order Qty BaiMiang, Order Qty B2B, Order Qty B2C, Remark</p><textarea id="shipPaste" rows="12" placeholder="Date\tSKU_ID\tOrder Qty BaiMiang\tOrder Qty B2B\tOrder Qty B2C\n2026-07-03\tNC-OR-70\t2\t0\t0"></textarea><br><br><button class="primary" onclick="importShipPaste()">Import เข้า ERP แล้วบันทึก Sheet</button> <button class="ghost" onclick="$('modal').style.display='none'">ปิด</button>`);
+  const chHint=SALES_CHANNELS.map(([,l])=>l).join(', ');
+  modal(`<h2>Paste ยอดขายจาก Excel</h2><p class="hint">รองรับ Header: Date, SKU, ${chHint}, Remark</p><textarea id="shipPaste" rows="12" placeholder="Date\tSKU\tBaiMiang\tB2B\tTikTok\tShopee\tLazada\tLine\tGrab\n2026-07-04\tNC-OR-70\t2\t0\t0\t0\t0\t0\t0"></textarea><br><br><button class="primary" onclick="importShipPaste()">Import เข้า ERP (ตรวจสอบก่อนบันทึกจริง)</button> <button class="ghost" onclick="$('modal').style.display='none'">ปิด</button>`);
 }
 function importShipPaste(){
   const rows=parseTableText($('shipPaste').value);
   if(!rows.length) return toast('วางข้อมูลก่อน');
   const get=(o,keys)=>{for(const k of keys){const kk=Object.keys(o).find(x=>x.toLowerCase().replace(/\s+/g,'').includes(k)); if(kk) return o[kk];} return '';};
-  const out=rows.map(o=>({date:dateISO(get(o,['date','วันที่']))||$('shipDate')?.value||todayISO(),sku:String(get(o,['sku_id','sku','skuid'])).trim(),baimiang:+get(o,['baimiang'])||0,b2b:+get(o,['b2b'])||0,b2c:+get(o,['b2c'])||0,remark:get(o,['remark','note','หมายเหตุ'])||''})).filter(x=>x.sku);
+  const out=rows.map(o=>{
+    const row={date:dateISO(get(o,['date','วันที่']))||$('soDate')?.value||todayISO(),sku:String(get(o,['sku_id','sku','skuid'])).trim(),remark:get(o,['remark','note','หมายเหตุ'])||''};
+    SALES_CHANNELS.forEach(([k])=>row[k]=+get(o,[k])||0);
+    return row;
+  }).filter(x=>x.sku);
   if(!out.length) return toast('ไม่พบ SKU ในข้อมูลที่วาง');
-  db.shippingPlan=db.shippingPlan||[];
-  out.forEach(r=>{db.shippingPlan=db.shippingPlan.filter(x=>!(x.date===r.date&&String(x.sku)===String(r.sku))); db.shippingPlan.push(r);});
-  // v9.30 fix: เดิมกด Paste แล้วส่งเข้า Google Sheet ทันที ไม่มีโอกาสตรวจสอบตัวเลขก่อน
-  // ตอนนี้แค่โชว์ในตาราง ERP ให้ตรวจสอบ/แก้ไขก่อน ต้องกด "บันทึก ShippingPlan เข้า Google Sheet" เองอีกที
+  db.salesOut=db.salesOut||[];
+  out.forEach(r=>{ const i=db.salesOut.findIndex(x=>x.date===r.date&&String(x.sku)===String(r.sku)); if(i>=0) db.salesOut[i]=r; else db.salesOut.push(r); });
   saveLocalOnly(); $('modal').style.display='none'; page='shipcheck'; render();
-  toast('นำเข้า '+out.length+' รายการแล้ว — ตรวจสอบตัวเลขในตารางก่อน แล้วกด "บันทึก ShippingPlan เข้า Google Sheet" เพื่อบันทึกจริง');
+  toast('นำเข้า '+out.length+' รายการแล้ว — ตรวจสอบตัวเลขในตารางก่อน แล้วกด "บันทึกขายออก" เพื่อบันทึกจริงและตัด Stock');
 }
 function exportShipCheckCSV(){
-  const date=$('shipDate')?.value||todayISO();
-  const rows=shipPlanRows(date);
-  const header=['Date','SKU','Product','Product Name','BaiMiang','B2B','B2C','Total','Stock','Diff','Status','Remark'];
-  const body=rows.map(r=>{const total=r.baimiang+r.b2b+r.b2c; const diff=r.stock-total; return [r.date,r.sku,r.product,r.name,r.baimiang,r.b2b,r.b2c,total,r.stock,diff,diff>=0?'OK':'Production',r.remark].map(csvEscape).join(',')}).join('\n');
+  const date=$('soDate')?.value||todayISO();
+  const rows=salesOutRows(date);
+  const chHeaders=SALES_CHANNELS.map(([,l])=>l);
+  const header=['Date','SKU','Product','Product Name',...chHeaders,'Total','Stock','Diff','Status','Remark'];
+  const body=rows.map(r=>{
+    const total=salesOutTotal(r); const diff=r.stock-total;
+    const chVals=SALES_CHANNELS.map(([k])=>r[k]||0);
+    return [r.date,r.sku,r.product,r.name,...chVals,total,r.stock,diff,diff>=0?'OK':'Production',r.remark].map(csvEscape).join(',');
+  }).join('\n');
   downloadText('shipping_check_'+date+'.csv','\ufeff'+header.join(',')+'\n'+body);
 }
 
@@ -529,32 +487,6 @@ function salesOutRows(date){
   return rows;
 }
 function salesOutTotal(row){return SALES_CHANNELS.reduce((a,[k])=>a+(+row[k]||0),0);}
-function salesOutPage(m){
-  const date=$('soDate')?.value||todayISO();
-  const q=($('soQ')?.value||'').toLowerCase();
-  const onlySold=$('soOnlySold')?$('soOnlySold').checked:true;
-  const allRows=salesOutRows(date);
-  let rows=allRows.filter(r=>matchesProdFilter('salesout',r.product) && (!q||(r.sku+' '+r.name+' '+r.product).toLowerCase().includes(q)));
-  const totalSold=allRows.reduce((a,r)=>a+salesOutTotal(r),0);
-  const skuSold=allRows.filter(r=>salesOutTotal(r)>0).length;
-  const shownRows=onlySold?rows.filter(r=>salesOutTotal(r)>0):rows;
-  m.innerHTML=head('ขายออก','บันทึกยอดขายจริงต่อช่องทาง — กดบันทึกแล้วตัด FG Stock ทันที (คนละหน้ากับ ShippingPlan ที่เป็นแค่แผน)')+
-  `<div class="toolbar"><div class="row3"><input id="soDate" type="date" value="${date}" onchange="salesOutPage($('main'))"><span></span><input id="soQ" value="${escHTML(q)}" oninput="rerenderKeepFocus(()=>salesOutPage($('main')))" placeholder="ค้นหา SKU / ชื่อ"></div>${productChipsHTML('salesout','salesOutPage')}<p class="mini">Filter/ค้นหาด้านบนมีผลกับตารางด้านล่างเท่านั้น — ตัวเลขสรุปนับรวมทุก Product เสมอ</p>`+
-  `<label style="display:flex;align-items:center;gap:8px;margin-top:10px;cursor:pointer;width:fit-content"><input id="soOnlySold" type="checkbox" ${onlySold?'checked':''} onchange="salesOutPage($('main'))" style="width:20px;height:20px"> แสดงเฉพาะ SKU ที่มียอดขาย</label>`+
-  `<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap"><button class="primary" onclick="saveSalesOut()">บันทึกขายออก + ตัด Stock</button><button class="ghost" onclick="loadFromGoogleSheet()">Refresh จาก Google Sheet</button></div></div>`+
-  `<div class="kpis"><div class="kpi">ขายรวมวันนี้<b>${totalSold}</b></div><div class="kpi">SKU ที่ขายได้<b>${skuSold}</b></div></div>`+
-  `<div class="box"><h2>ตารางขายออก (${shownRows.length} จาก ${rows.length} SKU)</h2>${salesOutTable(shownRows)}</div>`;
-  applyViewerUI?.();
-}
-function salesOutTable(rows){
-  if(!rows.length) return '<p class="hint">ไม่มีรายการตรงกับตัวกรอง</p>';
-  const chHeaders=SALES_CHANNELS.map(([,label])=>`<th>${label}</th>`).join('');
-  return `<table><tr><th>SKU</th><th>ชื่อ</th>${chHeaders}<th>รวม</th><th>Stock ปัจจุบัน</th><th>หมายเหตุ</th></tr>${rows.map(r=>{
-    const total=salesOutTotal(r);
-    const inputs=SALES_CHANNELS.map(([k])=>`<td><input id="so_${k}_${r.sku}" type="number" value="${r[k]||0}" min="0" style="max-width:80px" oninput="updateSalesOutTotal('${r.sku}')" onkeydown="gridKeyNav(event,this)"></td>`).join('');
-    return `<tr><td><b>${r.sku}</b></td><td>${escHTML(r.name)}</td>${inputs}<td><b id="so_total_${r.sku}">${total}</b></td><td>${r.stock}</td><td><input id="so_remark_${r.sku}" value="${escHTML(r.remark||'')}" placeholder="หมายเหตุ" style="min-width:120px" onkeydown="gridKeyNav(event,this)"></td></tr>`;
-  }).join('')}</table>`;
-}
 function gridKeyNav(e,el){
   // ทุกหน้าที่มีตารางกรอกตัวเลขหลายแถว: กด Enter = ไปแถวถัดไปคอลัมน์เดิม, Shift+Enter = แถวก่อนหน้า
   // Tab ไปคอลัมน์ถัดไปใช้พฤติกรรมเบราว์เซอร์ปกติอยู่แล้ว (เรียงตามลำดับ input ในตาราง)
@@ -606,7 +538,7 @@ async function saveSalesOut(){
     rows.forEach(r=>{ db.salesOut=db.salesOut.filter(x=>!(x.date===r.date&&String(x.sku)===String(r.sku))); db.salesOut.push({...r,updatedAt:now()}); });
     saveLocalOnly();
     await loadFromGoogleSheet();
-    page='salesout'; render();
+    page='shipcheck'; render();
     sheetDone('บันทึกขายออกแล้ว ตัด Stock '+totalDeducted+' รายการ');
   }catch(e){console.error(e); alert('บันทึกขายออกไม่สำเร็จ: '+(e.message||e));}
 }
@@ -634,7 +566,7 @@ function sheetDone(t){
   toast(t);
   setTimeout(()=>alert(t),80);
 }
-function nav(){ $('nav').innerHTML=pages.map(p=>`<button class="${page==p[0]?'active':''}" onclick="go('${p[0]}')"><span class="nav-ic">${p[2]||'•'}</span>${p[1]}</button>`).join(''); updateTopbar(); } function go(p){page=p;render()}
+function nav(){ $('nav').innerHTML=pages.filter(p=>!p[3]||isAdmin()).map(p=>`<button class="${page==p[0]?'active':''}" onclick="go('${p[0]}')"><span class="nav-ic">${p[2]||'•'}</span>${p[1]}</button>`).join(''); updateTopbar(); } function go(p){page=p;render()}
 function updateTopbar(){
   const dEl=$('topbarDate'); if(dEl) dEl.textContent=new Date().toLocaleDateString('th-TH',{day:'numeric',month:'long',year:'numeric'})+' · อัปเดตล่าสุด '+new Date().toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'});
   const badge=$('topbarAlertBadge');
@@ -645,7 +577,7 @@ function updateTopbar(){
     if(n>0){ badge.textContent=n>99?'99+':n; badge.style.display='flex'; } else badge.style.display='none';
   }
 }
-function render(){try{nav(); const m=$('main'); if(page=='dashboard') return dash(m); if(page=='master') return masterData(m); if(page=='items') return items(m); if(page=='rm') return rm(m); if(page=='stock') return stock(m); if(page=='cycle') return cycleCount(m); if(page=='fglog') return fgLogPage(m); if(page=='prodrecord') return productionRecordPage(m); if(page=='trx') return transactionCenterPage(m); if(page=='prodsummary') return productionSummaryPage(m); if(page=='shipcheck') return shipCheckPage(m); if(page=='salesout') return salesOutPage(m); if(page=='prod') return prod(m); if(page=='orders') return ordersPage(m); if(page=='bom') return bom(m); if(page=='history') return hist(m); if(page=='google') return googlePage(m); if(page=='settings') return settings(m); return dash(m);}catch(e){console.error(e); $('main').innerHTML='<h1>เกิด Error</h1><div class="box"><b>'+String(e.message||e)+'</b><p class="hint">กด Settings → Reset หรือส่งรูปหน้านี้มาให้ผมดู</p><button class="primary" onclick="localStorage.removeItem(\'bakery_erp_v6_1\');location.reload()">Reset ข้อมูลใน Browser</button></div>';}}
+function render(){try{nav(); const m=$('main'); if(page=='dashboard') return dash(m); if(page=='master') return masterData(m); if(page=='items') return items(m); if(page=='rm') return rm(m); if(page=='stock') return stock(m); if(page=='cycle') return cycleCount(m); if(page=='fglog') return fgLogPage(m); if(page=='prodrecord') return productionRecordPage(m); if(page=='trx') return transactionCenterPage(m); if(page=='prodsummary') return productionSummaryPage(m); if(page=='shipcheck') return shipCheckPage(m); if(page=='prod') return prod(m); if(page=='orders') return ordersPage(m); if(page=='bom') return bom(m); if(page=='voidapproval') return voidApprovalPage(m); if(page=='users') return userManagementPage(m); if(page=='history') return hist(m); if(page=='google') return googlePage(m); if(page=='settings') return settings(m); return dash(m);}catch(e){console.error(e); $('main').innerHTML='<h1>เกิด Error</h1><div class="box"><b>'+String(e.message||e)+'</b><p class="hint">กด Settings → Reset หรือส่งรูปหน้านี้มาให้ผมดู</p><button class="primary" onclick="localStorage.removeItem(\'bakery_erp_v6_1\');location.reload()">Reset ข้อมูลใน Browser</button></div>';}}
 function head(t,h=''){return `<h1>${t}</h1><div class="hint">${h}</div>`}
 function todayISO(){
   const d=new Date();
@@ -1128,6 +1060,11 @@ async function saveProductionRecord(){
 }
 
 function trxStatusPill(s){s=String(s||'Active'); return s.toLowerCase()==='voided'?'<span class="pill bad">Voided</span>':'<span class="pill good">Active</span>';}
+function genericStatusPill(s){
+  s=String(s||'-');
+  const cls={'Approved':'good','Active':'good','Rejected':'bad','Disabled':'bad','Voided':'bad'}[s]||'';
+  return `<span class="pill ${cls}">${s}</span>`;
+}
 function productionTransactions(){
   const fromLog=(db.prodLog||[]).map(r=>{let it=(db.items||[]).find(x=>String(x.sku)==String(r.sku))||{}; return {id:r.id||r.LogID||'',time:r.timestamp||r.Timestamp||'',type:r.source||r.Source||'Production',kind:'FG',sku:r.sku||r.SKU||'',name:it.name||'',product:it.product||r.product||r.Product||'',variant:it.variant||it.weight||'',qty:+(r.qty||r.Qty||0),operator:r.operator||r.Operator||'',remark:r.remark||r.Remark||'',status:r.status||r.Status||'Active',voidReason:r.voidReason||r.VoidReason||'',voidAt:r.voidAt||r.VoidAt||''};});
   // v9.39 fix: กันเหนียวเผื่อ QR scan บางรายการอยู่ใน StockMovement แต่ไม่มาโผล่ใน ProductionLog
@@ -1157,14 +1094,84 @@ function transactionTable(arr){
   return `<table><tr><th>เวลา</th><th>LogID</th><th>Source</th><th>SKU</th><th>Product</th><th>Variant</th><th>Qty</th><th>ผู้บันทึก</th><th>Status</th><th></th></tr>${arr.map(x=>{
     let actionCell='';
     if(x.kind==='FG' && String(x.status||'Active')!=='Voided'){
-      actionCell=`<button class="small danger" onclick="voidProductionPrompt('${escHTML(x.id)}')">Void</button>`;
+      actionCell=`<button class="small danger" onclick="voidProductionPrompt('${escHTML(x.id)}')">${isAdmin()?'Void':'ขอ Void'}</button>`;
     }else if(x.kind==='RM'){
       if(x.isVoidReverse){ actionCell='<span class="mini">รายการย้อนกลับ</span>'; }
       else if(x.alreadyVoided){ actionCell='<span class="mini">Void แล้ว</span>'; }
-      else { actionCell=`<button class="small danger" onclick="voidRMMovementPrompt('${escHTML(x.id)}')">Void</button>`; }
+      else { actionCell=`<button class="small danger" onclick="voidRMMovementPrompt('${escHTML(x.id)}')">${isAdmin()?'Void':'ขอ Void'}</button>`; }
     }
     return `<tr><td>${x.time}</td><td><b>${x.id}</b></td><td>${x.type}</td><td><b>${x.sku}</b><br><span class="mini">${escHTML(x.name)}</span></td><td>${escHTML(x.product)}</td><td>${escHTML(x.variant)}</td><td><b>${x.qty}</b></td><td>${escHTML(x.operator)}</td><td>${trxStatusPill(x.status)}${x.voidReason?'<br><span class="mini">'+escHTML(x.voidReason)+'</span>':''}</td><td>${actionCell}</td></tr>`;
   }).join('')}</table>`;
+}
+function voidApprovalPage(m){
+  if(!isAdmin()){ m.innerHTML=head('อนุมัติ Void','')+'<div class="box"><p class="hint">หน้านี้สำหรับ Admin เท่านั้น</p></div>'; return; }
+  const requests=(db.voidRequests||[]).slice().sort((a,b)=>trxSortKey(b.requestedAt)-trxSortKey(a.requestedAt));
+  const pending=requests.filter(r=>r.status==='Pending');
+  const done=requests.filter(r=>r.status!=='Pending').slice(0,30);
+  m.innerHTML=head('อนุมัติ Void','คำขอ Void ที่พนักงานส่งมา ต้องอนุมัติก่อนถึงจะตัด/คืน Stock จริง')+
+  `<div class="box"><h2>รออนุมัติ (${pending.length})</h2>${voidRequestTable(pending,true)}</div>`+
+  `<div class="box"><h2>ประวัติล่าสุด</h2>${voidRequestTable(done,false)}</div>`;
+}
+function voidRequestTable(rows,showActions){
+  if(!rows.length) return '<p class="hint">ไม่มีรายการ</p>';
+  return `<table><tr><th>เวลา</th><th>ประเภท</th><th>SKU</th><th>Qty</th><th>เหตุผล</th><th>ขอโดย</th><th>สถานะ</th><th>${showActions?'':'อนุมัติ/ปฏิเสธโดย'}</th></tr>${rows.map(r=>`<tr><td>${r.requestedAt}</td><td>${r.kind}</td><td><b>${r.sku}</b></td><td>${r.qty}</td><td>${escHTML(r.reason||'')}</td><td>${escHTML(r.requestedBy||'')}</td><td>${genericStatusPill(r.status)}${r.rejectReason?'<br><span class="mini">'+escHTML(r.rejectReason)+'</span>':''}</td><td>${showActions?`<button class="small" onclick="respondVoidRequest('${escHTML(r.requestId)}',true)">อนุมัติ</button> <button class="small danger" onclick="respondVoidRequest('${escHTML(r.requestId)}',false)">ปฏิเสธ</button>`:escHTML(r.approvedBy||'')}</td></tr>`).join('')}</table>`;
+}
+async function respondVoidRequest(requestId,approve){
+  let rejectReason='';
+  if(!approve){ rejectReason=prompt('เหตุผลที่ปฏิเสธ (ไม่บังคับ)')||''; }
+  if(!confirm(approve?'อนุมัติคำขอ Void นี้? จะตัด/คืน Stock จริงทันที':'ปฏิเสธคำขอนี้?')) return;
+  toast('กำลังดำเนินการ...');
+  try{
+    await apiPost({action:'approvevoidrequest',requestId,approve,rejectReason});
+    await loadFromGoogleSheet();
+    page='voidapproval'; render();
+    sheetDone(approve?'อนุมัติ Void แล้ว':'ปฏิเสธคำขอแล้ว');
+  }catch(e){console.error(e); alert('ดำเนินการไม่สำเร็จ: '+(e.message||e));}
+}
+function userManagementPage(m){
+  if(!isAdmin()){ m.innerHTML=head('จัดการ User','')+'<div class="box"><p class="hint">หน้านี้สำหรับ Admin เท่านั้น</p></div>'; return; }
+  m.innerHTML=head('จัดการ User','เพิ่ม/ปิดการใช้งานผู้ใช้ในระบบ — สิทธิ์ Admin ทำได้ทุกอย่าง+อนุมัติ Void / Staff ทำงานประจำวันได้ปกติแต่ Void ต้องรออนุมัติ')+
+  `<div class="box"><h2>เพิ่ม User ใหม่</h2><div class="row"><input id="newUserName" placeholder="Username"><input id="newUserDisplay" placeholder="ชื่อที่แสดง"><input id="newUserPw" type="password" placeholder="รหัสผ่าน (อย่างน้อย 6 ตัว)"><select id="newUserRole"><option value="Staff">Staff</option><option value="Admin">Admin</option></select><button class="primary" onclick="addUserAction()">เพิ่ม</button></div></div>`+
+  `<div class="box"><h2>รายชื่อ User</h2><div id="userListBox"><p class="hint">กำลังโหลด...</p></div></div>`;
+  loadUserList();
+}
+async function loadUserList(){
+  try{
+    const res=await apiPost({action:'listusers'});
+    const box=$('userListBox'); if(!box) return;
+    const users=res.users||[];
+    box.innerHTML=users.length?`<table><tr><th>Username</th><th>ชื่อที่แสดง</th><th>Role</th><th>สถานะ</th><th></th></tr>${users.map(u=>`<tr><td><b>${escHTML(u.username)}</b></td><td>${escHTML(u.displayName)}</td><td>${u.role}</td><td>${genericStatusPill(u.status)}</td><td>${u.status==='Active'?`<button class="small danger" onclick="setUserStatusAction('${escHTML(u.username)}','Disabled')">ปิดใช้งาน</button>`:`<button class="small" onclick="setUserStatusAction('${escHTML(u.username)}','Active')">เปิดใช้งาน</button>`}</td></tr>`).join('')}</table>`:'<p class="hint">ยังไม่มี User</p>';
+  }catch(e){ const box=$('userListBox'); if(box) box.innerHTML='<p class="hint">โหลดรายชื่อ User ไม่สำเร็จ: '+(e.message||e)+'</p>'; }
+}
+async function addUserAction(){
+  const username=($('newUserName')?.value||'').trim();
+  const displayName=($('newUserDisplay')?.value||'').trim()||username;
+  const password=$('newUserPw')?.value||'';
+  const role=$('newUserRole')?.value||'Staff';
+  if(!username||password.length<6) return toast('กรอก Username และรหัสผ่าน (อย่างน้อย 6 ตัว) ก่อน');
+  toast('กำลังเพิ่ม User...');
+  try{
+    await apiPost({action:'adduser',data:{username,displayName,password,role}});
+    sheetDone('เพิ่ม User '+username+' แล้ว');
+    $('newUserName').value=''; $('newUserDisplay').value=''; $('newUserPw').value='';
+    loadUserList();
+  }catch(e){console.error(e); alert('เพิ่ม User ไม่สำเร็จ: '+(e.message||e));}
+}
+async function setUserStatusAction(username,status){
+  if(!confirm((status==='Active'?'เปิด':'ปิด')+'ใช้งาน '+username+' ?')) return;
+  toast('กำลังอัปเดต...');
+  try{
+    await apiPost({action:'setuserstatus',username,status});
+    sheetDone('อัปเดตสถานะแล้ว');
+    loadUserList();
+  }catch(e){console.error(e); alert('อัปเดตไม่สำเร็จ: '+(e.message||e));}
+}
+async function requestVoid(kind,refId,sku,qty,reason){
+  toast('กำลังส่งคำขอ Void...');
+  try{
+    const res=await apiPost({action:'createvoidrequest',kind,refId,sku,qty,reason});
+    sheetDone(res.message||'ส่งคำขอ Void แล้ว รอ Admin อนุมัติ');
+  }catch(e){console.error(e); alert('ส่งคำขอไม่สำเร็จ: '+(e.message||e));}
 }
 function voidProductionPrompt(logId){
   if(!logId)return;
@@ -1172,8 +1179,15 @@ function voidProductionPrompt(logId){
   if(reason===null)return;
   reason=String(reason||'').trim();
   if(!reason)return toast('ต้องใส่เหตุผลก่อน');
-  if(!confirm('Void รายการ '+logId+' ?\nระบบจะ Reverse FG/RM Stock อัตโนมัติ'))return;
-  voidProductionTransaction(logId,reason);
+  // v9.53: Staff ส่งเป็น "คำขอ Void" รอ Admin อนุมัติก่อนถึงจะมีผลจริง / Admin กด Void ตรงได้เลย
+  if(isAdmin()){
+    if(!confirm('Void รายการ '+logId+' ?\nระบบจะ Reverse FG/RM Stock อัตโนมัติ'))return;
+    voidProductionTransaction(logId,reason);
+  }else{
+    const r=(db.prodLog||[]).find(x=>String(x.id||x.LogID||'')===String(logId));
+    if(!confirm('ส่งคำขอ Void รายการ '+logId+' ให้ Admin อนุมัติ?\n(Stock จะยังไม่เปลี่ยนจนกว่า Admin จะอนุมัติ)'))return;
+    requestVoid('FG',logId,r?.sku||'',r?.qty||0,reason);
+  }
 }
 function voidRMMovementPrompt(moveId){
   if(!moveId)return;
@@ -1181,8 +1195,14 @@ function voidRMMovementPrompt(moveId){
   if(reason===null)return;
   reason=String(reason||'').trim();
   if(!reason)return toast('ต้องใส่เหตุผลก่อน');
-  if(!confirm('Void รายการวัตถุดิบ '+moveId+' ?\nระบบจะสร้างรายการย้อนกลับให้อัตโนมัติ (ไม่ลบรายการเดิม)'))return;
-  voidRMMovement(moveId,reason);
+  if(isAdmin()){
+    if(!confirm('Void รายการวัตถุดิบ '+moveId+' ?\nระบบจะสร้างรายการย้อนกลับให้อัตโนมัติ (ไม่ลบรายการเดิม)'))return;
+    voidRMMovement(moveId,reason);
+  }else{
+    const mv=(db.mov||[]).find(x=>String(x.id||x.ref||'')===String(moveId));
+    if(!confirm('ส่งคำขอ Void รายการวัตถุดิบ '+moveId+' ให้ Admin อนุมัติ?\n(Stock จะยังไม่เปลี่ยนจนกว่า Admin จะอนุมัติ)'))return;
+    requestVoid('RM',moveId,mv?.sku||'',mv?.qty||0,reason);
+  }
 }
 async function voidRMMovement(moveId,reason){
   if(!moveId)return;
@@ -1499,7 +1519,7 @@ function installViewerGuards(){
   saveOrderDay=()=>viewerDeny(); addShortageLine=()=>viewerDeny(); removeShortageLine=()=>viewerDeny(); updateShortageReason=()=>viewerDeny();
   addBomLine=()=>viewerDeny(); openPasteImport=()=>viewerDeny(); commitImport=()=>viewerDeny(); importCSVFile=()=>viewerDeny(); openBulkEdit=()=>viewerDeny(); applyBulkEdit=()=>viewerDeny(); bulkDeleteMaster=()=>viewerDeny();
   addItem=()=>viewerDeny(); editItem=()=>viewerDeny(); addRM=()=>viewerDeny(); editRM=()=>viewerDeny(); saveNewItem=()=>viewerDeny(); saveEditItem=()=>viewerDeny(); saveNewRM=()=>viewerDeny(); saveEditRM=()=>viewerDeny();
-  voidProductionTransaction=()=>viewerDeny(); voidProductionPrompt=()=>viewerDeny(); clearFgLog=()=>viewerDeny(); loadEmbeddedFgLog=()=>viewerDeny(); importFgPaste=()=>viewerDeny(); saveGoogleConfig=()=>viewerDeny(); restore=()=>viewerDeny(); saveShippingPlan=()=>viewerDeny(); openShipPaste=()=>viewerDeny(); importShipPaste=()=>viewerDeny(); createPOFromShippingShortage=()=>viewerDeny(); saveSalesOut=()=>viewerDeny(); voidRMMovementPrompt=()=>viewerDeny(); voidRMMovement=()=>viewerDeny();
+  voidProductionTransaction=()=>viewerDeny(); voidProductionPrompt=()=>viewerDeny(); clearFgLog=()=>viewerDeny(); loadEmbeddedFgLog=()=>viewerDeny(); importFgPaste=()=>viewerDeny(); saveGoogleConfig=()=>viewerDeny(); restore=()=>viewerDeny(); saveShippingPlan=()=>viewerDeny(); openShipPaste=()=>viewerDeny(); importShipPaste=()=>viewerDeny(); createPOFromShippingShortage=()=>viewerDeny(); saveSalesOut=()=>viewerDeny(); voidRMMovementPrompt=()=>viewerDeny(); voidRMMovement=()=>viewerDeny(); requestVoid=()=>viewerDeny(); respondVoidRequest=()=>viewerDeny(); addUserAction=()=>viewerDeny(); setUserStatusAction=()=>viewerDeny();
   const oldRender=render;
   render=function(){ oldRender(); applyViewerUI(); };
 }
@@ -1622,6 +1642,7 @@ function fromSheetData(data){
   const remotePO=(data.productionOrder||[]).map(p=>({id:p.PO||'',sku:p.SKU||'',qty:+p.Qty||0,status:p.Status||'Open',time:p.CreatedAt||'',start:p.StartAt||'',finish:p.FinishAt||'',remark:p.Remark||'',actualQty:(p.ActualQty!==undefined&&p.ActualQty!=='')?+p.ActualQty:''})).filter(p=>p.id);
   const remoteShippingPlan=(data.shippingPlan||[]).map(r=>({date:dateISO(r.Date)||String(r.Date||''),sku:String(r.SKU||''),baimiang:+r.BaiMiang||0,b2b:+r.B2B||0,b2c:+r.B2C||0,remark:r.Remark||'',updatedAt:r.UpdatedAt||''})).filter(x=>x.sku);
   const remoteSalesOut=(data.salesOut||[]).map(r=>({date:dateISO(r.Date)||String(r.Date||''),sku:String(r.SKU||''),baimiang:+r.BaiMiang||0,b2b:+r.B2B||0,tiktok:+r.TikTok||0,shopee:+r.Shopee||0,lazada:+r.Lazada||0,line:+r.Line||0,grab:+r.Grab||0,remark:r.Remark||'',updatedAt:r.UpdatedAt||''})).filter(x=>x.sku);
+  const remoteVoidRequests=(data.voidRequests||[]).map(r=>({requestId:r.RequestID||'',kind:r.Kind||'',refId:r.RefId||'',sku:r.Sku||'',qty:+r.Qty||0,reason:r.Reason||'',requestedBy:r.RequestedBy||'',requestedAt:r.RequestedAt||'',status:r.Status||'Pending',approvedBy:r.ApprovedBy||'',approvedAt:r.ApprovedAt||'',rejectReason:r.RejectReason||''})).filter(x=>x.requestId);
   if(items.length) db.items=items;
   if(rm.length) db.rm=rm;
   if((data.bom||[]).length) db.bom=bom;
@@ -1632,6 +1653,7 @@ function fromSheetData(data){
   db.orderItems=erpMergeByKey(db.orderItems||[], orderItems, ['orderNo','OrderNo']);
   db.shippingPlan=erpMergeByFn(db.shippingPlan||[], remoteShippingPlan, x=>shippingKey(x.date,x.sku));
   db.salesOut=erpMergeByFn(db.salesOut||[], remoteSalesOut, x=>salesOutKey(x.date,x.sku));
+  db.voidRequests=remoteVoidRequests;
   db.dashboard=(data.dashboard&&data.dashboard.length)?data.dashboard:(db.dashboard||[]);
   db.remote=db.remote||{}; db.remote.lastApiSync=now();
 }
@@ -1704,53 +1726,65 @@ async function voidProductionTransaction(logId,reason){
   }
 }
 
-/* === v9.14 login screen: รหัสผ่านเดียวใช้ร่วมกันทั้งร้าน ผูกกับ API Key เดิม === */
+/* === v9.53 login screen: Username + รหัสผ่านแยกรายคน ผ่าน Users sheet + Session token === */
 function showLoginScreen(msg){
   document.body.classList.add('login-locked');
   const scr=$('loginScreen'); if(scr) scr.style.display='flex';
   const err=$('loginError'); if(err) err.textContent=msg||'';
-  setTimeout(()=>{const el=$('loginPw'); if(el) el.focus();},50);
+  setTimeout(()=>{const el=$('loginUser'); if(el) el.focus();},50);
 }
 function hideLoginScreen(){
   document.body.classList.remove('login-locked');
   const scr=$('loginScreen'); if(scr) scr.style.display='none';
 }
 async function doLogin(){
-  const pwEl=$('loginPw');
+  const uEl=$('loginUser'), pwEl=$('loginPw');
+  const u=(uEl&&uEl.value||'').trim();
   const pw=(pwEl&&pwEl.value||'').trim();
   const errEl=$('loginError');
-  if(!pw){ if(errEl) errEl.textContent='กรุณากรอกรหัสผ่าน'; return; }
+  if(!u||!pw){ if(errEl) errEl.textContent='กรุณากรอก Username และรหัสผ่าน'; return; }
   const btn=document.querySelector('#loginScreen button.primary');
   if(btn){btn.disabled=true;btn.textContent='กำลังตรวจสอบ...';}
   if(errEl) errEl.textContent='';
-  const prevKey=apiKey;
-  apiKey=pw;
   try{
-    await apiGet('ping'); // ยิงไปเช็คกับ Apps Script จริง ผ่าน checkAuth_ ฝั่งเซิร์ฟเวอร์
-    localStorage.setItem('bakery_api_key',apiKey);
+    const res=await apiPost({action:'login',username:u,password:pw});
+    sessionToken=res.token; userRole=res.role; userDisplayName=res.displayName; userUsername=res.username;
+    localStorage.setItem('bakery_session_token',sessionToken);
+    localStorage.setItem('bakery_user_role',userRole);
+    localStorage.setItem('bakery_user_display_name',userDisplayName);
+    localStorage.setItem('bakery_user_username',userUsername);
     localStorage.setItem('bakery_logged_in','1');
     hideLoginScreen();
     startApp();
   }catch(e){
-    apiKey=prevKey;
-    if(errEl) errEl.textContent='รหัสผ่านไม่ถูกต้อง หรือเชื่อมต่อ API ไม่ได้: '+(e.message||e);
+    if(errEl) errEl.textContent='เข้าสู่ระบบไม่สำเร็จ: '+(e.message||e);
   }finally{
     if(btn){btn.disabled=false;btn.textContent='เข้าสู่ระบบ';}
   }
 }
 function logout(){
   if(!confirm('ออกจากระบบ?')) return;
-  localStorage.removeItem('bakery_api_key');
+  localStorage.removeItem('bakery_session_token');
+  localStorage.removeItem('bakery_user_role');
+  localStorage.removeItem('bakery_user_display_name');
+  localStorage.removeItem('bakery_user_username');
   localStorage.removeItem('bakery_logged_in');
   location.reload();
 }
+function isAdmin(){ return userRole==='Admin'; }
+function applyRoleUI(){
+  const chip=$('userNameChip'); if(chip) chip.textContent=userDisplayName||userUsername||'ERP User';
+  const roleChip=$('userRoleChip'); if(roleChip) roleChip.textContent=userRole||'';
+  const avatar=$('userAvatar'); if(avatar) avatar.textContent=(userDisplayName||userUsername||'E').trim().charAt(0).toUpperCase();
+}
 function startApp(){
   if(VIEWER_ONLY) installViewerGuards();
+  applyRoleUI();
   render();
   setupAutoCsvSync();
   setTimeout(()=>{ if(apiUrl) loadFromGoogleSheet(); },300);
 }
-if(localStorage.getItem('bakery_logged_in')==='1' && apiKey){
+if(localStorage.getItem('bakery_logged_in')==='1' && sessionToken){
   startApp();
 }else{
   showLoginScreen();
