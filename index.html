@@ -173,19 +173,25 @@ function hideSyncOverlayError(msg){
   $('syncOverlayResult').style.display='block';
   $('syncOverlayClose').style.display='inline-block'; // error ต้องกดปิดเอง กันพลาดไม่เห็น
 }
-async function apiPost(body){
+async function apiPost(body,_retriesLeft){
   if(!apiUrl) throw new Error('ยังไม่ได้ใส่ API URL');
+  // v9.45 fix: เดิม "การเขียน" ไม่เคย retry อัตโนมัติเลย เพราะกลัวเขียนซ้ำถ้า Server ทำสำเร็จไปแล้วแต่
+  // client แค่รอผลไม่ทัน ผู้ใช้เลยต้องกดปุ่มเองซ้ำ ซึ่งเสี่ยงเขียนซ้ำพอกัน (หรือมากกว่า เพราะกดหลายครั้ง)
+  // ตอนนี้แนบ requestId เดียวกันไว้ทุกครั้งที่พยายามคำขอเดิม ฝั่ง Server จะจำผลไว้แล้วกันไม่ให้รันซ้ำ
+  // (ดู withIdempotency_ ใน .gs) ทำให้ auto-retry ได้อย่างปลอดภัยจริง ไม่ต้องมานั่งกดเองอีกต่อไป
+  if(!body.requestId) body.requestId=Date.now()+'-'+Math.random().toString(36).slice(2);
+  if(_retriesLeft===undefined) _retriesLeft=2;
   showSyncOverlay(syncActionLabel(body.action));
   // v9.11: ใช้ fastwrite ก่อน เพื่อลดเวลา setup/recalc ทั้งระบบของ Apps Script
   // ถ้า Apps Script ยังไม่ได้อัปเดต จะ fallback ไป write ตัวเดิมอัตโนมัติ
   try{
     let result;
     try{
-      result=await apiGet('fastwrite',{payload:JSON.stringify(body)});
+      result=await apiGetOnce('fastwrite',{payload:JSON.stringify(body)});
     }catch(e){
       const msg=String(e && e.message || e);
       if(msg.includes('Unknown action') || msg.includes('API error') || msg.includes('fastwrite')){
-        result=await apiGet('write',{payload:JSON.stringify(body)});
+        result=await apiGetOnce('write',{payload:JSON.stringify(body)});
       }else{
         throw e;
       }
@@ -193,11 +199,28 @@ async function apiPost(body){
     hideSyncOverlaySuccess('บันทึกเข้า Google Sheet แล้ว');
     return result;
   }catch(e){
-    hideSyncOverlayError(String(e&&e.message||e));
+    const msg=String(e&&e.message||e);
+    const isConnectionIssue=msg.includes('เชื่อมต่อ API ไม่ได้')||msg.includes('รอผลนานเกินไป');
+    if(isConnectionIssue && _retriesLeft>0){
+      await new Promise(r=>setTimeout(r,1500));
+      return apiPost(body,_retriesLeft-1);
+    }
+    hideSyncOverlayError(msg);
     throw e;
   }
 }
 
+async function apiPostBatched(action, items, chunkSize, makeBody){
+  // v9.46: ตัวกลางกันปัญหา URL ยาวเกินตอนส่งหลายรายการพร้อมกัน (ระบบนี้ฝัง payload ไว้ใน URL)
+  // แบ่ง items เป็นชุดย่อยส่งทีละชุดแทนการส่งก้อนใหญ่ทีเดียว ปลอดภัยเพราะแต่ละชุดมี requestId
+  // ของตัวเอง (auto-retry ได้ไม่ซ้ำ) และถ้าชุดหลังพัง ชุดก่อนหน้าที่ส่งสำเร็จแล้วจะไม่หายไป
+  for(let i=0;i<items.length;i+=chunkSize){
+    const chunk=items.slice(i,i+chunkSize);
+    const body=makeBody(chunk);
+    body.action=action;
+    await apiPost(body);
+  }
+}
 async function pushMovementsOnly(movements, silent=true){
   const list=(movements||[]).filter(x=>x && !x.synced);
   if(!list.length) return;
@@ -205,13 +228,23 @@ async function pushMovementsOnly(movements, silent=true){
     const q=(String(m.mode).toUpperCase()==='CYCLE_COUNT')?(+m.qty||0):Math.abs(+m.qty||0);
     return {MoveID:m.id,Timestamp:m.time,ItemType:m.type,SKU:m.sku,Mode:m.mode,Qty:q,Ref:m.ref||'',Remark:m.remark||'',StockAfter:m.stock||'',Source:'ERP-v8.3-BATCH'};
   });
+  // v9.46 fix: เดิมส่งทั้งก้อนทีเดียว วิธีส่งข้อมูลฝัง payload ไว้ใน URL (จำกัดความยาว) พอมีหลายรายการ
+  // พร้อมกัน (เช่นรับเข้า-ออก Stock หลาย SKU, บันทึกผลผลิตหลาย SKU) ยาวเกินจนส่งไม่ออกเงียบๆ
+  // ตอนนี้แบ่งส่งเป็นชุดละ 15 รายการแทน กันปัญหาตั้งแต่ต้นไม่ต้องรอ fallback ทีละตัวตอนพัง
+  const CHUNK=15;
   try{
-    await apiPost({action:'movementbatch',data:payload});
-    list.forEach(m=>m.synced=true);
+    for(let i=0;i<list.length;i+=CHUNK){
+      const chunkList=list.slice(i,i+CHUNK), chunkPayload=payload.slice(i,i+CHUNK);
+      await apiPost({action:'movementbatch',data:chunkPayload});
+      chunkList.forEach(m=>m.synced=true);
+      saveLocalOnly();
+    }
   }catch(e){
-    // fallback สำหรับ Apps Script รุ่นเก่า
-    for(let i=0;i<list.length;i++){
-      const m=list[i], d=payload[i];
+    // fallback: ชุดที่พังลองส่งทีละตัวแทน (เผื่อ Apps Script รุ่นเก่า หรือรายการใดรายการหนึ่งมีปัญหาเฉพาะตัว)
+    const remaining=list.filter(m=>!m.synced);
+    for(let i=0;i<remaining.length;i++){
+      const m=remaining[i];
+      const d=payload[list.indexOf(m)];
       await apiPost({action:'movement',data:d});
       m.synced=true;
     }
@@ -233,14 +266,14 @@ function poPayload(p){return {PO:p.id,SKU:p.sku,Qty:+p.qty||0,Status:p.status||'
 function orderPayload(o){return {OrderNo:'DAY-'+o.date,OrderDate:o.date,TotalOrders:+o.total||0,CompletedOrders:+o.shipped||0,Status:(+o.shipped>=+o.total?'Completed':'Pending'),Remark:o.note||''};}
 function orderItemPayload(date,s){return {OrderNo:'DAY-'+date+'-'+s.sku,SKU:s.sku,Qty:+s.qty||0,CompletedQty:0,ShortQty:+s.qty||0,Reason:s.reason||'',UpdatedAt:now()};}
 function upsertSheet(sheet,key,data,label){return apiPost({action:'upsert',sheet,key,data}).then(()=>toastSaveOK(label)).catch(e=>toastSaveFail(label,e));}
-function upsertSheetBatch(sheet,key,rows,label){return apiPost({action:'upsertbatch',sheet,key,rows}).then(()=>sheetDone((label||sheet)+' เข้า Google Sheet ครบ '+(rows||[]).length+' รายการแล้ว')).catch(e=>toastSaveFail(label||sheet,e));}
+function upsertSheetBatch(sheet,key,rows,label){rows=rows||[]; if(!rows.length) return Promise.resolve(); return apiPostBatched('upsertbatch',rows,15,chunk=>({sheet,key,rows:chunk})).then(()=>sheetDone((label||sheet)+' เข้า Google Sheet ครบ '+rows.length+' รายการแล้ว')).catch(e=>toastSaveFail(label||sheet,e));}
 function deleteSheet(sheet,key,value,label){return apiPost({action:'delete',sheet,key,value}).then(()=>toastSaveOK(label)).catch(e=>toastSaveFail(label,e));}
 function saveProductDirect(x){if(!x||!x.sku)return; return upsertSheet('ProductMaster','SKU',fgPayload(x),'ProductMaster');}
 function saveRawMaterialDirect(r){if(!r||!r.sku)return; return upsertSheet('RawMaterial','RMCode',rmPayload(r),'RawMaterial');}
 function saveBomDirect(sku){return apiPost({action:'savebom',sku,lines:(db.bom[sku]||[]).map(l=>({RMCode:l.sku,QtyPerUnit:+l.qty||0,Unit:l.unit||'',Version:'1',Status:'Active'}))}).then(()=>toastSaveOK('BOM')).catch(e=>toastSaveFail('BOM',e));}
 function savePODirect(p){if(!p||!p.id)return; return upsertSheet('ProductionOrder','PO',poPayload(p),'ProductionOrder');}
-function savePOBatchDirect(list){list=(list||[]).filter(p=>p&&p.id); if(!list.length)return Promise.resolve(); return apiPost({action:'upsertbatch',sheet:'ProductionOrder',key:'PO',rows:list.map(poPayload)}).then(()=>sheetDone('ProductionOrder เข้า Google Sheet ครบ '+list.length+' รายการแล้ว'));}
-function saveProductionBatchDirect(list){list=(list||[]).filter(x=>x&&x.SKU&&(+x.Qty||0)>0); if(!list.length)return Promise.resolve(); return apiPost({action:'producebatch',data:list}).then(()=>sheetDone('บันทึกผลผลิตเข้า Google Sheet ครบ '+list.length+' รายการ และตัด BOM แล้ว'));}
+function savePOBatchDirect(list){list=(list||[]).filter(p=>p&&p.id); if(!list.length)return Promise.resolve(); return apiPostBatched('upsertbatch',list,15,chunk=>({sheet:'ProductionOrder',key:'PO',rows:chunk.map(poPayload)})).then(()=>sheetDone('ProductionOrder เข้า Google Sheet ครบ '+list.length+' รายการแล้ว'));}
+function saveProductionBatchDirect(list){list=(list||[]).filter(x=>x&&x.SKU&&(+x.Qty||0)>0); if(!list.length)return Promise.resolve(); return apiPostBatched('producebatch',list,15,chunk=>({data:chunk})).then(()=>sheetDone('บันทึกผลผลิตเข้า Google Sheet ครบ '+list.length+' รายการ และตัด BOM แล้ว'));}
 function saveOrderDirect(o){if(!o||!o.date)return; return upsertSheet('Orders','OrderNo',orderPayload(o),'Orders');}
 function saveOrderItemDirect(date,s){if(!s||!s.sku)return; return upsertSheet('OrderItems','OrderNo',orderItemPayload(date,s),'OrderItems');}
 
@@ -382,7 +415,9 @@ async function saveShippingPlan(){
   const date=$('shipDate')?.value||todayISO();
   toast('กำลังบันทึก ShippingPlan เข้า Google Sheet...');
   try{
-    await apiPost({action:'shippingplanbatch',data:{date,rows}});
+    // v9.46 fix: แบ่งส่งเป็นชุดละ 15 SKU กัน URL ยาวเกินตอนมีหลาย SKU พร้อมกัน (Backend อัปเดตเป็น
+    // upsert ทีละแถวแล้ว ปลอดภัยเวลาส่งหลายชุดต่อกัน ไม่ทับ SKU ของชุดก่อนหน้า)
+    if(rows.length) await apiPostBatched('shippingplanbatch',rows,15,chunk=>({data:{date,rows:chunk}}));
     db.shippingPlan=db.shippingPlan||[];
     db.shippingPlan=db.shippingPlan.filter(x=>x.date!==date);
     db.shippingPlan.push(...rows.map(x=>({...x,updatedAt:now()})));
@@ -511,13 +546,21 @@ async function saveSalesOut(){
   if(!confirm('บันทึกยอดขาย '+rows.length+' SKU และตัด FG Stock ทันที ต้องการดำเนินการต่อหรือไม่?')) return;
   toast('กำลังบันทึกขายออก...');
   try{
-    const res=await apiPost({action:'salesoutbatch',data:{date,rows}});
+    // v9.46 fix: แบ่งส่งเป็นชุดละ 15 SKU กัน URL ยาวเกินตอนมีหลาย SKU พร้อมกัน (Backend เปลี่ยนเป็น
+    // upsert ทีละแถวแล้ว ปลอดภัยเวลาส่งหลายชุดต่อกัน)
+    let totalDeducted=0;
+    const CHUNK=15;
+    for(let i=0;i<rows.length;i+=CHUNK){
+      const chunk=rows.slice(i,i+CHUNK);
+      const res=await apiPost({action:'salesoutbatch',data:{date,rows:chunk}});
+      totalDeducted+=(res?.stockDeducted||0);
+    }
     db.salesOut=db.salesOut||[];
     rows.forEach(r=>{ db.salesOut=db.salesOut.filter(x=>!(x.date===r.date&&String(x.sku)===String(r.sku))); db.salesOut.push({...r,updatedAt:now()}); });
     saveLocalOnly();
     await loadFromGoogleSheet();
     page='salesout'; render();
-    sheetDone('บันทึกขายออกแล้ว ตัด Stock '+(res?.stockDeducted??0)+' รายการ');
+    sheetDone('บันทึกขายออกแล้ว ตัด Stock '+totalDeducted+' รายการ');
   }catch(e){console.error(e); alert('บันทึกขายออกไม่สำเร็จ: '+(e.message||e));}
 }
 function saveLocalOnly(){localStorage.setItem('bakery_erp_v6_1',JSON.stringify(db));}
@@ -1524,19 +1567,37 @@ function saveCycleCount(){
   let type=$('ctype')?.value||'FG', reason=$('creason')?.value||'Cycle Count', remark=$('cremark')?.value||'';
   let rows=[...document.querySelectorAll('.cycleChk:checked')].map(c=>{let sku=c.dataset.sku, v=$('ccount_'+sku)?.value; return {sku,counted:v===''?null:+v};}).filter(x=>x.counted!==null && x.counted>=0);
   if(!rows.length)return toast('ติ๊ก SKU และใส่ยอดนับจริงก่อน');
-  let ref='CC-'+Date.now(); const cycleRows=[]; const movRows=[];
+  let ref='CC-'+Date.now(); const pairs=[];
   rows.forEach(r=>{
     let arr=type=='RM'?db.rm:db.items, it=arr.find(x=>x.sku==r.sku); if(!it)return;
     let before=+it.stock||0, diff=r.counted-before; it.stock=r.counted;
     let rec={id:'MV-'+Date.now()+'-'+Math.floor(Math.random()*9999),time:now(),type,sku:r.sku,mode:'CYCLE_COUNT',qty:diff,ref,remark:`${reason}${remark?' - '+remark:''} | Before ${before} → After ${r.counted}`,stock:it.stock,synced:false,source:'ERP-CYCLE-v9.13'};
     db.mov.push(rec);
-    movRows.push({MoveID:rec.id,Timestamp:rec.time,ItemType:type,SKU:r.sku,Mode:'CYCLE_COUNT',Qty:diff,Ref:ref,Remark:rec.remark,StockAfter:r.counted,Source:'ERP-CYCLE-v9.13'});
-    cycleRows.push({CountID:rec.id,Timestamp:rec.time,ItemType:type,SKU:r.sku,SystemQty:before,CountQty:r.counted,Diff:diff,Remark:rec.remark});
+    pairs.push({
+      mov:{MoveID:rec.id,Timestamp:rec.time,ItemType:type,SKU:r.sku,Mode:'CYCLE_COUNT',Qty:diff,Ref:ref,Remark:rec.remark,StockAfter:r.counted,Source:'ERP-CYCLE-v9.13'},
+      cycle:{CountID:rec.id,Timestamp:rec.time,ItemType:type,SKU:r.sku,SystemQty:before,CountQty:r.counted,Diff:diff,Remark:rec.remark},
+      moveId:rec.id
+    });
   });
   saveLocalOnly(); render(); toast('กำลังบันทึก Cycle Count แบบเร็ว...');
-  apiPost({action:'cycletransaction',data:{movements:movRows,cycles:cycleRows}})
-    .then(()=>{movRows.forEach(m=>{let x=db.mov.find(v=>v.id===m.MoveID); if(x)x.synced=true;}); saveLocalOnly(); sheetDone('Cycle Count เข้า Google Sheet แล้ว');})
-    .catch(e=>{console.error(e); alert('Cycle Count ไม่สำเร็จ: '+(e.message||e));});
+  // v9.46 fix: เดิมส่งทุก SKU เป็น payload เดียวก้อนใหญ่ วิธีส่งข้อมูลของระบบนี้ฝัง payload ไว้ใน URL
+  // (จำกัดความยาวได้) ถ้าทำหลาย SKU พร้อมกัน (ประมาณ 15-20+ ตัวขึ้นไป) ข้อความยาวเกินจน "ส่งไม่ออก"
+  // เลยแบบเงียบๆ (เห็น error เชื่อมต่อ) ทั้งที่ทำทีละตัวได้ปกติเพราะสั้นพอ ตอนนี้แบ่งส่งเป็นชุดละ 15 SKU
+  const CHUNK=15;
+  (async()=>{
+    try{
+      for(let i=0;i<pairs.length;i+=CHUNK){
+        const chunk=pairs.slice(i,i+CHUNK);
+        await apiPost({action:'cycletransaction',data:{movements:chunk.map(p=>p.mov),cycles:chunk.map(p=>p.cycle)}});
+        chunk.forEach(p=>{let x=db.mov.find(v=>v.id===p.moveId); if(x)x.synced=true;});
+        saveLocalOnly();
+      }
+      sheetDone('Cycle Count เข้า Google Sheet แล้ว ('+pairs.length+' SKU)');
+    }catch(e){
+      console.error(e);
+      alert('Cycle Count บันทึกไม่สำเร็จบางส่วน: '+(e.message||e)+'\n\nที่บันทึกไปแล้วก่อนหน้าไม่หาย ลองกดบันทึกซ้ำได้ (ระบบกันข้อมูลซ้ำให้แล้ว)');
+    }
+  })();
 }
 async function voidProductionTransaction(logId,reason){
   if(!logId)return;
