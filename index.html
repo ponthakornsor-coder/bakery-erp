@@ -406,7 +406,7 @@ function shipCheckTable(rows,date){
     const diff=r.stock-total;
     const wasShort=shipHasAutoPO(r.date||date,r.sku);
     const statusMain=diff<0?'<span class="pill bad">Production</span>':'<span class="pill good">OK</span>';
-    const statusExtra=wasShort?' <span class="pill" style="background:#fff3cd;color:#7a5b00">เคยขาด • สั่งผลิตแล้ว</span>':'';
+    const statusExtra=(diff>=0 && wasShort)?' <span class="pill" style="background:#fff3cd;color:#7a5b00">เคยขาด • สั่งผลิตแล้ว</span>':'';
     return `<tr><td>${r.date}</td><td><b>${r.sku}</b></td><td>${escHTML(r.product)}</td><td>${escHTML(r.name)}</td><td><input id="ship_baimiang_${r.sku}" type="number" value="${r.baimiang||0}" min="0" style="max-width:90px" oninput="updateShipTotal('${r.sku}',${r.stock})" onkeydown="gridKeyNav(event,this)"></td><td><input id="ship_b2b_${r.sku}" type="number" value="${r.b2b||0}" min="0" style="max-width:90px" oninput="updateShipTotal('${r.sku}',${r.stock})" onkeydown="gridKeyNav(event,this)"></td><td><input id="ship_b2c_${r.sku}" type="number" value="${r.b2c||0}" min="0" style="max-width:90px" oninput="updateShipTotal('${r.sku}',${r.stock})" onkeydown="gridKeyNav(event,this)"></td><td><b id="ship_total_${r.sku}">${total}</b></td><td><b>${r.stock}</b></td><td><span id="ship_diff_${r.sku}" class="pill ${diff<0?'bad':'good'}">${diff}</span></td><td><span id="ship_status_${r.sku}">${statusMain}</span>${statusExtra}</td><td><input id="ship_remark_${r.sku}" value="${escHTML(r.remark||'')}" placeholder="หมายเหตุ" onkeydown="gridKeyNav(event,this)"></td></tr>`;
   }).join('')}</table>`;
 }
