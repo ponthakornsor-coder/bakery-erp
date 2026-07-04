@@ -377,20 +377,26 @@ function shipCheckPage(m){
   const q=($('shipQ')?.value||'').toLowerCase();
   const onlyShort=$('shipOnlyShort')?$('shipOnlyShort').checked:false;
   const onlyOrdered=$('shipOnlyOrdered')?$('shipOnlyOrdered').checked:true;
-  let rows=shipPlanRows(date).filter(r=>matchesProdFilter('shipcheck',r.product) && (!q||(r.sku+' '+r.name+' '+r.product).toLowerCase().includes(q)));
-  const need=rows.reduce((a,r)=>a+r.baimiang+r.b2b+r.b2c,0);
-  const shortage=rows.reduce((a,r)=>a+Math.max(0,(r.baimiang+r.b2b+r.b2c)-r.stock),0);
-  const ok=rows.filter(r=>r.stock>=(r.baimiang+r.b2b+r.b2c)).length;
+  // v9.51 fix: เดิม KPI และ "รายการต้องผลิตเพิ่ม" คำนวณจากข้อมูลที่ถูกกรองด้วย Product filter อยู่แล้ว
+  // ทำให้ถ้ากรอกข้อมูล Nacho บันทึกแล้ว เปลี่ยนไปกรอก Nacho KETO ต่อ ตัวสรุปรวม/รายการต้องผลิต
+  // จะเห็นแค่ Nacho KETO เหมือน Nacho หายไป (ทั้งที่ข้อมูลจริงใน Google Sheet ไม่ได้หายเลย แค่ตัวสรุป
+  // มองไม่เห็นเพราะ filter บัง) ตอนนี้แยกชัดเจน: allRows = ทุก Product (ใช้กับ KPI/รายการต้องผลิตเพิ่ม)
+  // ส่วน rows = เฉพาะที่กรองไว้ (ใช้กับตารางกรอกข้อมูลเท่านั้น)
+  const allRows=shipPlanRows(date);
+  let rows=allRows.filter(r=>matchesProdFilter('shipcheck',r.product) && (!q||(r.sku+' '+r.name+' '+r.product).toLowerCase().includes(q)));
+  const need=allRows.reduce((a,r)=>a+r.baimiang+r.b2b+r.b2c,0);
+  const shortage=allRows.reduce((a,r)=>a+Math.max(0,(r.baimiang+r.b2b+r.b2c)-r.stock),0);
+  const ok=allRows.filter(r=>r.stock>=(r.baimiang+r.b2b+r.b2c)).length;
   let shownRows=rows;
   if(onlyOrdered) shownRows=shownRows.filter(r=>(r.baimiang+r.b2b+r.b2c)>0);
   if(onlyShort) shownRows=shownRows.filter(r=>r.stock<(r.baimiang+r.b2b+r.b2c));
   m.innerHTML=head('เช็ค Stock พอส่ง','ข้อมูลหน้านี้บันทึกลง Google Sheet ชีต ShippingPlan — Refresh แล้วไม่หาย')+
-  `<div class="toolbar"><div class="row3"><input id="shipDate" type="date" value="${date}" onchange="shipCheckPage($('main'))"><span></span><input id="shipQ" value="${escHTML(q)}" oninput="rerenderKeepFocus(()=>shipCheckPage($('main')))" placeholder="ค้นหา SKU / ชื่อ"></div>${productChipsHTML('shipcheck','shipCheckPage')}`+
+  `<div class="toolbar"><div class="row3"><input id="shipDate" type="date" value="${date}" onchange="shipCheckPage($('main'))"><span></span><input id="shipQ" value="${escHTML(q)}" oninput="rerenderKeepFocus(()=>shipCheckPage($('main')))" placeholder="ค้นหา SKU / ชื่อ"></div>${productChipsHTML('shipcheck','shipCheckPage')}<p class="mini">Filter/ค้นหาด้านบนมีผลกับ "ตารางกรอกข้อมูล" ด้านล่างเท่านั้น — KPI และ "รายการต้องผลิตเพิ่ม" นับรวมทุก Product เสมอ</p>`+
   `<div style="display:flex;gap:20px;flex-wrap:wrap;margin-top:10px"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input id="shipOnlyOrdered" type="checkbox" ${onlyOrdered?'checked':''} onchange="shipCheckPage($('main'))" style="width:20px;height:20px"> แสดงเฉพาะ SKU ที่มีคำสั่งซื้อ</label><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input id="shipOnlyShort" type="checkbox" ${onlyShort?'checked':''} onchange="shipCheckPage($('main'))" style="width:20px;height:20px"> แสดงเฉพาะ SKU ที่ของไม่ครบ</label></div>`+
   `<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap"><button class="primary" onclick="saveShippingPlan()">บันทึก ShippingPlan เข้า Google Sheet</button><button class="ghost" onclick="loadFromGoogleSheet()">Refresh จาก Google Sheet</button><button class="ghost" onclick="openShipPaste()">Paste จาก Excel</button><button class="primary" onclick="createPOFromShippingShortage()">สร้างคำสั่งผลิตจากรายการที่ขาด</button><button class="ghost" onclick="exportShipCheckCSV()">Export CSV</button></div></div>`+
-  `<div class="kpis"><div class="kpi">Order ต้องส่งรวม<b>${need}</b></div><div class="kpi">SKU OK<b>${ok}</b></div><div class="kpi">SKU ต้องผลิต<b>${rows.length-ok}</b></div><div class="kpi">ต้องผลิตเพิ่มรวม<b>${shortage}</b></div></div>`+
+  `<div class="kpis"><div class="kpi">Order ต้องส่งรวม<b>${need}</b></div><div class="kpi">SKU OK<b>${ok}</b></div><div class="kpi">SKU ต้องผลิต<b>${allRows.length-ok}</b></div><div class="kpi">ต้องผลิตเพิ่มรวม<b>${shortage}</b></div></div>`+
   `<div class="box"><h2>ตารางเช็ค Stock (${shownRows.length} จาก ${rows.length} SKU)</h2>${shipCheckTable(shownRows,date)}</div>`+
-  `<div class="box"><h2>รายการต้องผลิตเพิ่ม</h2>${shipShortTable(rows)}</div>`;
+  `<div class="box"><h2>รายการต้องผลิตเพิ่ม (รวมทุก Product)</h2>${shipShortTable(allRows)}</div>`;
   applyViewerUI?.();
 }
 function shipCheckTable(rows,date){
@@ -399,12 +405,18 @@ function shipCheckTable(rows,date){
     const total=r.baimiang+r.b2b+r.b2c;
     const diff=r.stock-total;
     const wasShort=shipHasAutoPO(r.date||date,r.sku);
-    let statusHTML;
-    if(diff<0) statusHTML=`<span class="pill bad">Production</span>`;
-    else if(wasShort) statusHTML=`<span class="pill good">OK</span> <span class="pill" style="background:#fff3cd;color:#7a5b00">เคยขาด • สั่งผลิตแล้ว</span>`;
-    else statusHTML=`<span class="pill good">OK</span>`;
-    return `<tr><td>${r.date}</td><td><b>${r.sku}</b></td><td>${escHTML(r.product)}</td><td>${escHTML(r.name)}</td><td><input id="ship_baimiang_${r.sku}" type="number" value="${r.baimiang||0}" min="0" style="max-width:90px"></td><td><input id="ship_b2b_${r.sku}" type="number" value="${r.b2b||0}" min="0" style="max-width:90px"></td><td><input id="ship_b2c_${r.sku}" type="number" value="${r.b2c||0}" min="0" style="max-width:90px"></td><td><b>${total}</b></td><td><b>${r.stock}</b></td><td><span class="pill ${diff<0?'bad':'good'}">${diff}</span></td><td>${statusHTML}</td><td><input id="ship_remark_${r.sku}" value="${escHTML(r.remark||'')}" placeholder="หมายเหตุ"></td></tr>`;
+    const statusMain=diff<0?'<span class="pill bad">Production</span>':'<span class="pill good">OK</span>';
+    const statusExtra=wasShort?' <span class="pill" style="background:#fff3cd;color:#7a5b00">เคยขาด • สั่งผลิตแล้ว</span>':'';
+    return `<tr><td>${r.date}</td><td><b>${r.sku}</b></td><td>${escHTML(r.product)}</td><td>${escHTML(r.name)}</td><td><input id="ship_baimiang_${r.sku}" type="number" value="${r.baimiang||0}" min="0" style="max-width:90px" oninput="updateShipTotal('${r.sku}',${r.stock})" onkeydown="gridKeyNav(event,this)"></td><td><input id="ship_b2b_${r.sku}" type="number" value="${r.b2b||0}" min="0" style="max-width:90px" oninput="updateShipTotal('${r.sku}',${r.stock})" onkeydown="gridKeyNav(event,this)"></td><td><input id="ship_b2c_${r.sku}" type="number" value="${r.b2c||0}" min="0" style="max-width:90px" oninput="updateShipTotal('${r.sku}',${r.stock})" onkeydown="gridKeyNav(event,this)"></td><td><b id="ship_total_${r.sku}">${total}</b></td><td><b>${r.stock}</b></td><td><span id="ship_diff_${r.sku}" class="pill ${diff<0?'bad':'good'}">${diff}</span></td><td><span id="ship_status_${r.sku}">${statusMain}</span>${statusExtra}</td><td><input id="ship_remark_${r.sku}" value="${escHTML(r.remark||'')}" placeholder="หมายเหตุ" onkeydown="gridKeyNav(event,this)"></td></tr>`;
   }).join('')}</table>`;
+}
+function updateShipTotal(sku,stock){
+  let total=0;
+  ['baimiang','b2b','b2c'].forEach(k=>{ total+=+($('ship_'+k+'_'+sku)?.value||0); });
+  const totalEl=$('ship_total_'+sku); if(totalEl) totalEl.textContent=total;
+  const diff=stock-total;
+  const diffEl=$('ship_diff_'+sku); if(diffEl){ diffEl.textContent=diff; diffEl.className='pill '+(diff<0?'bad':'good'); }
+  const statusEl=$('ship_status_'+sku); if(statusEl){ statusEl.innerHTML=diff<0?'<span class="pill bad">Production</span>':'<span class="pill good">OK</span>'; }
 }
 function shipShortTable(rows){
   const arr=rows.map(r=>({...r,total:r.baimiang+r.b2b+r.b2c,diff:r.stock-(r.baimiang+r.b2b+r.b2c)})).filter(r=>r.diff<0).sort((a,b)=>a.diff-b.diff);
@@ -429,9 +441,17 @@ async function saveShippingPlan(){
     // v9.46 fix: แบ่งส่งเป็นชุดละ 15 SKU กัน URL ยาวเกินตอนมีหลาย SKU พร้อมกัน (Backend อัปเดตเป็น
     // upsert ทีละแถวแล้ว ปลอดภัยเวลาส่งหลายชุดต่อกัน ไม่ทับ SKU ของชุดก่อนหน้า)
     if(rows.length) await apiPostBatched('shippingplanbatch',rows,15,chunk=>({data:{date,rows:chunk}}));
+    // v9.52 fix: เดิมลบทุกแถวของ "วันนี้" ใน cache เครื่องทิ้งก่อนแล้วใส่กลับแค่ที่เพิ่งบันทึกรอบนี้
+    // (db.shippingPlan.filter(x=>x.date!==date) แล้ว push เฉพาะ rows) ทำให้ถ้ากรอง Product ไว้ตอนบันทึก
+    // (เห็นแค่บาง SKU บนจอ) ข้อมูล SKU ของ Product อื่นที่เคยบันทึกไปแล้วในวันเดียวกันหายไปจาก cache
+    // เครื่องทันที (แม้ Google Sheet จริงไม่หาย เพราะ Backend upsert ทีละแถวอยู่แล้ว) ตอนนี้เปลี่ยนเป็น
+    // upsert ทีละ SKU เข้า cache เครื่องแทน ไม่แตะ SKU อื่นที่ไม่ได้อยู่ใน rows ที่เพิ่งบันทึก
     db.shippingPlan=db.shippingPlan||[];
-    db.shippingPlan=db.shippingPlan.filter(x=>x.date!==date);
-    db.shippingPlan.push(...rows.map(x=>({...x,updatedAt:now()})));
+    rows.forEach(r=>{
+      const i=db.shippingPlan.findIndex(x=>x.date===date && String(x.sku)===String(r.sku));
+      const updated={...r,updatedAt:now()};
+      if(i>=0) db.shippingPlan[i]=updated; else db.shippingPlan.push(updated);
+    });
     saveLocalOnly();
     page='shipcheck'; render();
     sheetDone('บันทึก ShippingPlan เข้า Google Sheet แล้ว / หน้านี้ไม่หายหลังบันทึก');
@@ -439,11 +459,13 @@ async function saveShippingPlan(){
 }
 function currentShippingShortageRows(){
   const date=$('shipDate')?.value||todayISO();
-  return collectShippingRows().map(r=>{
-    const it=(db.items||[]).find(x=>String(x.sku)===String(r.sku))||{};
-    const total=(+r.baimiang||0)+(+r.b2b||0)+(+r.b2c||0);
-    const stock=shipStock(r.sku);
-    return {date,sku:r.sku,name:it.name||itemName(r.sku),product:it.product||'',total,stock,need:Math.max(0,total-stock)};
+  // v9.51 fix: เดิมอ่านค่าจาก input ที่กำลังโชว์อยู่บนจอเท่านั้น (collectShippingRows) ถ้ามี Product filter
+  // กรองไว้ จะเห็นแค่ SKU ที่กรองอยู่ ทำให้ "สร้างคำสั่งผลิตจากรายการที่ขาด" พลาด SKU ของ Product อื่น
+  // ที่บันทึกไปแล้วก่อนหน้า ตอนนี้ใช้ข้อมูลที่บันทึกจริงในชีต (shipPlanRows) ครบทุก Product เสมอ
+  // ข้อควรรู้: ต้องกด "บันทึก ShippingPlan เข้า Google Sheet" ก่อน ถึงจะรวมยอดที่เพิ่งกรอกในรอบนี้ด้วย
+  return shipPlanRows(date).map(r=>{
+    const total=r.baimiang+r.b2b+r.b2c;
+    return {date,sku:r.sku,name:r.name,product:r.product,total,stock:r.stock,need:Math.max(0,total-r.stock)};
   }).filter(r=>r.need>0);
 }
 async function createPOFromShippingShortage(){
@@ -511,12 +533,13 @@ function salesOutPage(m){
   const date=$('soDate')?.value||todayISO();
   const q=($('soQ')?.value||'').toLowerCase();
   const onlySold=$('soOnlySold')?$('soOnlySold').checked:true;
-  let rows=salesOutRows(date).filter(r=>matchesProdFilter('salesout',r.product) && (!q||(r.sku+' '+r.name+' '+r.product).toLowerCase().includes(q)));
-  const totalSold=rows.reduce((a,r)=>a+salesOutTotal(r),0);
-  const skuSold=rows.filter(r=>salesOutTotal(r)>0).length;
+  const allRows=salesOutRows(date);
+  let rows=allRows.filter(r=>matchesProdFilter('salesout',r.product) && (!q||(r.sku+' '+r.name+' '+r.product).toLowerCase().includes(q)));
+  const totalSold=allRows.reduce((a,r)=>a+salesOutTotal(r),0);
+  const skuSold=allRows.filter(r=>salesOutTotal(r)>0).length;
   const shownRows=onlySold?rows.filter(r=>salesOutTotal(r)>0):rows;
   m.innerHTML=head('ขายออก','บันทึกยอดขายจริงต่อช่องทาง — กดบันทึกแล้วตัด FG Stock ทันที (คนละหน้ากับ ShippingPlan ที่เป็นแค่แผน)')+
-  `<div class="toolbar"><div class="row3"><input id="soDate" type="date" value="${date}" onchange="salesOutPage($('main'))"><span></span><input id="soQ" value="${escHTML(q)}" oninput="rerenderKeepFocus(()=>salesOutPage($('main')))" placeholder="ค้นหา SKU / ชื่อ"></div>${productChipsHTML('salesout','salesOutPage')}`+
+  `<div class="toolbar"><div class="row3"><input id="soDate" type="date" value="${date}" onchange="salesOutPage($('main'))"><span></span><input id="soQ" value="${escHTML(q)}" oninput="rerenderKeepFocus(()=>salesOutPage($('main')))" placeholder="ค้นหา SKU / ชื่อ"></div>${productChipsHTML('salesout','salesOutPage')}<p class="mini">Filter/ค้นหาด้านบนมีผลกับตารางด้านล่างเท่านั้น — ตัวเลขสรุปนับรวมทุก Product เสมอ</p>`+
   `<label style="display:flex;align-items:center;gap:8px;margin-top:10px;cursor:pointer;width:fit-content"><input id="soOnlySold" type="checkbox" ${onlySold?'checked':''} onchange="salesOutPage($('main'))" style="width:20px;height:20px"> แสดงเฉพาะ SKU ที่มียอดขาย</label>`+
   `<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap"><button class="primary" onclick="saveSalesOut()">บันทึกขายออก + ตัด Stock</button><button class="ghost" onclick="loadFromGoogleSheet()">Refresh จาก Google Sheet</button></div></div>`+
   `<div class="kpis"><div class="kpi">ขายรวมวันนี้<b>${totalSold}</b></div><div class="kpi">SKU ที่ขายได้<b>${skuSold}</b></div></div>`+
@@ -528,9 +551,25 @@ function salesOutTable(rows){
   const chHeaders=SALES_CHANNELS.map(([,label])=>`<th>${label}</th>`).join('');
   return `<table><tr><th>SKU</th><th>ชื่อ</th>${chHeaders}<th>รวม</th><th>Stock ปัจจุบัน</th><th>หมายเหตุ</th></tr>${rows.map(r=>{
     const total=salesOutTotal(r);
-    const inputs=SALES_CHANNELS.map(([k])=>`<td><input id="so_${k}_${r.sku}" type="number" value="${r[k]||0}" min="0" style="max-width:80px" oninput="updateSalesOutTotal('${r.sku}')"></td>`).join('');
-    return `<tr><td><b>${r.sku}</b></td><td>${escHTML(r.name)}</td>${inputs}<td><b id="so_total_${r.sku}">${total}</b></td><td>${r.stock}</td><td><input id="so_remark_${r.sku}" value="${escHTML(r.remark||'')}" placeholder="หมายเหตุ" style="min-width:120px"></td></tr>`;
+    const inputs=SALES_CHANNELS.map(([k])=>`<td><input id="so_${k}_${r.sku}" type="number" value="${r[k]||0}" min="0" style="max-width:80px" oninput="updateSalesOutTotal('${r.sku}')" onkeydown="gridKeyNav(event,this)"></td>`).join('');
+    return `<tr><td><b>${r.sku}</b></td><td>${escHTML(r.name)}</td>${inputs}<td><b id="so_total_${r.sku}">${total}</b></td><td>${r.stock}</td><td><input id="so_remark_${r.sku}" value="${escHTML(r.remark||'')}" placeholder="หมายเหตุ" style="min-width:120px" onkeydown="gridKeyNav(event,this)"></td></tr>`;
   }).join('')}</table>`;
+}
+function gridKeyNav(e,el){
+  // ทุกหน้าที่มีตารางกรอกตัวเลขหลายแถว: กด Enter = ไปแถวถัดไปคอลัมน์เดิม, Shift+Enter = แถวก่อนหน้า
+  // Tab ไปคอลัมน์ถัดไปใช้พฤติกรรมเบราว์เซอร์ปกติอยู่แล้ว (เรียงตามลำดับ input ในตาราง)
+  if(e.key!=='Enter') return;
+  e.preventDefault();
+  const td=el.closest('td'); const tr=td?.closest('tr');
+  if(!td||!tr) return;
+  const cellIndex=Array.from(tr.children).indexOf(td);
+  let row=e.shiftKey?tr.previousElementSibling:tr.nextElementSibling;
+  while(row){
+    const cell=row.children[cellIndex];
+    const input=cell?.querySelector('input,select,textarea');
+    if(input){ input.focus(); if(input.select) input.select(); return; }
+    row=e.shiftKey?row.previousElementSibling:row.nextElementSibling;
+  }
 }
 function updateSalesOutTotal(sku){
   let total=0;
@@ -828,7 +867,7 @@ function stock(m){
 }
 function bulkStockTable(list,type){
   if(!list.length)return '<p class="hint">ไม่มีรายการ</p>';
-  return `<table id="stockTable"><tr><th style="width:110px"><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="stockSelectAll" onchange="toggleAllStock(this.checked)" style="width:22px;height:22px"> เลือกทั้งหมด</label></th><th>SKU</th><th>ชื่อ</th><th>คงคลังปัจจุบัน</th><th>จำนวน</th></tr>${list.map(x=>`<tr class="stockRow" data-search="${(x.sku+' '+x.name+' '+(x.product||'')+' '+(x.variant||'')+' '+(x.unit||'')).toLowerCase()}"><td><input type="checkbox" class="stockChk" data-sku="${x.sku}" onchange="toggleStockQty('${x.sku}')" style="width:22px;height:22px"></td><td><b>${x.sku}</b></td><td>${x.name}</td><td>${x.stock||0} ${x.unit||'pcs'}</td><td><input id="stockqty_${x.sku}" class="stockQty" type="number" min="0" placeholder="จำนวน"></td></tr>`).join('')}</table>`
+  return `<table id="stockTable"><tr><th style="width:110px"><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="stockSelectAll" onchange="toggleAllStock(this.checked)" style="width:22px;height:22px"> เลือกทั้งหมด</label></th><th>SKU</th><th>ชื่อ</th><th>คงคลังปัจจุบัน</th><th>จำนวน</th></tr>${list.map(x=>`<tr class="stockRow" data-search="${(x.sku+' '+x.name+' '+(x.product||'')+' '+(x.variant||'')+' '+(x.unit||'')).toLowerCase()}"><td><input type="checkbox" class="stockChk" data-sku="${x.sku}" onchange="toggleStockQty('${x.sku}')" style="width:22px;height:22px"></td><td><b>${x.sku}</b></td><td>${x.name}</td><td>${x.stock||0} ${x.unit||'pcs'}</td><td><input id="stockqty_${x.sku}" class="stockQty" type="number" min="0" placeholder="จำนวน" onkeydown="gridKeyNav(event,this)"></td></tr>`).join('')}</table>`
 }
 function filterStockRows(){let q=($('sq')?.value||'').toLowerCase(); document.querySelectorAll('#stockTable .stockRow').forEach(r=>{r.style.display=(r.dataset.search||'').includes(q)?'':'none';});}
 function toggleAllStock(checked){document.querySelectorAll('.stockChk').forEach(c=>{let row=c.closest('tr'); if(row && row.style.display=='none') return; c.checked=checked; toggleStockQty(c.dataset.sku);});}
@@ -859,7 +898,7 @@ function cycleCount(m){
 }
 function cycleCountTable(list,type){
   if(!list.length)return '<p class="hint">ไม่มีรายการ</p>';
-  return `<table><tr><th style="width:120px"><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="cycleSelectAll" onchange="toggleAllCycle(this.checked)" style="width:22px;height:22px"> เลือกทั้งหมด</label></th><th>SKU</th><th>ชื่อ</th><th>ยอดในระบบ</th><th>ยอดนับจริง</th><th>Diff</th></tr>${list.map(x=>`<tr><td><input type="checkbox" class="cycleChk" data-sku="${x.sku}" data-type="${type}" onchange="toggleCycleQty('${x.sku}')" style="width:22px;height:22px"></td><td><b>${x.sku}</b></td><td>${x.name}</td><td id="ccur_${x.sku}" data-current="${+x.stock||0}">${x.stock||0} ${x.unit||'pcs'}</td><td><input id="ccount_${x.sku}" class="cycleQty" type="number" min="0" placeholder="ยอดนับจริง" oninput="updateCycleDiff('${x.sku}')"></td><td id="cdiff_${x.sku}"><span class="mini">-</span></td></tr>`).join('')}</table>`
+  return `<table><tr><th style="width:120px"><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="cycleSelectAll" onchange="toggleAllCycle(this.checked)" style="width:22px;height:22px"> เลือกทั้งหมด</label></th><th>SKU</th><th>ชื่อ</th><th>ยอดในระบบ</th><th>ยอดนับจริง</th><th>Diff</th></tr>${list.map(x=>`<tr><td><input type="checkbox" class="cycleChk" data-sku="${x.sku}" data-type="${type}" onchange="toggleCycleQty('${x.sku}')" style="width:22px;height:22px"></td><td><b>${x.sku}</b></td><td>${x.name}</td><td id="ccur_${x.sku}" data-current="${+x.stock||0}">${x.stock||0} ${x.unit||'pcs'}</td><td><input id="ccount_${x.sku}" class="cycleQty" type="number" min="0" placeholder="ยอดนับจริง" oninput="updateCycleDiff('${x.sku}')" onkeydown="gridKeyNav(event,this)"></td><td id="cdiff_${x.sku}"><span class="mini">-</span></td></tr>`).join('')}</table>`
 }
 function toggleAllCycle(checked){document.querySelectorAll('.cycleChk').forEach(c=>{c.checked=checked; toggleCycleQty(c.dataset.sku);});}
 function toggleCycleQty(sku){let q=$('ccount_'+sku), chk=document.querySelector(`.cycleChk[data-sku="${sku}"]`); if(chk?.checked && q && !q.value) q.value=$('ccur_'+sku)?.dataset.current||0; updateCycleDiff(sku)}
@@ -1063,7 +1102,7 @@ function productionRecordPage(m){
 }
 function prodRecordTable(list){
   if(!list.length)return '<p class="hint">ไม่มีรายการ</p>';
-  return `<table><tr><th style="width:110px"><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="prodRecSelectAll" onchange="toggleAllProdRec(this.checked)" style="width:22px;height:22px"> เลือกทั้งหมด</label></th><th>SKU</th><th>ชื่อสินค้า</th><th>Stock ก่อนบันทึก</th><th>จำนวนผลิต</th><th>BOM ที่จะตัด</th></tr>${list.map(x=>`<tr><td><input type="checkbox" class="prodRecChk" data-sku="${x.sku}" onchange="toggleProdRecQty('${x.sku}')" style="width:22px;height:22px"></td><td><b>${x.sku}</b></td><td>${x.name}</td><td><b>${x.stock||0}</b></td><td><input id="prodrecqty_${x.sku}" type="number" min="0" placeholder="จำนวน" oninput="updateProdRecReq('${x.sku}')"></td><td id="prodreq_${x.sku}">${reqText(x.sku,0)}</td></tr>`).join('')}</table>`;
+  return `<table><tr><th style="width:110px"><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="prodRecSelectAll" onchange="toggleAllProdRec(this.checked)" style="width:22px;height:22px"> เลือกทั้งหมด</label></th><th>SKU</th><th>ชื่อสินค้า</th><th>Stock ก่อนบันทึก</th><th>จำนวนผลิต</th><th>BOM ที่จะตัด</th></tr>${list.map(x=>`<tr><td><input type="checkbox" class="prodRecChk" data-sku="${x.sku}" onchange="toggleProdRecQty('${x.sku}')" style="width:22px;height:22px"></td><td><b>${x.sku}</b></td><td>${x.name}</td><td><b>${x.stock||0}</b></td><td><input id="prodrecqty_${x.sku}" type="number" min="0" placeholder="จำนวน" oninput="updateProdRecReq('${x.sku}')" onkeydown="gridKeyNav(event,this)"></td><td id="prodreq_${x.sku}">${reqText(x.sku,0)}</td></tr>`).join('')}</table>`;
 }
 function toggleAllProdRec(checked){document.querySelectorAll('.prodRecChk').forEach(c=>{c.checked=checked; toggleProdRecQty(c.dataset.sku);});}
 function toggleProdRecQty(sku){let q=$('prodrecqty_'+sku), chk=document.querySelector(`.prodRecChk[data-sku="${sku}"]`); if(chk?.checked && !q.value) q.value=$('recBulkQty')?.value||1; updateProdRecReq(sku);}
@@ -1181,7 +1220,7 @@ function prod(m){
   let body=selected?`<div class="box"><div class="row3"><input id="bulkQty" type="number" placeholder="ใส่จำนวนเดียวกันทุก SKU ที่ติ๊ก"><input id="bulkRemark" placeholder="หมายเหตุรวม"><button class="ghost" onclick="fillCheckedQty()">เติมจำนวนให้รายการที่ติ๊ก</button></div><br>${bulkPoTable(list)}<br><button class="primary" onclick="createBulkPO()">สร้างงานผลิตตามรายการที่ติ๊ก</button></div>`:`<div class="box"><p class="hint">เลือก Product ก่อน ระบบจะแสดง SKU ทั้งหมดของ Product นั้นให้ติ๊กและใส่จำนวน</p></div>`;
   m.innerHTML=head('สั่งผลิต','เลือก Product แล้วติ๊ก SKU หลายรายการเพื่อสร้างงานผลิตครั้งเดียว')+`<div class="toolbar"><select id="pprod" onchange="prod($('main'))" style="max-width:360px">${productOptions(selected)}</select></div>${body}<div class="box"><h2>รายการงานผลิต</h2>${poTable(db.po.slice().reverse())}</div>`
 }
-function bulkPoTable(list){return `<table><tr><th style="width:110px"><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="poSelectAll" onchange="toggleAllPO(this.checked)" style="width:22px;height:22px"> เลือกทั้งหมด</label></th><th>SKU</th><th>ชื่อสินค้า</th><th>คงคลัง</th><th>จำนวนผลิต</th><th>RM ที่ต้องใช้</th></tr>${list.map(x=>`<tr><td><input type="checkbox" class="poChk" data-sku="${x.sku}" onchange="togglePoQty('${x.sku}')" style="width:22px;height:22px"></td><td><b>${x.sku}</b></td><td>${x.name}</td><td>${x.stock||0}</td><td><input id="poqty_${x.sku}" class="poQty" type="number" min="0" placeholder="จำนวน" oninput="updateBulkReq('${x.sku}')"></td><td id="poreq_${x.sku}">${reqText(x.sku,0)}</td></tr>`).join('')}</table>`}
+function bulkPoTable(list){return `<table><tr><th style="width:110px"><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="poSelectAll" onchange="toggleAllPO(this.checked)" style="width:22px;height:22px"> เลือกทั้งหมด</label></th><th>SKU</th><th>ชื่อสินค้า</th><th>คงคลัง</th><th>จำนวนผลิต</th><th>RM ที่ต้องใช้</th></tr>${list.map(x=>`<tr><td><input type="checkbox" class="poChk" data-sku="${x.sku}" onchange="togglePoQty('${x.sku}')" style="width:22px;height:22px"></td><td><b>${x.sku}</b></td><td>${x.name}</td><td>${x.stock||0}</td><td><input id="poqty_${x.sku}" class="poQty" type="number" min="0" placeholder="จำนวน" oninput="updateBulkReq('${x.sku}')" onkeydown="gridKeyNav(event,this)"></td><td id="poreq_${x.sku}">${reqText(x.sku,0)}</td></tr>`).join('')}</table>`}
 function toggleAllPO(checked){document.querySelectorAll('.poChk').forEach(c=>{c.checked=checked; togglePoQty(c.dataset.sku);});}
 function togglePoQty(sku){let q=$('poqty_'+sku), chk=document.querySelector(`.poChk[data-sku="${sku}"]`); if(chk?.checked && !q.value) q.value=$('bulkQty')?.value||1; updateBulkReq(sku)}
 function fillCheckedQty(){let v=+$('bulkQty').value||0; if(!v)return toast('ใส่จำนวนก่อน'); document.querySelectorAll('.poChk:checked').forEach(c=>{let q=$('poqty_'+c.dataset.sku); q.value=v; updateBulkReq(c.dataset.sku)});}
