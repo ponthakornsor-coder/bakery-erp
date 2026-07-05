@@ -1301,23 +1301,24 @@ async function ensureUserListLoaded(){
 function assignPOPrompt(poId){
   ensureUserListLoaded().then(users=>{
     const options=users.filter(u=>u.status==='Active').map(u=>`<option value="${escHTML(u.username)}">${escHTML(u.displayName)} (${u.role})</option>`).join('');
-    modal(`<h2>มอบหมายพนักงานผลิต</h2><p class="hint">PO: ${poId}</p><select id="assignUserSel"><option value="">-- ไม่มอบหมาย --</option>${options}</select><br><br><button class="primary" onclick="confirmAssignPO('${poId}')">บันทึกการมอบหมาย</button> <button class="ghost" onclick="$('modal').style.display='none'">ปิด</button>`);
+    modal(`<h2>มอบหมายพนักงานผลิต + ส่ง LINE</h2><p class="hint">PO: ${poId} — เลือกพนักงานแล้วกดยืนยันครั้งเดียว ระบบจะมอบหมายและส่ง LINE แจ้งงานให้ทันที</p><select id="assignUserSel"><option value="">-- ไม่มอบหมาย --</option>${options}</select><br><br><button class="primary" onclick="confirmAssignPO('${poId}')">มอบหมาย + ส่ง LINE</button> <button class="ghost" onclick="$('modal').style.display='none'">ปิด</button>`);
   });
 }
 async function confirmAssignPO(poId){
   const username=$('assignUserSel')?.value||'';
-  toast('กำลังบันทึกการมอบหมาย...');
+  toast(username?'กำลังมอบหมาย + ส่ง LINE...':'กำลังยกเลิกการมอบหมาย...');
   try{
-    await apiPost({action:'assignpo',poId,username});
-    const p=db.po.find(x=>x.id===poId); if(p) p.assignedTo=username;
+    const res=await apiPost({action:'assignandsendline',poId,username});
+    const p=db.po.find(x=>x.id===poId);
+    if(p){ p.assignedTo=username; if(username) p.lineNotifiedAt=now(); }
     saveLocalOnly(); $('modal').style.display='none'; render();
-    sheetDone(username?('มอบหมาย '+username+' แล้ว'):'ยกเลิกการมอบหมายแล้ว');
-  }catch(e){console.error(e); alert('มอบหมายไม่สำเร็จ: '+(e.message||e));}
+    sheetDone(res?.message||(username?('มอบหมาย '+username+' + ส่ง LINE แล้ว'):'ยกเลิกการมอบหมายแล้ว'));
+  }catch(e){console.error(e); alert('มอบหมาย/ส่ง LINE ไม่สำเร็จ: '+(e.message||e));}
 }
 async function sendLinePOPrompt(poId){
   const p=db.po.find(x=>x.id===poId);
   if(!p?.assignedTo) return toast('มอบหมายพนักงานก่อนถึงจะส่ง LINE ได้');
-  if(!confirm('ส่งแจ้งเตือน LINE หา '+p.assignedTo+' สำหรับ '+poId+' ?'))return;
+  if(!confirm('ส่งแจ้งเตือน LINE ซ้ำหา '+p.assignedTo+' สำหรับ '+poId+' ?'))return;
   toast('กำลังส่ง LINE...');
   try{
     await apiPost({action:'sendlinepo',poId});
@@ -1326,19 +1327,42 @@ async function sendLinePOPrompt(poId){
     sheetDone('ส่ง LINE แล้ว');
   }catch(e){console.error(e); alert('ส่ง LINE ไม่สำเร็จ: '+(e.message||e));}
 }
+function poDuration(p){
+  // v9.63: เวลาที่ใช้ผลิตจริง (จบ-เริ่ม) เฉพาะงานที่มี StartAt/FinishAt บันทึกไว้ (ผ่าน LINE)
+  if(!p.start||!p.finish) return null;
+  const ms=new Date(p.finish)-new Date(p.start);
+  if(!(ms>0)) return null;
+  const mins=Math.round(ms/60000);
+  const h=Math.floor(mins/60), m=mins%60;
+  const label=(h>0?h+' ชม. ':'')+m+' นาที';
+  const qty=+(p.actualQty||p.qty)||0;
+  const perPiece=qty>0?(ms/60000/qty):null;
+  return {label, perPieceLabel: perPiece!=null?(perPiece<1?Math.round(perPiece*60)+' วิ/ชิ้น':perPiece.toFixed(1)+' นาที/ชิ้น'):null};
+}
+function poStatusLabel(p){
+  // v9.63: สถานะที่เห็นในเว็บให้ตรงกับ workflow มอบหมาย/เริ่ม/จบ ผ่าน LINE
+  if(p.status==='Completed') return {text:'Complete', cls:'good'};
+  if(p.status==='Cancelled') return {text:'Cancelled', cls:'bad'};
+  if(p.status==='In Progress') return {text:'กำลังผลิต', cls:''};
+  if(p.status==='Open' && p.assignedTo) return {text:'มอบหมายแล้ว รอผลิต', cls:''};
+  return {text:'Open', cls:''};
+}
+function poStatusPillNew(p){const s=poStatusLabel(p); return `<span class="pill ${s.cls}">${s.text}</span>`;}
 function poTableCompact(arr){if(!arr.length)return '<p class="hint">ยังไม่มีงาน</p>'; return `<table><tr><th>เวลา</th><th>PO</th><th>SKU</th><th>จำนวน</th><th>สถานะ</th><th></th></tr>${arr.map(p=>{
   const hasActual=p.actualQty!==undefined&&p.actualQty!==''&&p.actualQty!==null;
   const qtyDisplay=hasActual&&+p.actualQty!==+p.qty ? `${p.qty}→<b>${p.actualQty}</b>` : p.qty;
-  return `<tr><td>${p.time}</td><td>${p.id}</td><td>${p.sku}</td><td>${qtyDisplay}</td><td>${statusPill(p.status)}</td><td class="actions">${poActions(p)}</td></tr>`;
+  return `<tr><td>${p.time}</td><td>${p.id}</td><td>${p.sku}</td><td>${qtyDisplay}</td><td>${poStatusPillNew(p)}</td><td class="actions">${poActions(p)}</td></tr>`;
 }).join('')}</table>`}
-function poTable(arr){if(!arr.length)return '<p class="hint">ยังไม่มีงาน</p>'; return `<table><tr><th>เวลา</th><th>PO</th><th>SKU</th><th>จำนวน</th><th>มอบหมาย</th><th>สถานะ</th><th>RM ที่ต้องใช้</th><th></th></tr>${arr.map(p=>{
+function poTable(arr){if(!arr.length)return '<p class="hint">ยังไม่มีงาน</p>'; return `<table><tr><th>เวลา</th><th>PO</th><th>SKU</th><th>จำนวน</th><th>มอบหมาย</th><th>สถานะ</th><th>เวลาที่ใช้ผลิต</th><th>RM ที่ต้องใช้</th><th></th></tr>${arr.map(p=>{
   const hasActual=p.actualQty!==undefined&&p.actualQty!==''&&p.actualQty!==null;
   const qtyDisplay=hasActual&&+p.actualQty!==+p.qty
     ? `สั่ง ${p.qty} / <b class="${+p.actualQty>+p.qty?'good':'danger'}">ผลิตจริง ${p.actualQty}</b>`
     : (hasActual ? `${p.qty} <span class="mini">(ตรงตามแผน)</span>` : p.qty);
   const notDone=!['Completed','Cancelled'].includes(p.status);
-  const assignCell=notDone?`<button class="small" onclick="assignPOPrompt('${p.id}')">${p.assignedTo?escHTML(p.assignedTo):'มอบหมาย'}</button>${p.assignedTo?`<br><button class="small ${p.lineNotifiedAt?'ghost':'primary'}" onclick="sendLinePOPrompt('${p.id}')">${p.lineNotifiedAt?'ส่งซ้ำ LINE':'ส่ง LINE'}</button>`:''}`:(p.assignedTo?escHTML(p.assignedTo):'-');
-  return `<tr><td>${p.time}</td><td>${p.id}</td><td>${p.sku}</td><td>${qtyDisplay}</td><td>${assignCell}</td><td>${statusPill(p.status)}</td><td>${reqText(p.sku,p.qty)}</td><td class="actions">${poActions(p)}</td></tr>`;
+  const assignCell=notDone?`<button class="small" onclick="assignPOPrompt('${p.id}')">${p.assignedTo?escHTML(p.assignedTo):'มอบหมาย'}</button>${p.assignedTo?`<br><button class="small ghost" onclick="sendLinePOPrompt('${p.id}')">${p.lineNotifiedAt?'ส่งซ้ำ LINE':'ส่ง LINE'}</button>`:''}`:(p.assignedTo?escHTML(p.assignedTo):'-');
+  const dur=poDuration(p);
+  const durCell=dur?(`${dur.label}${dur.perPieceLabel?'<br><span class="mini">'+dur.perPieceLabel+'</span>':''}`):'<span class="mini">-</span>';
+  return `<tr><td>${p.time}</td><td>${p.id}</td><td>${p.sku}</td><td>${qtyDisplay}</td><td>${assignCell}</td><td>${poStatusPillNew(p)}</td><td>${durCell}</td><td>${reqText(p.sku,p.qty)}</td><td class="actions">${poActions(p)}</td></tr>`;
 }).join('')}</table>`}
 function statusPill(s){let c=s=='Completed'?'good':s=='Cancelled'?'bad':''; return `<span class="pill ${c}">${s}</span>`}
 function poActions(p){let id=p.id; if(p.status=='Open')return `<button class="small" onclick="completePO('${id}')">Complete</button><button class="small danger" onclick="setPO('${id}','Cancelled')">Cancel</button>`; return ''}
