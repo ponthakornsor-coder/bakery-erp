@@ -279,7 +279,7 @@ function sendNewMovementsSince(index){
 
 function toastSaveOK(name){toast(name+' เข้า Google Sheet แล้ว')}
 function toastSaveFail(name,e){console.error(e); alert(name+' ไม่เข้า Google Sheet: '+(e.message||e));}
-function fgPayload(x){return {SKU:x.sku,Name:x.name,Product:x.product||'',Variant:x.variant||'',Weight:x.weight||'',Unit:x.unit||'pcs',Stock:+x.stock||0,Min:+x.min||0,Price:+x.price||0,Cost:+x.cost||0,Status:'Active'};}
+function fgPayload(x){return {SKU:x.sku,Name:x.name,Product:x.product||'',Variant:x.variant||'',Weight:x.weight||'',Unit:x.unit||'pcs',Stock:+x.stock||0,Min:+x.min||0,Price:+x.price||0,Cost:+x.cost||0,Status:'Active',ImageURL:x.imageUrl||''};}
 function rmPayload(r){return {RMCode:r.sku,Name:r.name,Category:r.product||'Raw Material',Variant:r.variant||'',Unit:r.unit||'g',Stock:+r.stock||0,Min:+r.min||0,Cost:+r.cost||0,Status:'Active'};}
 function poPayload(p){return {PO:p.id,SKU:p.sku,Qty:+p.qty||0,Status:p.status||'Open',CreatedAt:p.time||'',StartAt:p.start||'',FinishAt:p.finish||'',Remark:p.remark||'',UpdatedAt:now(),ActualQty:(p.actualQty!==undefined&&p.actualQty!==''&&p.actualQty!==null)?+p.actualQty:''};}
 function orderPayload(o){return {OrderNo:'DAY-'+o.date,OrderDate:o.date,TotalOrders:+o.total||0,CompletedOrders:+o.shipped||0,Status:(+o.shipped>=+o.total?'Completed':'Pending'),Remark:o.note||''};}
@@ -566,7 +566,7 @@ function sheetDone(t){
   toast(t);
   setTimeout(()=>alert(t),80);
 }
-function nav(){ $('nav').innerHTML=pages.filter(p=>!p[3]||isAdmin()).map(p=>`<button class="${page==p[0]?'active':''}" onclick="go('${p[0]}')"><span class="nav-ic">${p[2]||'•'}</span>${p[1]}</button>`).join(''); updateTopbar(); } function go(p){page=p;render()}
+function nav(){ $('nav').innerHTML=pages.filter(p=>isOperator()?OPERATOR_PAGES_.includes(p[0]):(!p[3]||isAdmin())).map(p=>`<button class="${page==p[0]?'active':''}" onclick="go('${p[0]}')"><span class="nav-ic">${p[2]||'•'}</span>${p[1]}</button>`).join(''); updateTopbar(); } function go(p){page=p;render()}
 function updateTopbar(){
   const dEl=$('topbarDate'); if(dEl) dEl.textContent=new Date().toLocaleDateString('th-TH',{day:'numeric',month:'long',year:'numeric'})+' · อัปเดตล่าสุด '+new Date().toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'});
   const badge=$('topbarAlertBadge');
@@ -577,7 +577,7 @@ function updateTopbar(){
     if(n>0){ badge.textContent=n>99?'99+':n; badge.style.display='flex'; } else badge.style.display='none';
   }
 }
-function render(){try{nav(); const m=$('main'); if(page=='dashboard') return dash(m); if(page=='master') return masterData(m); if(page=='items') return items(m); if(page=='rm') return rm(m); if(page=='stock') return stock(m); if(page=='cycle') return cycleCount(m); if(page=='fglog') return fgLogPage(m); if(page=='prodrecord') return productionRecordPage(m); if(page=='trx') return transactionCenterPage(m); if(page=='prodsummary') return productionSummaryPage(m); if(page=='shipcheck') return shipCheckPage(m); if(page=='prod') return prod(m); if(page=='orders') return ordersPage(m); if(page=='bom') return bom(m); if(page=='voidapproval') return voidApprovalPage(m); if(page=='users') return userManagementPage(m); if(page=='history') return hist(m); if(page=='google') return googlePage(m); if(page=='settings') return settings(m); return dash(m);}catch(e){console.error(e); $('main').innerHTML='<h1>เกิด Error</h1><div class="box"><b>'+String(e.message||e)+'</b><p class="hint">กด Settings → Reset หรือส่งรูปหน้านี้มาให้ผมดู</p><button class="primary" onclick="localStorage.removeItem(\'bakery_erp_v6_1\');location.reload()">Reset ข้อมูลใน Browser</button></div>';}}
+function render(){try{nav(); if(isOperator() && !OPERATOR_PAGES_.includes(page)){ page='prodrecord'; nav(); } const m=$('main'); if(page=='dashboard') return dash(m); if(page=='master') return masterData(m); if(page=='items') return items(m); if(page=='rm') return rm(m); if(page=='stock') return stock(m); if(page=='cycle') return cycleCount(m); if(page=='fglog') return fgLogPage(m); if(page=='prodrecord') return productionRecordPage(m); if(page=='trx') return transactionCenterPage(m); if(page=='prodsummary') return productionSummaryPage(m); if(page=='shipcheck') return shipCheckPage(m); if(page=='prod') return prod(m); if(page=='orders') return ordersPage(m); if(page=='bom') return bom(m); if(page=='voidapproval') return voidApprovalPage(m); if(page=='users') return userManagementPage(m); if(page=='history') return hist(m); if(page=='google') return googlePage(m); if(page=='settings') return settings(m); return dash(m);}catch(e){console.error(e); $('main').innerHTML='<h1>เกิด Error</h1><div class="box"><b>'+String(e.message||e)+'</b><p class="hint">กด Settings → Reset หรือส่งรูปหน้านี้มาให้ผมดู</p><button class="primary" onclick="localStorage.removeItem(\'bakery_erp_v6_1\');location.reload()">Reset ข้อมูลใน Browser</button></div>';}}
 function head(t,h=''){return `<h1>${t}</h1><div class="hint">${h}</div>`}
 function todayISO(){
   const d=new Date();
@@ -1076,7 +1076,20 @@ function productionTransactions(){
   const voidRefs=new Set((db.mov||[]).filter(mv=>String(mv.source||'')==='ERP-VOID-RM' && mv.ref).map(mv=>String(mv.ref)));
   const fromRM=(db.mov||[]).filter(mv=>String(mv.type||'').toUpperCase()==='RM')
     .map(mv=>{let rmIt=(db.rm||[]).find(x=>String(x.sku)==String(mv.sku))||{}; const isVoidReverse=String(mv.source||'')==='ERP-VOID-RM'; const alreadyVoided=voidRefs.has('VOID-'+String(mv.id||'')); return {id:mv.id||mv.ref||'',time:mv.time,type:'วัตถุดิบ: '+(mv.mode||''),kind:'RM',sku:mv.sku,name:rmIt.name||'',product:rmIt.product||'Raw Material',variant:rmIt.variant||'',qty:+mv.qty||0,operator:'',remark:mv.remark||'',status:'Active',voidReason:'',voidAt:'',isVoidReverse,alreadyVoided};});
-  return fromLog.concat(fromMovAuto,fromRM);
+  const withVoidReq=fromLog.concat(fromMovAuto,fromRM).map(x=>({...x,voidRequest:findVoidRequestFor(x.id)}));
+  return withVoidReq;
+}
+function findVoidRequestFor(refId){
+  const reqs=(db.voidRequests||[]).filter(r=>String(r.refId)===String(refId));
+  if(!reqs.length) return null;
+  return reqs.slice().sort((a,b)=>trxSortKey(b.requestedAt)-trxSortKey(a.requestedAt))[0];
+}
+function voidStatusCell(x){
+  const req=x.voidRequest;
+  if(req && req.status==='Pending') return '<span class="pill" style="background:#fff3cd;color:#7a5b00">รออนุมัติ</span><br><span class="mini">ขอโดย '+escHTML(req.requestedBy||'')+'</span>';
+  if(req && req.status==='Rejected') return '<span class="pill bad">ปฏิเสธ</span><br><span class="mini">'+escHTML(req.rejectReason||'ไม่ระบุเหตุผล')+'</span>';
+  if(req && req.status==='Approved') return trxStatusPill('Voided')+'<br><span class="mini">อนุมัติโดย '+escHTML(req.approvedBy||'')+'</span>';
+  return trxStatusPill(x.status)+(x.voidReason?'<br><span class="mini">'+escHTML(x.voidReason)+'</span>':'');
 }
 function trxSortKey(t){const d=new Date(t); return isNaN(d)?0:d.getTime();}
 function transactionCenterPage(m){
@@ -1093,14 +1106,17 @@ function transactionTable(arr){
   if(!arr.length)return '<p class="hint">ไม่พบรายการ</p>';
   return `<table><tr><th>เวลา</th><th>LogID</th><th>Source</th><th>SKU</th><th>Product</th><th>Variant</th><th>Qty</th><th>ผู้บันทึก</th><th>Status</th><th></th></tr>${arr.map(x=>{
     let actionCell='';
-    if(x.kind==='FG' && String(x.status||'Active')!=='Voided'){
+    const pendingReq=x.voidRequest && x.voidRequest.status==='Pending';
+    if(pendingReq){
+      actionCell='<span class="mini">รอ Admin อนุมัติ</span>';
+    }else if(x.kind==='FG' && String(x.status||'Active')!=='Voided'){
       actionCell=`<button class="small danger" onclick="voidProductionPrompt('${escHTML(x.id)}')">${isAdmin()?'Void':'ขอ Void'}</button>`;
     }else if(x.kind==='RM'){
       if(x.isVoidReverse){ actionCell='<span class="mini">รายการย้อนกลับ</span>'; }
       else if(x.alreadyVoided){ actionCell='<span class="mini">Void แล้ว</span>'; }
       else { actionCell=`<button class="small danger" onclick="voidRMMovementPrompt('${escHTML(x.id)}')">${isAdmin()?'Void':'ขอ Void'}</button>`; }
     }
-    return `<tr><td>${x.time}</td><td><b>${x.id}</b></td><td>${x.type}</td><td><b>${x.sku}</b><br><span class="mini">${escHTML(x.name)}</span></td><td>${escHTML(x.product)}</td><td>${escHTML(x.variant)}</td><td><b>${x.qty}</b></td><td>${escHTML(x.operator)}</td><td>${trxStatusPill(x.status)}${x.voidReason?'<br><span class="mini">'+escHTML(x.voidReason)+'</span>':''}</td><td>${actionCell}</td></tr>`;
+    return `<tr><td>${x.time}</td><td><b>${x.id}</b></td><td>${x.type}</td><td><b>${x.sku}</b><br><span class="mini">${escHTML(x.name)}</span></td><td>${escHTML(x.product)}</td><td>${escHTML(x.variant)}</td><td><b>${x.qty}</b></td><td>${escHTML(x.operator)}</td><td>${voidStatusCell(x)}</td><td>${actionCell}</td></tr>`;
   }).join('')}</table>`;
 }
 function voidApprovalPage(m){
@@ -1131,7 +1147,7 @@ async function respondVoidRequest(requestId,approve){
 function userManagementPage(m){
   if(!isAdmin()){ m.innerHTML=head('จัดการ User','')+'<div class="box"><p class="hint">หน้านี้สำหรับ Admin เท่านั้น</p></div>'; return; }
   m.innerHTML=head('จัดการ User','เพิ่ม/ปิดการใช้งานผู้ใช้ในระบบ — สิทธิ์ Admin ทำได้ทุกอย่าง+อนุมัติ Void / Staff ทำงานประจำวันได้ปกติแต่ Void ต้องรออนุมัติ')+
-  `<div class="box"><h2>เพิ่ม User ใหม่</h2><div class="row"><input id="newUserName" placeholder="Username"><input id="newUserDisplay" placeholder="ชื่อที่แสดง"><input id="newUserPw" type="password" placeholder="รหัสผ่าน (อย่างน้อย 6 ตัว)"><select id="newUserRole"><option value="Staff">Staff</option><option value="Admin">Admin</option></select><button class="primary" onclick="addUserAction()">เพิ่ม</button></div></div>`+
+  `<div class="box"><h2>เพิ่ม User ใหม่</h2><div class="row"><input id="newUserName" placeholder="Username"><input id="newUserDisplay" placeholder="ชื่อที่แสดง"><input id="newUserPw" type="password" placeholder="รหัสผ่าน (อย่างน้อย 6 ตัว)"><select id="newUserRole"><option value="Staff">Staff</option><option value="Operator">Operator (บันทึกผลผลิต/สรุปผลผลิตเท่านั้น)</option><option value="Admin">Admin</option></select><button class="primary" onclick="addUserAction()">เพิ่ม</button></div></div>`+
   `<div class="box"><h2>รายชื่อ User</h2><div id="userListBox"><p class="hint">กำลังโหลด...</p></div></div>`;
   loadUserList();
 }
@@ -1276,17 +1292,53 @@ async function createBulkPO(){
   }
 }
 async function createPO(){let sku=$('psku')?.value, qty=+$('pqty')?.value; if(!sku||!qty) return toast('เลือก SKU และจำนวน'); let id='PO-'+String(nextPoSeq()).padStart(5,'0'); let p={id,sku,qty,status:'Open',time:now(),start:'',finish:'',remark:$('premark')?.value||''}; toast('กำลังบันทึก '+id+' เข้า Google Sheet...'); try{await savePODirect(p); db.po.push(p); saveLocalOnly(); render(); sheetDone('สร้าง '+id+' เข้า Google Sheet แล้ว');}catch(e){console.error(e); alert('สร้างงานผลิตไม่สำเร็จ: '+(e.message||e));}}
+let cachedUserList=null;
+async function ensureUserListLoaded(){
+  if(cachedUserList) return cachedUserList;
+  try{ const res=await apiPost({action:'listusers'}); cachedUserList=res.users||[]; }catch(e){ cachedUserList=[]; }
+  return cachedUserList;
+}
+function assignPOPrompt(poId){
+  ensureUserListLoaded().then(users=>{
+    const options=users.filter(u=>u.status==='Active').map(u=>`<option value="${escHTML(u.username)}">${escHTML(u.displayName)} (${u.role})</option>`).join('');
+    modal(`<h2>มอบหมายพนักงานผลิต</h2><p class="hint">PO: ${poId}</p><select id="assignUserSel"><option value="">-- ไม่มอบหมาย --</option>${options}</select><br><br><button class="primary" onclick="confirmAssignPO('${poId}')">บันทึกการมอบหมาย</button> <button class="ghost" onclick="$('modal').style.display='none'">ปิด</button>`);
+  });
+}
+async function confirmAssignPO(poId){
+  const username=$('assignUserSel')?.value||'';
+  toast('กำลังบันทึกการมอบหมาย...');
+  try{
+    await apiPost({action:'assignpo',poId,username});
+    const p=db.po.find(x=>x.id===poId); if(p) p.assignedTo=username;
+    saveLocalOnly(); $('modal').style.display='none'; render();
+    sheetDone(username?('มอบหมาย '+username+' แล้ว'):'ยกเลิกการมอบหมายแล้ว');
+  }catch(e){console.error(e); alert('มอบหมายไม่สำเร็จ: '+(e.message||e));}
+}
+async function sendLinePOPrompt(poId){
+  const p=db.po.find(x=>x.id===poId);
+  if(!p?.assignedTo) return toast('มอบหมายพนักงานก่อนถึงจะส่ง LINE ได้');
+  if(!confirm('ส่งแจ้งเตือน LINE หา '+p.assignedTo+' สำหรับ '+poId+' ?'))return;
+  toast('กำลังส่ง LINE...');
+  try{
+    await apiPost({action:'sendlinepo',poId});
+    p.lineNotifiedAt=now();
+    saveLocalOnly(); render();
+    sheetDone('ส่ง LINE แล้ว');
+  }catch(e){console.error(e); alert('ส่ง LINE ไม่สำเร็จ: '+(e.message||e));}
+}
 function poTableCompact(arr){if(!arr.length)return '<p class="hint">ยังไม่มีงาน</p>'; return `<table><tr><th>เวลา</th><th>PO</th><th>SKU</th><th>จำนวน</th><th>สถานะ</th><th></th></tr>${arr.map(p=>{
   const hasActual=p.actualQty!==undefined&&p.actualQty!==''&&p.actualQty!==null;
   const qtyDisplay=hasActual&&+p.actualQty!==+p.qty ? `${p.qty}→<b>${p.actualQty}</b>` : p.qty;
   return `<tr><td>${p.time}</td><td>${p.id}</td><td>${p.sku}</td><td>${qtyDisplay}</td><td>${statusPill(p.status)}</td><td class="actions">${poActions(p)}</td></tr>`;
 }).join('')}</table>`}
-function poTable(arr){if(!arr.length)return '<p class="hint">ยังไม่มีงาน</p>'; return `<table><tr><th>เวลา</th><th>PO</th><th>SKU</th><th>จำนวน</th><th>สถานะ</th><th>RM ที่ต้องใช้</th><th></th></tr>${arr.map(p=>{
+function poTable(arr){if(!arr.length)return '<p class="hint">ยังไม่มีงาน</p>'; return `<table><tr><th>เวลา</th><th>PO</th><th>SKU</th><th>จำนวน</th><th>มอบหมาย</th><th>สถานะ</th><th>RM ที่ต้องใช้</th><th></th></tr>${arr.map(p=>{
   const hasActual=p.actualQty!==undefined&&p.actualQty!==''&&p.actualQty!==null;
   const qtyDisplay=hasActual&&+p.actualQty!==+p.qty
     ? `สั่ง ${p.qty} / <b class="${+p.actualQty>+p.qty?'good':'danger'}">ผลิตจริง ${p.actualQty}</b>`
     : (hasActual ? `${p.qty} <span class="mini">(ตรงตามแผน)</span>` : p.qty);
-  return `<tr><td>${p.time}</td><td>${p.id}</td><td>${p.sku}</td><td>${qtyDisplay}</td><td>${statusPill(p.status)}</td><td>${reqText(p.sku,p.qty)}</td><td class="actions">${poActions(p)}</td></tr>`;
+  const notDone=!['Completed','Cancelled'].includes(p.status);
+  const assignCell=notDone?`<button class="small" onclick="assignPOPrompt('${p.id}')">${p.assignedTo?escHTML(p.assignedTo):'มอบหมาย'}</button>${p.assignedTo?`<br><button class="small ${p.lineNotifiedAt?'ghost':'primary'}" onclick="sendLinePOPrompt('${p.id}')">${p.lineNotifiedAt?'ส่งซ้ำ LINE':'ส่ง LINE'}</button>`:''}`:(p.assignedTo?escHTML(p.assignedTo):'-');
+  return `<tr><td>${p.time}</td><td>${p.id}</td><td>${p.sku}</td><td>${qtyDisplay}</td><td>${assignCell}</td><td>${statusPill(p.status)}</td><td>${reqText(p.sku,p.qty)}</td><td class="actions">${poActions(p)}</td></tr>`;
 }).join('')}</table>`}
 function statusPill(s){let c=s=='Completed'?'good':s=='Cancelled'?'bad':''; return `<span class="pill ${c}">${s}</span>`}
 function poActions(p){let id=p.id; if(p.status=='Open')return `<button class="small" onclick="completePO('${id}')">Complete</button><button class="small danger" onclick="setPO('${id}','Cancelled')">Cancel</button>`; return ''}
@@ -1437,12 +1489,12 @@ function restore(e){let f=e.target.files[0]; if(!f)return; let r=new FileReader(
 function download(){let rows=[['time','type','sku','mode','qty','ref','remark','stock'],...db.mov.map(x=>[x.time,x.type,x.sku,x.mode,x.qty,x.ref,x.remark,x.stock])]; let csv=rows.map(r=>r.map(v=>'"'+String(v??'').replaceAll('"','""')+'"').join(',')).join('\n'); let a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv'}));a.download='stock_movement.csv';a.click()}
 function modal(html){$('modalBody').innerHTML=html;$('modal').style.display='flex'} $('modal').onclick=e=>{if(e.target.id=='modal')$('modal').style.display='none'};
 function addItem(){modal(`<h2>เพิ่มสินค้า</h2><div class="row2"><input id="mi_sku" placeholder="SKU"><input id="mi_name" placeholder="ชื่อสินค้า"><input id="mi_prod" placeholder="Product"><input id="mi_weight" placeholder="Weight"></div><br><button class="primary" onclick="saveNewItem()">บันทึก</button>`)}
-function editItem(sku){let x=db.items.find(i=>i.sku==sku);modal(`<h2>แก้สินค้า ${sku}</h2><div class="row2"><input id="ei_name" value="${escHTML(x.name)}"><input id="ei_prod" value="${escHTML(x.product)}"><input id="ei_price" type="number" value="${x.price||0}"><input id="ei_stock" type="number" value="${x.stock||0}"></div><br><button class="primary" onclick="saveEditItem('${sku}')">บันทึก</button>`)}
+function editItem(sku){let x=db.items.find(i=>i.sku==sku);modal(`<h2>แก้สินค้า ${sku}</h2><div class="row2"><input id="ei_name" value="${escHTML(x.name)}"><input id="ei_prod" value="${escHTML(x.product)}"><input id="ei_price" type="number" value="${x.price||0}"><input id="ei_stock" type="number" value="${x.stock||0}"></div><br><input id="ei_image" value="${escHTML(x.imageUrl||'')}" placeholder="ลิงก์รูปสินค้า (วางลิงก์แชร์จาก Google Drive ได้เลย)"><p class="mini">ใช้สำหรับส่งรูปสินค้าไป LINE ตอนมอบหมายงานผลิต</p><br><button class="primary" onclick="saveEditItem('${sku}')">บันทึก</button>`)}
 function addRM(){modal(`<h2>เพิ่มวัตถุดิบ</h2><div class="row2"><input id="mr_sku" placeholder="RM SKU"><input id="mr_name" placeholder="ชื่อ"><input id="mr_unit" placeholder="หน่วย g/pcs/kg"><input id="mr_cost" type="number" placeholder="ต้นทุน/หน่วย"></div><br><button class="primary" onclick="saveNewRM()">บันทึก</button>`)}
 function editRM(sku){let x=db.rm.find(i=>i.sku==sku);modal(`<h2>แก้ RM ${sku}</h2><div class="row2"><input id="er_name" value="${escHTML(x.name)}"><input id="er_unit" value="${escHTML(x.unit)}"><input id="er_cost" type="number" value="${x.cost||0}"><input id="er_stock" type="number" value="${x.stock||0}"></div><br><button class="primary" onclick="saveEditRM('${sku}')">บันทึก</button>`)}
 
 function saveNewItem(){let x={sku:mi_sku.value,name:mi_name.value,product:mi_prod.value,weight:mi_weight.value,variant:'',type:'FG',stock:0,price:0,unit:'pcs',min:0,cost:0}; if(!x.sku)return toast('ใส่ SKU ก่อน'); db.items.push(x); saveLocalOnly(); $('modal').style.display='none'; render(); saveProductDirect(x); toast('บันทึกสินค้าแล้ว / ส่งเข้า Google Sheet ทันที')}
-function saveEditItem(sku){let x=db.items.find(i=>i.sku==sku); x.name=ei_name.value; x.product=ei_prod.value; x.price=+ei_price.value; x.stock=+ei_stock.value; saveLocalOnly(); $('modal').style.display='none'; render(); saveProductDirect(x); toast('แก้สินค้าแล้ว / ส่งเข้า Google Sheet ทันที')}
+function saveEditItem(sku){let x=db.items.find(i=>i.sku==sku); x.name=ei_name.value; x.product=ei_prod.value; x.price=+ei_price.value; x.stock=+ei_stock.value; x.imageUrl=($('ei_image')?.value||'').trim(); saveLocalOnly(); $('modal').style.display='none'; render(); saveProductDirect(x); toast('แก้สินค้าแล้ว / ส่งเข้า Google Sheet ทันที')}
 function saveNewRM(){let r={sku:mr_sku.value,name:mr_name.value,unit:mr_unit.value,cost:+mr_cost.value,stock:0,product:'Raw Material',variant:'',min:0}; if(!r.sku)return toast('ใส่ RM SKU ก่อน'); db.rm.push(r); saveLocalOnly(); $('modal').style.display='none'; render(); saveRawMaterialDirect(r); toast('บันทึกวัตถุดิบแล้ว / ส่งเข้า Google Sheet ทันที')}
 function saveEditRM(sku){let x=db.rm.find(i=>i.sku==sku); x.name=er_name.value; x.unit=er_unit.value; x.cost=+er_cost.value; x.stock=+er_stock.value; saveLocalOnly(); $('modal').style.display='none'; render(); saveRawMaterialDirect(x); toast('แก้วัตถุดิบแล้ว / ส่งเข้า Google Sheet ทันที')}
 
@@ -1519,7 +1571,7 @@ function installViewerGuards(){
   saveOrderDay=()=>viewerDeny(); addShortageLine=()=>viewerDeny(); removeShortageLine=()=>viewerDeny(); updateShortageReason=()=>viewerDeny();
   addBomLine=()=>viewerDeny(); openPasteImport=()=>viewerDeny(); commitImport=()=>viewerDeny(); importCSVFile=()=>viewerDeny(); openBulkEdit=()=>viewerDeny(); applyBulkEdit=()=>viewerDeny(); bulkDeleteMaster=()=>viewerDeny();
   addItem=()=>viewerDeny(); editItem=()=>viewerDeny(); addRM=()=>viewerDeny(); editRM=()=>viewerDeny(); saveNewItem=()=>viewerDeny(); saveEditItem=()=>viewerDeny(); saveNewRM=()=>viewerDeny(); saveEditRM=()=>viewerDeny();
-  voidProductionTransaction=()=>viewerDeny(); voidProductionPrompt=()=>viewerDeny(); clearFgLog=()=>viewerDeny(); loadEmbeddedFgLog=()=>viewerDeny(); importFgPaste=()=>viewerDeny(); saveGoogleConfig=()=>viewerDeny(); restore=()=>viewerDeny(); saveShippingPlan=()=>viewerDeny(); openShipPaste=()=>viewerDeny(); importShipPaste=()=>viewerDeny(); createPOFromShippingShortage=()=>viewerDeny(); saveSalesOut=()=>viewerDeny(); voidRMMovementPrompt=()=>viewerDeny(); voidRMMovement=()=>viewerDeny(); requestVoid=()=>viewerDeny(); respondVoidRequest=()=>viewerDeny(); addUserAction=()=>viewerDeny(); setUserStatusAction=()=>viewerDeny();
+  voidProductionTransaction=()=>viewerDeny(); voidProductionPrompt=()=>viewerDeny(); clearFgLog=()=>viewerDeny(); loadEmbeddedFgLog=()=>viewerDeny(); importFgPaste=()=>viewerDeny(); saveGoogleConfig=()=>viewerDeny(); restore=()=>viewerDeny(); saveShippingPlan=()=>viewerDeny(); openShipPaste=()=>viewerDeny(); importShipPaste=()=>viewerDeny(); createPOFromShippingShortage=()=>viewerDeny(); saveSalesOut=()=>viewerDeny(); voidRMMovementPrompt=()=>viewerDeny(); voidRMMovement=()=>viewerDeny(); requestVoid=()=>viewerDeny(); respondVoidRequest=()=>viewerDeny(); addUserAction=()=>viewerDeny(); setUserStatusAction=()=>viewerDeny(); assignPOPrompt=()=>viewerDeny(); confirmAssignPO=()=>viewerDeny(); sendLinePOPrompt=()=>viewerDeny();
   const oldRender=render;
   render=function(){ oldRender(); applyViewerUI(); };
 }
@@ -1629,7 +1681,7 @@ function erpMergeByFn(localArr, remoteArr, keyFn){
 function erpActive(o){return !['voided','cancelled','deleted'].includes(String(o?.status||o?.Status||'Active').toLowerCase());}
 function fromSheetData(data){
   data=data||{};
-  const items=(data.products||[]).map(p=>({sku:String(p.SKU||''),name:p.Name||'',product:p.Product||'',variant:p.Variant||'',weight:p.Weight||'',unit:p.Unit||'pcs',stock:+p.Stock||0,min:+p.Min||0,price:+p.Price||0,cost:+p.Cost||0,type:'FG'})).filter(x=>x.sku);
+  const items=(data.products||[]).map(p=>({sku:String(p.SKU||''),name:p.Name||'',product:p.Product||'',variant:p.Variant||'',weight:p.Weight||'',unit:p.Unit||'pcs',stock:+p.Stock||0,min:+p.Min||0,price:+p.Price||0,cost:+p.Cost||0,type:'FG',imageUrl:p.ImageURL||''})).filter(x=>x.sku);
   const rm=(data.rawMaterials||[]).map(r=>({sku:String(r.RMCode||''),name:r.Name||'',product:r.Category||'Raw Material',variant:r.Variant||'',unit:r.Unit||'g',stock:+r.Stock||0,min:+r.Min||0,cost:+r.Cost||0})).filter(x=>x.sku);
   const bom={}; (data.bom||[]).forEach(b=>{ if(!b.SKU||!b.RMCode)return; bom[b.SKU]=bom[b.SKU]||[]; bom[b.SKU].push({sku:b.RMCode,qty:+b.QtyPerUnit||0,unit:b.Unit||''}); });
   const remoteProdLog=(data.productionLog||[]).map(r=>({id:r.LogID||'',timestamp:r.Timestamp||'',sku:r.SKU||'',product:r.Product||'',variant:r.Variant||'',qty:+r.Qty||0,expiry:r.ExpiryDate||'',operator:r.Operator||'',remark:r.Remark||'',photo:r.Photo||'',source:r.Source||'Google Sheet',status:r.Status||'Active',voidReason:r.VoidReason||'',voidAt:r.VoidAt||'',voidBy:r.VoidBy||''})).filter(x=>x.id||x.sku);
@@ -1639,7 +1691,7 @@ function fromSheetData(data){
     const date=dateISO(o.OrderDate)||String(o.OrderDate||'');
     return {date,total:+o.TotalOrders||0,shipped:+o.CompletedOrders||0,note:o.Remark||'',shortages:orderItems.filter(i=>String(i.orderNo||'').startsWith('DAY-'+date+'-')).map(i=>({sku:i.sku,qty:i.shortQty||i.qty,reason:i.reason}))};
   }).filter(x=>x.date);
-  const remotePO=(data.productionOrder||[]).map(p=>({id:p.PO||'',sku:p.SKU||'',qty:+p.Qty||0,status:p.Status||'Open',time:p.CreatedAt||'',start:p.StartAt||'',finish:p.FinishAt||'',remark:p.Remark||'',actualQty:(p.ActualQty!==undefined&&p.ActualQty!=='')?+p.ActualQty:''})).filter(p=>p.id);
+  const remotePO=(data.productionOrder||[]).map(p=>({id:p.PO||'',sku:p.SKU||'',qty:+p.Qty||0,status:p.Status||'Open',time:p.CreatedAt||'',start:p.StartAt||'',finish:p.FinishAt||'',remark:p.Remark||'',actualQty:(p.ActualQty!==undefined&&p.ActualQty!=='')?+p.ActualQty:'',assignedTo:p.AssignedTo||'',lineNotifiedAt:p.LineNotifiedAt||''})).filter(p=>p.id);
   const remoteShippingPlan=(data.shippingPlan||[]).map(r=>({date:dateISO(r.Date)||String(r.Date||''),sku:String(r.SKU||''),baimiang:+r.BaiMiang||0,b2b:+r.B2B||0,b2c:+r.B2C||0,remark:r.Remark||'',updatedAt:r.UpdatedAt||''})).filter(x=>x.sku);
   const remoteSalesOut=(data.salesOut||[]).map(r=>({date:dateISO(r.Date)||String(r.Date||''),sku:String(r.SKU||''),baimiang:+r.BaiMiang||0,b2b:+r.B2B||0,tiktok:+r.TikTok||0,shopee:+r.Shopee||0,lazada:+r.Lazada||0,line:+r.Line||0,grab:+r.Grab||0,remark:r.Remark||'',updatedAt:r.UpdatedAt||''})).filter(x=>x.sku);
   const remoteVoidRequests=(data.voidRequests||[]).map(r=>({requestId:r.RequestID||'',kind:r.Kind||'',refId:r.RefId||'',sku:r.Sku||'',qty:+r.Qty||0,reason:r.Reason||'',requestedBy:r.RequestedBy||'',requestedAt:r.RequestedAt||'',status:r.Status||'Pending',approvedBy:r.ApprovedBy||'',approvedAt:r.ApprovedAt||'',rejectReason:r.RejectReason||''})).filter(x=>x.requestId);
@@ -1772,6 +1824,8 @@ function logout(){
   location.reload();
 }
 function isAdmin(){ return userRole==='Admin'; }
+function isOperator(){ return userRole==='Operator'; }
+const OPERATOR_PAGES_=['prodrecord','prodsummary'];
 function applyRoleUI(){
   const chip=$('userNameChip'); if(chip) chip.textContent=userDisplayName||userUsername||'ERP User';
   const roleChip=$('userRoleChip'); if(roleChip) roleChip.textContent=userRole||'';
