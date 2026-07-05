@@ -415,8 +415,16 @@ function shipShortTable(rows){
 }
 function currentShippingShortageRows(){
   const date=$('soDate')?.value||todayISO();
+  // v9.69 fix: เดิมต้องกด "บันทึกขายออก" ก่อนถึงจะสร้างคำสั่งผลิตจากรายการที่ขาดได้ (ข้ามขั้นตอนไม่ได้)
+  // เพราะอ่านจากข้อมูลที่บันทึกแล้วในชีตอย่างเดียว ตอนนี้เอาข้อมูลที่บันทึกไว้แล้ว (ครบทุก Product)
+  // มาผสมกับตัวเลขที่พิมพ์อยู่บนจอตอนนี้ (เฉพาะ SKU ที่กำลังแสดงอยู่ ยังไม่ได้กดบันทึก) เข้าด้วยกัน
+  // ทำให้กดสั่งผลิตได้ทันทีโดยไม่ต้องบันทึกก่อน แต่ยังครบทุก Product เหมือนเดิม
+  const liveRows=collectSalesOutRows();
+  const liveMap={}; liveRows.forEach(r=>liveMap[String(r.sku)]=r);
   return salesOutRows(date).map(r=>{
-    const total=salesOutTotal(r);
+    const live=liveMap[String(r.sku)];
+    const row=live?{...r,...live}:r;
+    const total=salesOutTotal(row);
     return {date,sku:r.sku,name:r.name,product:r.product,total,stock:r.stock,need:Math.max(0,total-r.stock)};
   }).filter(r=>r.need>0);
 }
@@ -524,7 +532,17 @@ async function saveSalesOut(){
   const rows=collectSalesOutRows();
   const date=$('soDate')?.value||todayISO();
   if(!rows.length) return toast('ยังไม่มีรายการขายจะบันทึก');
-  if(!confirm('บันทึกยอดขาย '+rows.length+' SKU และตัด FG Stock ทันที ต้องการดำเนินการต่อหรือไม่?')) return;
+  // v9.69 fix: เดิมกดบันทึกได้เลยแม้ Stock ไม่พอ (ทำให้ Stock ติดลบแบบไม่รู้ตัว) ตอนนี้เช็คก่อนแจ้งเตือนชัดเจน
+  const shortages=rows.map(r=>{
+    const total=SALES_CHANNELS.reduce((a,[k])=>a+(+r[k]||0),0);
+    const stock=shipStock(r.sku);
+    return {sku:r.sku,total,stock,diff:stock-total};
+  }).filter(x=>x.diff<0);
+  let confirmMsg='บันทึกยอดขาย '+rows.length+' SKU และตัด FG Stock ทันที ต้องการดำเนินการต่อหรือไม่?';
+  if(shortages.length){
+    confirmMsg='⚠️ Stock ไม่พอ '+shortages.length+' รายการ:\n'+shortages.slice(0,10).map(x=>x.sku+' ต้องการ '+x.total+' มีแค่ '+x.stock+' (ขาด '+Math.abs(x.diff)+')').join('\n')+(shortages.length>10?'\n...':'')+'\n\nยืนยันจะบันทึกต่อไหม? (Stock จะติดลบ ถ้าไม่แน่ใจ กด "ยกเลิก" แล้วไปสั่งผลิตเพิ่มก่อน)';
+  }
+  if(!confirm(confirmMsg)) return;
   toast('กำลังบันทึกขายออก...');
   try{
     // v9.48 fix: เปลี่ยนจากแบ่งตามจำนวนคงที่เป็นแบ่งตามขนาดจริงหลัง encode URL
@@ -1027,10 +1045,11 @@ function productionRecordPage(m){
   let selected=$('recProd')?.value||'';
   let operator=$('recOperator')?.value||'';
   let expiry=$('recExpiry')?.value||'';
-  let list=db.items.filter(x=>selected && x.product==selected);
+  let q=($('recQ')?.value||'').toLowerCase();
+  let list=db.items.filter(x=>selected && x.product==selected && (!q||(x.sku+' '+x.name).toLowerCase().includes(q)));
   let body=selected?`<div class="box"><div class="row3"><input id="recBulkQty" type="number" placeholder="ใส่จำนวนผลิตเดียวกันทุก SKU ที่ติ๊ก"><input id="recRemark" placeholder="หมายเหตุ เช่น พนักงานสแกน / ผลิตเสร็จ / Manual"><button class="ghost" onclick="fillCheckedProdQty()">เติมจำนวนให้รายการที่ติ๊ก</button></div><br>${prodRecordTable(list)}<br><button class="primary" onclick="saveProductionRecord()">ยืนยันบันทึกผลผลิต + ตัด BOM</button></div>`:`<div class="box"><p class="hint">เลือก Product ก่อน ระบบจะแสดง SKU ทั้งหมดของ Product นั้นให้ติ๊กและใส่จำนวนผลิต</p></div>`;
   m.innerHTML=head('บันทึกผลผลิต','กดยืนยันแล้วเข้า Google Sheet ทันที: ProductionLog + StockMovement FG IN + RM OUT ตาม BOM')+
-  `<div class="toolbar"><div class="row3"><select id="recProd" onchange="productionRecordPage($('main'))">${productOptions(selected)}</select><input id="recOperator" value="${escHTML(operator)}" placeholder="ผู้บันทึก / พนักงาน"><input id="recExpiry" type="date" value="${expiry}"></div></div>${body}<div class="box"><h2>Production Log ล่าสุด</h2>${fgLogTable((db.prodLog||[]).slice(-12).reverse())}</div>`;
+  `<div class="toolbar"><div class="row3"><select id="recProd" onchange="productionRecordPage($('main'))">${productOptions(selected)}</select><input id="recOperator" value="${escHTML(operator)}" placeholder="ผู้บันทึก / พนักงาน"><input id="recExpiry" type="date" value="${expiry}"></div><div class="row3" style="margin-top:10px"><input id="recQ" value="${escHTML(q)}" oninput="rerenderKeepFocus(()=>productionRecordPage($('main')))" placeholder="ค้นหา SKU / ชื่อสินค้าใน Product ที่เลือก"><span></span><span></span></div></div>${body}<div class="box"><h2>Production Log ล่าสุด</h2>${fgLogTable((db.prodLog||[]).slice(-12).reverse())}</div>`;
 }
 function prodRecordTable(list){
   if(!list.length)return '<p class="hint">ไม่มีรายการ</p>';
