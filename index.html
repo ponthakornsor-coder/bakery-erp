@@ -1148,28 +1148,69 @@ function transactionCenterPage(m){
 }
 function transactionTable(arr){
   if(!arr.length)return '<p class="hint">ไม่พบรายการ</p>';
-  return `<table><tr><th>เวลา</th><th>LogID</th><th>Source</th><th>SKU</th><th>Product</th><th>Variant</th><th>Qty</th><th>ผู้บันทึก</th><th>Status</th><th></th></tr>${arr.map(x=>{
-    let actionCell='';
+  const anyVoidable=arr.some(x=>{
+    if(x.voidRequest && x.voidRequest.status==='Pending') return false;
+    if(x.kind==='FG') return String(x.status||'Active')!=='Voided';
+    if(x.kind==='RM') return !x.isVoidReverse && !x.alreadyVoided;
+    return false;
+  });
+  const bulkBar=anyVoidable?`<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px"><label style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" id="trxSelectAll" onchange="toggleAllTrxChk(this.checked)" style="width:20px;height:20px"> เลือกทั้งหมด</label><button class="danger" onclick="voidTrxBulk()">${isAdmin()?'Void':'ขอ Void'}ที่เลือกทั้งหมด</button></div>`:'';
+  return bulkBar+`<table><tr><th style="width:36px"></th><th>เวลา</th><th>LogID</th><th>Source</th><th>SKU</th><th>Product</th><th>Variant</th><th>Qty</th><th>ผู้บันทึก</th><th>Status</th><th></th></tr>${arr.map(x=>{
+    let actionCell='', chkCell='';
     const pendingReq=x.voidRequest && x.voidRequest.status==='Pending';
     if(pendingReq){
       actionCell='<span class="mini">รอ Admin อนุมัติ</span>';
     }else if(x.kind==='FG' && String(x.status||'Active')!=='Voided'){
       actionCell=`<button class="small danger" onclick="voidProductionPrompt('${escHTML(x.id)}')">${isAdmin()?'Void':'ขอ Void'}</button>`;
+      chkCell=`<input type="checkbox" class="trxChk" data-kind="FG" data-sku="${escHTML(x.sku)}" data-qty="${x.qty}" value="${escHTML(x.id)}" style="width:20px;height:20px">`;
     }else if(x.kind==='RM'){
       if(x.isVoidReverse){ actionCell='<span class="mini">รายการย้อนกลับ</span>'; }
       else if(x.alreadyVoided){ actionCell='<span class="mini">Void แล้ว</span>'; }
-      else { actionCell=`<button class="small danger" onclick="voidRMMovementPrompt('${escHTML(x.id)}')">${isAdmin()?'Void':'ขอ Void'}</button>`; }
+      else {
+        actionCell=`<button class="small danger" onclick="voidRMMovementPrompt('${escHTML(x.id)}')">${isAdmin()?'Void':'ขอ Void'}</button>`;
+        chkCell=`<input type="checkbox" class="trxChk" data-kind="RM" data-sku="${escHTML(x.sku)}" data-qty="${x.qty}" value="${escHTML(x.id)}" style="width:20px;height:20px">`;
+      }
     }
-    return `<tr><td>${x.time}</td><td><b>${x.id}</b></td><td>${x.type}</td><td><b>${x.sku}</b><br><span class="mini">${escHTML(x.name)}</span></td><td>${escHTML(x.product)}</td><td>${escHTML(x.variant)}</td><td><b>${x.qty}</b></td><td>${escHTML(x.operator)}</td><td>${voidStatusCell(x)}</td><td>${actionCell}</td></tr>`;
+    return `<tr><td>${chkCell}</td><td>${x.time}</td><td><b>${x.id}</b></td><td>${x.type}</td><td><b>${x.sku}</b><br><span class="mini">${escHTML(x.name)}</span></td><td>${escHTML(x.product)}</td><td>${escHTML(x.variant)}</td><td><b>${x.qty}</b></td><td>${escHTML(x.operator)}</td><td>${voidStatusCell(x)}</td><td>${actionCell}</td></tr>`;
   }).join('')}</table>`;
+}
+function toggleAllTrxChk(checked){document.querySelectorAll('.trxChk').forEach(c=>c.checked=checked);}
+async function voidTrxBulk(){
+  const chks=[...document.querySelectorAll('.trxChk:checked')];
+  if(!chks.length) return toast('ติ๊กเลือกรายการก่อน');
+  const reason=prompt('เหตุผลการ'+(isAdmin()?'Void':'ขอ Void')+' (ใช้ร่วมกันทั้ง '+chks.length+' รายการ)');
+  if(reason===null) return;
+  const reasonTrim=String(reason||'').trim();
+  if(!reasonTrim) return toast('ต้องใส่เหตุผลก่อน');
+  if(!confirm((isAdmin()?'Void':'ส่งคำขอ Void')+' '+chks.length+' รายการที่เลือกไว้?'))return;
+  toast('กำลังดำเนินการ '+chks.length+' รายการ...');
+  let okCount=0, failList=[];
+  for(const c of chks){
+    const id=c.value, kind=c.dataset.kind, sku=c.dataset.sku, qty=c.dataset.qty;
+    try{
+      if(isAdmin()){
+        if(kind==='FG') await voidProductionTransaction(id,reasonTrim);
+        else await voidRMMovement(id,reasonTrim);
+      }else{
+        await apiPost({action:'createvoidrequest',kind,refId:id,sku,qty,reason:reasonTrim});
+      }
+      okCount++;
+    }catch(e){ console.error(e); failList.push(id+': '+(e.message||e)); }
+  }
+  saveLocalOnly();
+  await loadFromGoogleSheet();
+  page='trx'; render();
+  if(failList.length) alert('ดำเนินการสำเร็จ '+okCount+'/'+chks.length+' รายการ\n\nที่พลาด:\n'+failList.join('\n'));
+  else sheetDone((isAdmin()?'Void':'ส่งคำขอ Void')+'ครบ '+okCount+' รายการแล้ว');
 }
 function voidApprovalPage(m){
   if(!isAdmin()){ m.innerHTML=head('อนุมัติ Void','')+'<div class="box"><p class="hint">หน้านี้สำหรับ Admin เท่านั้น</p></div>'; return; }
   const requests=(db.voidRequests||[]).slice().sort((a,b)=>trxSortKey(b.requestedAt)-trxSortKey(a.requestedAt));
   const pending=requests.filter(r=>r.status==='Pending');
   const done=requests.filter(r=>r.status!=='Pending').slice(0,30);
+  const bulkBar=pending.length?`<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px"><label style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" id="voidSelectAll" onchange="toggleAllVoidChk(this.checked)" style="width:20px;height:20px"> เลือกทั้งหมด</label><button class="primary" onclick="respondVoidRequestBulk(true)">อนุมัติที่เลือกทั้งหมด</button><button class="danger" onclick="respondVoidRequestBulk(false)">ปฏิเสธที่เลือกทั้งหมด</button></div>`:'';
   m.innerHTML=head('อนุมัติ Void','คำขอ Void ที่พนักงานส่งมา ต้องอนุมัติก่อนถึงจะตัด/คืน Stock จริง')+
-  `<div class="box"><h2>รออนุมัติ (${pending.length})</h2>${voidRequestTable(pending,true)}</div>`+
+  `<div class="box"><h2>รออนุมัติ (${pending.length})</h2>${bulkBar}${voidRequestTable(pending,true)}</div>`+
   `<div class="box"><h2>ประวัติล่าสุด</h2>${voidRequestTable(done,false)}</div>`;
 }
 function voidEffectText(r){
@@ -1183,7 +1224,25 @@ function voidEffectText(r){
 }
 function voidRequestTable(rows,showActions){
   if(!rows.length) return '<p class="hint">ไม่มีรายการ</p>';
-  return `<table><tr><th>เวลา</th><th>ประเภท</th><th>SKU</th><th>Qty</th><th>ผลต่อ Stock</th><th>เหตุผล</th><th>ขอโดย</th><th>สถานะ</th><th>${showActions?'':'อนุมัติ/ปฏิเสธโดย'}</th></tr>${rows.map(r=>`<tr><td>${r.requestedAt}</td><td>${r.kind}</td><td><b>${r.sku}</b><br><span class="mini">${escHTML(itemName(r.sku))}</span></td><td>${r.qty}</td><td>${voidEffectText(r)}</td><td>${escHTML(r.reason||'')}</td><td>${escHTML(r.requestedBy||'')}</td><td>${genericStatusPill(r.status)}${r.rejectReason?'<br><span class="mini">'+escHTML(r.rejectReason)+'</span>':''}</td><td>${showActions?`<button class="small" onclick="respondVoidRequest('${escHTML(r.requestId)}',true)">อนุมัติ</button> <button class="small danger" onclick="respondVoidRequest('${escHTML(r.requestId)}',false)">ปฏิเสธ</button>`:escHTML(r.approvedBy||'')}</td></tr>`).join('')}</table>`;
+  return `<table><tr>${showActions?'<th style="width:36px"></th>':''}<th>เวลา</th><th>ประเภท</th><th>SKU</th><th>Qty</th><th>ผลต่อ Stock</th><th>เหตุผล</th><th>ขอโดย</th><th>สถานะ</th><th>${showActions?'':'อนุมัติ/ปฏิเสธโดย'}</th></tr>${rows.map(r=>`<tr>${showActions?`<td><input type="checkbox" class="voidChk" value="${escHTML(r.requestId)}" style="width:20px;height:20px"></td>`:''}<td>${r.requestedAt}</td><td>${r.kind}</td><td><b>${r.sku}</b><br><span class="mini">${escHTML(itemName(r.sku))}</span></td><td>${r.qty}</td><td>${voidEffectText(r)}</td><td>${escHTML(r.reason||'')}</td><td>${escHTML(r.requestedBy||'')}</td><td>${genericStatusPill(r.status)}${r.rejectReason?'<br><span class="mini">'+escHTML(r.rejectReason)+'</span>':''}</td><td>${showActions?`<button class="small" onclick="respondVoidRequest('${escHTML(r.requestId)}',true)">อนุมัติ</button> <button class="small danger" onclick="respondVoidRequest('${escHTML(r.requestId)}',false)">ปฏิเสธ</button>`:escHTML(r.approvedBy||'')}</td></tr>`).join('')}</table>`;
+}
+function toggleAllVoidChk(checked){document.querySelectorAll('.voidChk').forEach(c=>c.checked=checked);}
+async function respondVoidRequestBulk(approve){
+  const ids=[...document.querySelectorAll('.voidChk:checked')].map(c=>c.value);
+  if(!ids.length) return toast('ติ๊กเลือกคำขอก่อน');
+  let rejectReason='';
+  if(!approve){ rejectReason=prompt('เหตุผลที่ปฏิเสธ (ใช้ร่วมกันทั้ง '+ids.length+' รายการ, ไม่บังคับ)')||''; }
+  if(!confirm((approve?'อนุมัติ':'ปฏิเสธ')+' '+ids.length+' คำขอที่เลือกไว้?'+(approve?' จะตัด/คืน Stock จริงทันที':'')))return;
+  toast('กำลังดำเนินการ '+ids.length+' รายการ...');
+  let okCount=0, failList=[];
+  for(const requestId of ids){
+    try{ await apiPost({action:'approvevoidrequest',requestId,approve,rejectReason}); okCount++; }
+    catch(e){ console.error(e); failList.push(requestId+': '+(e.message||e)); }
+  }
+  await loadFromGoogleSheet();
+  page='voidapproval'; render();
+  if(failList.length) alert((approve?'อนุมัติ':'ปฏิเสธ')+'สำเร็จ '+okCount+'/'+ids.length+' รายการ\n\nที่พลาด:\n'+failList.join('\n'));
+  else sheetDone((approve?'อนุมัติ':'ปฏิเสธ')+'ครบ '+okCount+' รายการแล้ว');
 }
 async function respondVoidRequest(requestId,approve){
   let rejectReason='';
@@ -1209,8 +1268,24 @@ async function loadUserList(){
     const res=await apiPost({action:'listusers'});
     const box=$('userListBox'); if(!box) return;
     const users=res.users||[];
-    box.innerHTML=users.length?`<table><tr><th>Username</th><th>ชื่อที่แสดง</th><th>Role</th><th>สถานะ</th><th></th></tr>${users.map(u=>`<tr><td><b>${escHTML(u.username)}</b></td><td>${escHTML(u.displayName)}</td><td>${u.role}</td><td>${genericStatusPill(u.status)}</td><td>${u.status==='Active'?`<button class="small danger" onclick="setUserStatusAction('${escHTML(u.username)}','Disabled')">ปิดใช้งาน</button>`:`<button class="small" onclick="setUserStatusAction('${escHTML(u.username)}','Active')">เปิดใช้งาน</button>`}</td></tr>`).join('')}</table>`:'<p class="hint">ยังไม่มี User</p>';
+    const bulkBar=users.some(u=>u.status==='Active')?`<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px"><label style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" id="userSelectAll" onchange="toggleAllUserChk(this.checked)" style="width:20px;height:20px"> เลือกทั้งหมด</label><button class="danger" onclick="disableUsersBulk()">ปิดใช้งานที่เลือกทั้งหมด</button></div>`:'';
+    box.innerHTML=users.length?bulkBar+`<table><tr><th style="width:36px"></th><th>Username</th><th>ชื่อที่แสดง</th><th>Role</th><th>สถานะ</th><th></th></tr>${users.map(u=>`<tr><td>${u.status==='Active'?`<input type="checkbox" class="userChk" value="${escHTML(u.username)}" style="width:20px;height:20px">`:''}</td><td><b>${escHTML(u.username)}</b></td><td>${escHTML(u.displayName)}</td><td>${u.role}</td><td>${genericStatusPill(u.status)}</td><td>${u.status==='Active'?`<button class="small danger" onclick="setUserStatusAction('${escHTML(u.username)}','Disabled')">ปิดใช้งาน</button>`:`<button class="small" onclick="setUserStatusAction('${escHTML(u.username)}','Active')">เปิดใช้งาน</button>`}</td></tr>`).join('')}</table>`:'<p class="hint">ยังไม่มี User</p>';
   }catch(e){ const box=$('userListBox'); if(box) box.innerHTML='<p class="hint">โหลดรายชื่อ User ไม่สำเร็จ: '+(e.message||e)+'</p>'; }
+}
+function toggleAllUserChk(checked){document.querySelectorAll('.userChk').forEach(c=>c.checked=checked);}
+async function disableUsersBulk(){
+  const usernames=[...document.querySelectorAll('.userChk:checked')].map(c=>c.value);
+  if(!usernames.length) return toast('ติ๊กเลือก User ที่จะปิดใช้งานก่อน');
+  if(!confirm('ปิดใช้งาน '+usernames.length+' คนที่เลือกไว้?\n\n'+usernames.join(', ')))return;
+  toast('กำลังปิดใช้งาน '+usernames.length+' คน...');
+  let okCount=0, failList=[];
+  for(const username of usernames){
+    try{ await apiPost({action:'setuserstatus',username,status:'Disabled'}); okCount++; }
+    catch(e){ console.error(e); failList.push(username+': '+(e.message||e)); }
+  }
+  if(failList.length) alert('ปิดใช้งานสำเร็จ '+okCount+'/'+usernames.length+' คน\n\nที่พลาด:\n'+failList.join('\n'));
+  else sheetDone('ปิดใช้งานครบ '+okCount+' คนแล้ว');
+  loadUserList();
 }
 async function addUserAction(){
   const username=($('newUserName')?.value||'').trim();
@@ -1410,7 +1485,7 @@ function poTableCompact(arr){if(!arr.length)return '<p class="hint">ยังไ
   const qtyDisplay=hasActual&&+p.actualQty!==+p.qty ? `${p.qty}→<b>${p.actualQty}</b>` : p.qty;
   return `<tr><td>${p.time}</td><td>${p.id}</td><td><b>${p.sku}</b><br><span class="mini">${escHTML(itemName(p.sku))}</span></td><td>${qtyDisplay}</td><td>${poStatusPillNew(p)}</td><td class="actions">${poActions(p)}</td></tr>`;
 }).join('')}</table>`}
-function poTable(arr){if(!arr.length)return '<p class="hint">ยังไม่มีงาน</p>'; return `<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px"><label style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" id="poAssignSelectAll" onchange="toggleAllPOAssign(this.checked)" style="width:20px;height:20px"> เลือกทั้งหมด</label><button class="primary" onclick="assignPOPromptBulk()">มอบหมายที่เลือก + ส่ง LINE</button></div><table><tr><th style="width:36px"></th><th>เวลา</th><th>PO</th><th>SKU</th><th>จำนวน</th><th>มอบหมาย</th><th>สถานะ</th><th>เวลาที่ใช้ผลิต</th><th>RM ที่ต้องใช้</th><th></th></tr>${arr.map(p=>{
+function poTable(arr){if(!arr.length)return '<p class="hint">ยังไม่มีงาน</p>'; return `<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px"><label style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" id="poAssignSelectAll" onchange="toggleAllPOAssign(this.checked)" style="width:20px;height:20px"> เลือกทั้งหมด</label><button class="primary" onclick="assignPOPromptBulk()">มอบหมายที่เลือก + ส่ง LINE</button><button class="danger" onclick="cancelPOBulk()">ยกเลิกที่เลือกทั้งหมด</button></div><table><tr><th style="width:36px"></th><th>เวลา</th><th>PO</th><th>SKU</th><th>จำนวน</th><th>มอบหมาย</th><th>สถานะ</th><th>เวลาที่ใช้ผลิต</th><th>RM ที่ต้องใช้</th><th></th></tr>${arr.map(p=>{
   const hasActual=p.actualQty!==undefined&&p.actualQty!==''&&p.actualQty!==null;
   const qtyDisplay=hasActual&&+p.actualQty!==+p.qty
     ? `สั่ง ${p.qty} / <b class="${+p.actualQty>+p.qty?'good':'danger'}">ผลิตจริง ${p.actualQty}</b>`
@@ -1450,6 +1525,28 @@ async function confirmAssignPOBulk(){
   saveLocalOnly(); render();
   if(failList.length) alert('มอบหมายสำเร็จ '+okCount+'/'+ids.length+' งาน\n\nที่พลาด:\n'+failList.join('\n'));
   else sheetDone('มอบหมาย + ส่ง LINE ครบ '+okCount+' งานแล้ว');
+}
+async function cancelPOBulk(){
+  const ids=[...document.querySelectorAll('.poAssignChk:checked')].map(c=>c.value);
+  if(!ids.length) return toast('ติ๊กเลือกงานที่จะยกเลิกก่อน');
+  if(!confirm('ยกเลิกคำสั่งผลิต '+ids.length+' งานที่เลือกไว้?\n\n'+ids.join(', ')+'\n\nถ้ามอบหมายพนักงานไว้แล้ว ระบบจะแจ้งเตือนทาง LINE ให้แต่ละงาน'))return;
+  toast('กำลังยกเลิก '+ids.length+' งาน...');
+  let okCount=0, failList=[];
+  for(const poId of ids){
+    const p=db.po.find(x=>x.id===poId);
+    const prevStatus=p?.status;
+    if(p) p.status='Cancelled';
+    try{
+      const res=await apiPost({action:'cancelpo',poId});
+      okCount++;
+    }catch(e){
+      if(p) p.status=prevStatus;
+      console.error(e); failList.push(poId+': '+(e.message||e));
+    }
+  }
+  saveLocalOnly(); render();
+  if(failList.length) alert('ยกเลิกสำเร็จ '+okCount+'/'+ids.length+' งาน\n\nที่พลาด:\n'+failList.join('\n'));
+  else sheetDone('ยกเลิกครบ '+okCount+' งานแล้ว');
 }
 function statusPill(s){let c=s=='Completed'?'good':s=='Cancelled'?'bad':''; return `<span class="pill ${c}">${s}</span>`}
 function poActions(p){
@@ -1697,7 +1794,7 @@ function installViewerGuards(){
   pullGoogleForm=()=>viewerDeny();
   saveProductDirect=()=>viewerDeny(); saveRawMaterialDirect=()=>viewerDeny(); saveBomDirect=()=>viewerDeny(); savePODirect=()=>viewerDeny(); saveOrderDirect=()=>viewerDeny(); saveOrderItemDirect=()=>viewerDeny();
   stockMoveBulk=()=>viewerDeny(); stockMove=()=>viewerDeny(); move=()=>viewerDeny(); saveCycleCount=()=>viewerDeny();
-  saveProductionRecord=()=>viewerDeny(); fillCheckedProdQty=()=>viewerDeny(); toggleAllProdRec=()=>viewerDeny(); toggleProdRecQty=()=>viewerDeny(); saveProductionBatchDirect=()=>viewerDeny(); createBulkPO=()=>viewerDeny(); createPO=()=>viewerDeny(); setPO=()=>viewerDeny(); startPO=()=>viewerDeny(); completePO=()=>viewerDeny(); confirmCompletePO=()=>viewerDeny(); cancelPO=()=>viewerDeny(); assignPOPromptBulk=()=>viewerDeny(); confirmAssignPOBulk=()=>viewerDeny();
+  saveProductionRecord=()=>viewerDeny(); fillCheckedProdQty=()=>viewerDeny(); toggleAllProdRec=()=>viewerDeny(); toggleProdRecQty=()=>viewerDeny(); saveProductionBatchDirect=()=>viewerDeny(); createBulkPO=()=>viewerDeny(); createPO=()=>viewerDeny(); setPO=()=>viewerDeny(); startPO=()=>viewerDeny(); completePO=()=>viewerDeny(); confirmCompletePO=()=>viewerDeny(); cancelPO=()=>viewerDeny(); assignPOPromptBulk=()=>viewerDeny(); confirmAssignPOBulk=()=>viewerDeny(); cancelPOBulk=()=>viewerDeny(); disableUsersBulk=()=>viewerDeny(); respondVoidRequestBulk=()=>viewerDeny(); voidTrxBulk=()=>viewerDeny();
   saveOrderDay=()=>viewerDeny(); addShortageLine=()=>viewerDeny(); removeShortageLine=()=>viewerDeny(); updateShortageReason=()=>viewerDeny();
   addBomLine=()=>viewerDeny(); openPasteImport=()=>viewerDeny(); commitImport=()=>viewerDeny(); importCSVFile=()=>viewerDeny(); openBulkEdit=()=>viewerDeny(); applyBulkEdit=()=>viewerDeny(); bulkDeleteMaster=()=>viewerDeny();
   addItem=()=>viewerDeny(); editItem=()=>viewerDeny(); addRM=()=>viewerDeny(); editRM=()=>viewerDeny(); saveNewItem=()=>viewerDeny(); saveEditItem=()=>viewerDeny(); saveNewRM=()=>viewerDeny(); saveEditRM=()=>viewerDeny();
