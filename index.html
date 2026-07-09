@@ -1,4 +1,4 @@
-<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Bakery ERP v9.14 Security Fix</title><script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script><style>
+<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Bakery ERP v9.14 Security Fix</title><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8D%AA%3C/text%3E%3C/svg%3E"><link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%23f5f1e8'/%3E%3Ctext x='50' y='68' font-size='60' text-anchor='middle'%3E%F0%9F%8D%AA%3C/text%3E%3C/svg%3E"><script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script><style>
 :root{--bg:#f5f6fa;--panel:#fffaf1;--card:#fff;--line:#ead8bf;--text:#321800;--muted:#8b755d;--brand:#df6518;--good:#059669;--bad:#dc2626;--warn:#d97706;--shadow:0 10px 25px rgba(72,36,0,.08);--r:18px;--sidebar-bg:#1c1f2e;--sidebar-text:#a6a9bb;--sidebar-line:#2c2f42;--content-bg:#f5f6fa;--topbar-h:72px}*{box-sizing:border-box}body{margin:0;background:var(--content-bg);font-family:Inter,Segoe UI,Tahoma,sans-serif;color:var(--text)}.app{display:flex;min-height:100vh}.side{width:280px;background:var(--sidebar-bg);border-right:1px solid var(--sidebar-line);padding:24px 16px;position:fixed;height:100vh;overflow:auto;display:flex;flex-direction:column;color:var(--sidebar-text)}.logo{font-size:20px;font-weight:800;margin-bottom:4px;color:#fff;display:flex;align-items:center;gap:8px}.logo .ver-badge{font-size:10px;background:#2c2f42;color:#a6a9bb;border-radius:999px;padding:3px 8px;font-weight:700}.sub{font-size:12px;color:#6d7086;line-height:1.35;margin-bottom:18px}.nav{flex:1}.nav button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:0;background:transparent;padding:13px 14px;border-radius:14px;margin:3px 0;font-size:14.5px;color:var(--sidebar-text);cursor:pointer;font-weight:600}.nav button .nav-ic{font-size:16px;width:20px;text-align:center;flex:0 0 auto}.nav button.active{background:var(--brand);color:#fff;box-shadow:0 6px 16px rgba(223,101,24,.35)}.nav button:hover:not(.active){background:#262a3c;color:#fff}.side-footer{border-top:1px solid var(--sidebar-line);padding-top:16px;margin-top:12px;font-size:12px;color:#6d7086}.main-wrap{margin-left:280px;width:calc(100% - 280px);min-height:100vh;display:flex;flex-direction:column}.topbar{height:var(--topbar-h);background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:16px;padding:0 28px;position:sticky;top:0;z-index:8}.topbar-search{flex:1;max-width:520px;position:relative}.topbar-search input{border-radius:999px;padding:11px 16px;background:#f5f6fa;border:1px solid var(--line);font-size:14px}.topbar-right{display:flex;align-items:center;gap:14px;margin-left:auto}.topbar-date{font-size:13px;color:var(--muted);white-space:nowrap}.icon-btn{position:relative;border:1px solid var(--line);background:#fff;border-radius:12px;width:42px;height:42px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:17px}.icon-btn .badge{position:absolute;top:-4px;right:-4px;background:var(--bad);color:#fff;font-size:10px;font-weight:800;border-radius:999px;min-width:16px;height:16px;display:flex;align-items:center;justify-content:center;padding:0 3px}.user-chip{display:flex;align-items:center;gap:8px;padding:6px 10px 6px 6px;border-radius:999px;background:#f5f6fa;cursor:pointer}.user-chip .avatar{width:32px;height:32px;border-radius:50%;background:var(--brand);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px}.user-chip .u-name{font-size:13px;font-weight:700;line-height:1.2}.user-chip .u-role{font-size:11px;color:var(--muted)}.main{padding:28px;flex:1}h1{margin:0;font-size:28px}.hint{color:var(--muted);margin:4px 0 18px}.toolbar,.box{background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:18px;margin:18px 0;box-shadow:0 1px 3px rgba(20,20,40,.04)}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:16px}.kpis{display:grid;grid-template-columns:repeat(4,minmax(160px,1fr));gap:14px}.kpi,.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:18px;box-shadow:0 1px 3px rgba(20,20,40,.04)}.kpi b{display:block;font-size:28px;margin-top:8px}.card h3{margin:0 0 5px;font-size:20px}.meta{color:var(--muted);font-size:13px}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}.stat{background:#fafafa;border-radius:12px;padding:10px;text-align:center}.stat b{display:block}.row{display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:10px;align-items:center}.row2{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:10px}.row3{display:grid;grid-template-columns:1fr 1fr auto;gap:10px}input,select,textarea{width:100%;border:1px solid var(--line);border-radius:13px;padding:13px 14px;font-size:16px;background:white}button.primary{border:0;background:var(--brand);color:#fff;border-radius:13px;padding:13px 22px;font-size:16px;font-weight:800;cursor:pointer}button.ghost,button.small{border:1px solid var(--line);background:#fff;border-radius:12px;padding:10px 14px;cursor:pointer}button.small{font-size:13px;padding:9px 13px;margin:3px 3px 3px 0;border-radius:11px}
 .stat-card-v2{background:#fff;border:1px solid var(--line);border-radius:18px;padding:18px 20px;box-shadow:0 1px 3px rgba(20,20,40,.04);display:flex;flex-direction:column;gap:12px}
 .stat-card-v2 .ic-badge{width:44px;height:44px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:20px}
@@ -595,7 +595,6 @@ function save(){saveLocalOnly();}
 function toast(t){$('toast').textContent=t;$('toast').style.display='block';setTimeout(()=>$('toast').style.display='none',2300)}
 function sheetDone(t){
   toast(t);
-  setTimeout(()=>alert(t),80);
 }
 function nav(){ $('nav').innerHTML=pages.filter(p=>isOperator()?OPERATOR_PAGES_.includes(p[0]):(!p[3]||isAdmin())).map(p=>`<button class="${page==p[0]?'active':''}" onclick="go('${p[0]}')"><span class="nav-ic">${p[2]||'•'}</span>${p[1]}</button>`).join(''); updateTopbar(); } function go(p){page=p;render()}
 function updateTopbar(){
@@ -762,15 +761,28 @@ function rmOptions(sel=''){return db.rm.map(x=>`<option value="${x.sku}" ${x.sku
 function items(m){m.innerHTML=head('สินค้า & สูตร','ดูยอดคงคลังเป็นหลัก / ค้นหา SKU หรือ Product ได้')+`<div class="toolbar row3"><span></span><input id="q" oninput="rerenderKeepFocus(()=>filterItemCards())" placeholder="ค้นหา SKU / ชื่อ / Product"><button class="primary" onclick="addItem()">เพิ่มสินค้า</button></div>${productChipsHTML('items','filterItemCardsFull')}<div class="grid" id="itemGrid">${db.items.filter(x=>matchesProdFilter('items',x.product)).map(cardItem).join('')}</div>`}
 function filterItemCardsFull(){items($('main'))}
 function filterItemCards(){let q=($('q')?.value||'').toLowerCase(), prod=$('fprod')?.value||''; document.querySelectorAll('#itemGrid .card').forEach(c=>{let ok=(!prod||c.dataset.product==prod) && (c.dataset.search||'').includes(q); c.style.display=ok?'':'none';});}
+function driveThumb(url){
+  url=String(url||'').trim();
+  if(!url) return '';
+  const m=url.match(/\/d\/([a-zA-Z0-9_-]+)/) || url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if(m) return 'https://drive.google.com/thumbnail?id='+m[1]+'&sz=w200';
+  return url;
+}
 function cardItem(x){
   let cost=calcCost(x.sku);
   const stock=+x.stock||0;
   const min=+(x.min??5)||5;
   const unit=x.unit||'pcs';
   const stockClass=stock<=0?'zero':(stock<=min?'low':'');
+  const thumb=x.imageUrl?`<img src="${driveThumb(x.imageUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:10px" onerror="this.parentElement.innerHTML='🍪'">`:'🍪';
   return `<div class="card stock-focus" data-product="${x.product}" data-search="${(x.sku+x.name+x.product).toLowerCase()}">
-    <h3>${x.name}</h3>
-    <div class="meta"><b>${x.sku}</b> · ${x.product} · ${x.weight||''}</div>
+    <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:6px">
+      <div style="width:52px;height:52px;flex:0 0 52px;border-radius:10px;background:#f5f1e8;display:flex;align-items:center;justify-content:center;font-size:22px;overflow:hidden">${thumb}</div>
+      <div style="min-width:0;flex:1">
+        <h3 style="margin:0">${x.name}</h3>
+        <div class="meta"><b>${x.sku}</b> · ${x.product} · ${x.weight||''}</div>
+      </div>
+    </div>
     <div class="stock-hero ${stockClass}">
       <div class="label">คงคลังปัจจุบัน</div>
       <div><span class="num">${stock}</span><span class="unit">${unit}</span></div>
@@ -1440,7 +1452,12 @@ async function confirmAssignPOBulk(){
   else sheetDone('มอบหมาย + ส่ง LINE ครบ '+okCount+' งานแล้ว');
 }
 function statusPill(s){let c=s=='Completed'?'good':s=='Cancelled'?'bad':''; return `<span class="pill ${c}">${s}</span>`}
-function poActions(p){let id=p.id; if(p.status=='Open')return `<button class="small" onclick="completePO('${id}')">Complete</button><button class="small danger" onclick="cancelPO('${id}')">Cancel</button>`; return ''}
+function poActions(p){
+  let id=p.id;
+  if(['Completed','Cancelled'].includes(p.status)) return '';
+  const completeBtn=p.status=='Open'?`<button class="small" onclick="completePO('${id}')">Complete</button>`:'';
+  return completeBtn+`<button class="small danger" onclick="cancelPO('${id}')">Cancel</button>`;
+}
 async function cancelPO(id){
   if(!confirm('ยกเลิกคำสั่งผลิต '+id+' ? ถ้ามอบหมายพนักงานไว้แล้ว ระบบจะแจ้งเตือนทาง LINE ให้ด้วย'))return;
   const p=db.po.find(x=>x.id==id); if(!p) return;
