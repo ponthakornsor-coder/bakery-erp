@@ -287,7 +287,7 @@ function sendNewMovementsSince(index){
 
 function toastSaveOK(name){toast(name+' เข้า Google Sheet แล้ว')}
 function toastSaveFail(name,e){console.error(e); alert(name+' ไม่เข้า Google Sheet: '+(e.message||e));}
-function fgPayload(x){return {SKU:x.sku,Name:x.name,Product:x.product||'',Variant:x.variant||'',Weight:x.weight||'',Unit:x.unit||'pcs',Stock:+x.stock||0,Min:+x.min||0,Price:+x.price||0,Cost:+x.cost||0,Status:'Active',ImageURL:x.imageUrl||''};}
+function fgPayload(x){return {SKU:x.sku,Name:x.name,Product:x.product||'',Variant:x.variant||'',Weight:x.weight||'',Unit:x.unit||'pcs',Stock:+x.stock||0,Min:+x.min||0,Price:+x.price||0,Cost:+x.cost||0,Status:'Active',ImageURL:x.imageUrl||'',BatchYield:+x.batchYield||1};}
 function rmPayload(r){return {RMCode:r.sku,Name:r.name,Category:r.product||'Raw Material',Variant:r.variant||'',Unit:r.unit||'g',Stock:+r.stock||0,Min:+r.min||0,Cost:+r.cost||0,Status:'Active'};}
 function poPayload(p){return {PO:p.id,SKU:p.sku,Qty:+p.qty||0,Status:p.status||'Open',CreatedAt:p.time||'',StartAt:p.start||'',FinishAt:p.finish||'',Remark:p.remark||'',UpdatedAt:now(),ActualQty:(p.actualQty!==undefined&&p.actualQty!==''&&p.actualQty!==null)?+p.actualQty:''};}
 function orderPayload(o){return {OrderNo:'DAY-'+o.date,OrderDate:o.date,TotalOrders:+o.total||0,CompletedOrders:+o.shipped||0,Status:(+o.shipped>=+o.total?'Completed':'Pending'),Remark:o.note||''};}
@@ -1122,7 +1122,8 @@ async function saveProductionRecord(){
       let fg=db.items.find(x=>x.sku==l.SKU); if(fg) fg.stock=(+fg.stock||0)+(+l.Qty||0);
       const fgMove={id:'MV-'+Date.now()+'-FG-'+l.SKU,time:ts,type:'FG',sku:l.SKU,mode:'IN',qty:+l.Qty||0,ref:l.LogID,remark:'Production record',stock:fg?fg.stock:'',synced:true};
       db.mov.push(fgMove);
-      (db.bom[l.SKU]||[]).forEach(b=>{let rm=db.rm.find(x=>x.sku==b.sku); let used=(+b.qty||0)*(+l.Qty||0); if(rm) rm.stock=(+rm.stock||0)-used; db.mov.push({id:'MV-'+Date.now()+'-RM-'+b.sku,time:ts,type:'RM',sku:b.sku,mode:'OUT',qty:-used,ref:l.LogID,remark:'BOM issue by production record',stock:rm?rm.stock:'',synced:true});});
+      const batchYield=getBatchYield(l.SKU);
+      (db.bom[l.SKU]||[]).forEach(b=>{let rm=db.rm.find(x=>x.sku==b.sku); let used=(+b.qty||0)*(+l.Qty||0)/batchYield; if(rm) rm.stock=(+rm.stock||0)-used; db.mov.push({id:'MV-'+Date.now()+'-RM-'+b.sku,time:ts,type:'RM',sku:b.sku,mode:'OUT',qty:-used,ref:l.LogID,remark:'BOM issue by production record',stock:rm?rm.stock:'',synced:true});});
     });
     saveLocalOnly(); render(); sheetDone('บันทึกผลผลิตสำเร็จ '+logs.length+' รายการ / ตัด BOM แล้ว');
   }catch(e){console.error(e); alert('บันทึกผลผลิตไม่สำเร็จ / ยังไม่บันทึกใน ERP: '+(e.message||e));}
@@ -1694,7 +1695,8 @@ function confirmCompletePO(id){
   if(!bomLines.length && !confirm('SKU '+p.sku+' ยังไม่ได้ตั้ง BOM จะบันทึกโดยไม่ตัดวัตถุดิบเลยหรือไม่?')) return;
   $('modal').style.display='none';
   const before=(db.mov||[]).length;
-  bomLines.forEach(r=>move('RM',r.sku,'OUT',(+r.qty||0)*actual,p.id,'Issue to production (ตัดตามจำนวนผลิตจริง)'));
+  const batchYield=getBatchYield(p.sku);
+  bomLines.forEach(r=>move('RM',r.sku,'OUT',(+r.qty||0)*actual/batchYield,p.id,'Issue to production (ตัดตามจำนวนผลิตจริง)'));
   move('FG',p.sku,'IN',actual,p.id,'Production completed'+(actual!==+p.qty?` (สั่ง ${p.qty} / ผลิตจริง ${actual})`:''));
   p.status='Completed'; p.finish=now(); p.actualQty=actual;
   saveLocalOnly(); render(); sendNewMovementsSince(before); savePODirect(p);
@@ -1727,8 +1729,16 @@ function bomEditor(sku){let lines=db.bom[sku]||[]; return `<h2>${sku}</h2><table
 function addBomLine(){let sku=$('bsku').value; db.bom[sku]=db.bom[sku]||[]; db.bom[sku].push({sku:db.rm[0].sku,qty:0}); saveLocalOnly(); render(); saveBomDirect(sku)}
 function openBom(sku){page='bom'; render(); setTimeout(()=>{if($('bsku')){$('bsku').value=sku; bom($('main'))}},0)}
 function bomText(sku){let b=db.bom[sku]||[]; return b.length?`${b.length} ส่วนผสม`:'ยังไม่ได้ตั้ง BOM'}
-function reqText(sku,qty){let b=db.bom[sku]||[]; if(!b.length)return 'ยังไม่ได้ตั้ง BOM'; return b.map(x=>`${x.sku} ${(x.qty*qty).toFixed(2)}`).join('<br>')}
-function calcCost(sku){return (db.bom[sku]||[]).reduce((a,l)=>{let r=db.rm.find(x=>x.sku==l.sku);return a+(+l.qty||0)*(+(r?.cost)||0)},0)}
+function getBatchYield(sku){const it=db.items.find(x=>x.sku==sku); return (it&&it.batchYield>0)?it.batchYield:1;}
+function reqText(sku,qty){
+  let b=db.bom[sku]||[]; if(!b.length)return 'ยังไม่ได้ตั้ง BOM';
+  const batchYield=getBatchYield(sku);
+  const batches=Math.ceil(qty/batchYield);
+  const lines=b.map(x=>`${x.sku} ${(x.qty*batches).toFixed(2)}`).join('<br>');
+  if(batchYield>1) return lines+`<br><span class="mini">(${batches} Batch × ${batchYield} ชิ้น = ${batches*batchYield} ชิ้น)</span>`;
+  return lines;
+}
+function calcCost(sku){const batchYield=getBatchYield(sku); const batchCost=(db.bom[sku]||[]).reduce((a,l)=>{let r=db.rm.find(x=>x.sku==l.sku);return a+(+l.qty||0)*(+(r?.cost)||0)},0); return batchCost/batchYield;}
 function hist(m){m.innerHTML=head('ประวัติ','Stock movement ทั้งหมด')+`<div class="box"><button class="ghost" onclick="download('movement')">Export Movement CSV</button></div><table><tr><th>เวลา</th><th>Type</th><th>SKU</th><th>Mode</th><th>Qty</th><th>Ref</th><th>Remark</th><th>Stock หลังทำ</th></tr>${db.mov.slice().reverse().map(x=>`<tr><td>${x.time}</td><td>${x.type}</td><td><b>${x.sku}</b><br><span class="mini">${escHTML(itemName(x.sku))}</span></td><td>${x.mode}</td><td>${x.qty}</td><td>${x.ref}</td><td>${x.remark}</td><td>${x.stock}</td></tr>`).join('')}</table>`}
 
 function googlePage(m){m.innerHTML=head('Google Form / Sheets','ฐานข้อมูลกลาง Google Sheet + UX แบบ v6.4')+`<div class="box" style="border:2px solid var(--brand)"><h2>Google Sheet Database</h2><p class="hint">โหมดนี้แก้ข้อมูลใน ERP แล้วระบบจะ Auto Save ขึ้น Google Sheet เอง ไม่ต้องกดบันทึกซ้ำ</p><div class="row3"><button class="primary" onclick="loadFromGoogleSheet()">โหลดข้อมูลจาก Google Sheet</button><button class="primary" onclick="pushToGoogleSheet()">บันทึกค้างส่งขึ้น Sheet</button><button class="ghost" onclick="syncProdToSheet()">Sync Production Log จาก Form</button></div><p class="mini">Last load: ${db.remote?.lastApiSync||'-'} | Last push: ${db.remote?.lastPush||'-'} | Fast Sync: ON</p></div><div class="box"><h2>เช็ค Stock พอส่ง (ShippingPlan)</h2><p class="hint">ย้ายไปหน้า "เช็ค Stock พอส่ง" ในเมนูด้านซ้ายแล้ว — กรอกยอดสั่งซื้อแต่ละช่องทางในเว็บได้เลย ไม่ต้องพิมพ์ในชีตเอง</p><button class="ghost" onclick="page='shipcheck';render()">ไปหน้าเช็ค Stock พอส่ง</button></div><div class="box"><h2>หลักการ</h2><p class="hint">Google Sheet เป็นฐานข้อมูลกลาง / หน้า ERP ยังใช้ UX แบบเดิม / คนอื่นกดโหลดหรือ Refresh แล้วเห็นข้อมูลเดียวกัน</p></div>`}
@@ -1809,12 +1819,12 @@ function restore(e){let f=e.target.files[0]; if(!f)return; let r=new FileReader(
 function download(){let rows=[['time','type','sku','mode','qty','ref','remark','stock'],...db.mov.map(x=>[x.time,x.type,x.sku,x.mode,x.qty,x.ref,x.remark,x.stock])]; let csv=rows.map(r=>r.map(v=>'"'+String(v??'').replaceAll('"','""')+'"').join(',')).join('\n'); let a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv'}));a.download='stock_movement.csv';a.click()}
 function modal(html){$('modalBody').innerHTML=html;$('modal').style.display='flex'} $('modal').onclick=e=>{if(e.target.id=='modal')$('modal').style.display='none'};
 function addItem(){modal(`<h2>เพิ่มสินค้า</h2><div class="row2"><input id="mi_sku" placeholder="SKU"><input id="mi_name" placeholder="ชื่อสินค้า"><input id="mi_prod" placeholder="Product"><input id="mi_weight" placeholder="Weight"></div><br><button class="primary" onclick="saveNewItem()">บันทึก</button>`)}
-function editItem(sku){let x=db.items.find(i=>i.sku==sku);modal(`<h2>แก้สินค้า ${sku}</h2><div class="row2"><input id="ei_name" value="${escHTML(x.name)}"><input id="ei_prod" value="${escHTML(x.product)}"><input id="ei_price" type="number" value="${x.price||0}"><input id="ei_stock" type="number" value="${x.stock||0}"></div><br><input id="ei_image" value="${escHTML(x.imageUrl||'')}" placeholder="ลิงก์รูปสินค้า (วางลิงก์แชร์จาก Google Drive ได้เลย)"><p class="mini">ใช้สำหรับส่งรูปสินค้าไป LINE ตอนมอบหมายงานผลิต</p><br><button class="primary" onclick="saveEditItem('${sku}')">บันทึก</button>`)}
+function editItem(sku){let x=db.items.find(i=>i.sku==sku);modal(`<h2>แก้สินค้า ${sku}</h2><div class="row2"><input id="ei_name" value="${escHTML(x.name)}"><input id="ei_prod" value="${escHTML(x.product)}"><input id="ei_price" type="number" value="${x.price||0}"><input id="ei_stock" type="number" value="${x.stock||0}"></div><br><input id="ei_image" value="${escHTML(x.imageUrl||'')}" placeholder="ลิงก์รูปสินค้า (วางลิงก์แชร์จาก Google Drive ได้เลย)"><p class="mini">ใช้สำหรับส่งรูปสินค้าไป LINE ตอนมอบหมายงานผลิต</p><br><input id="ei_batchyield" type="number" min="1" value="${x.batchYield||1}" placeholder="ผลิตได้กี่ชิ้นต่อ 1 Batch"><p class="mini">เว้นเป็น 1 ถ้าไม่ได้ผลิตเป็น Batch (ผสมทีละครั้งได้กี่ชิ้น เช่น ผสม 1 ครั้งได้ 60 ซอง ใส่ 60) — ตัวเลขใน BOM จะหมายถึง "ปริมาณต่อ 1 Batch" นี้</p><br><button class="primary" onclick="saveEditItem('${sku}')">บันทึก</button>`)}
 function addRM(){modal(`<h2>เพิ่มวัตถุดิบ</h2><div class="row2"><input id="mr_sku" placeholder="RM SKU"><input id="mr_name" placeholder="ชื่อ"><input id="mr_unit" placeholder="หน่วย g/pcs/kg"><input id="mr_cost" type="number" placeholder="ต้นทุน/หน่วย"></div><br><button class="primary" onclick="saveNewRM()">บันทึก</button>`)}
 function editRM(sku){let x=db.rm.find(i=>i.sku==sku);modal(`<h2>แก้ RM ${sku}</h2><div class="row2"><input id="er_name" value="${escHTML(x.name)}"><input id="er_unit" value="${escHTML(x.unit)}"><input id="er_cost" type="number" value="${x.cost||0}"><input id="er_stock" type="number" value="${x.stock||0}"></div><br><button class="primary" onclick="saveEditRM('${sku}')">บันทึก</button>`)}
 
 function saveNewItem(){let x={sku:mi_sku.value,name:mi_name.value,product:mi_prod.value,weight:mi_weight.value,variant:'',type:'FG',stock:0,price:0,unit:'pcs',min:0,cost:0}; if(!x.sku)return toast('ใส่ SKU ก่อน'); db.items.push(x); saveLocalOnly(); $('modal').style.display='none'; render(); saveProductDirect(x); toast('บันทึกสินค้าแล้ว / ส่งเข้า Google Sheet ทันที')}
-function saveEditItem(sku){let x=db.items.find(i=>i.sku==sku); x.name=ei_name.value; x.product=ei_prod.value; x.price=+ei_price.value; x.stock=+ei_stock.value; x.imageUrl=($('ei_image')?.value||'').trim(); saveLocalOnly(); $('modal').style.display='none'; render(); saveProductDirect(x); toast('แก้สินค้าแล้ว / ส่งเข้า Google Sheet ทันที')}
+function saveEditItem(sku){let x=db.items.find(i=>i.sku==sku); x.name=ei_name.value; x.product=ei_prod.value; x.price=+ei_price.value; x.stock=+ei_stock.value; x.imageUrl=($('ei_image')?.value||'').trim(); x.batchYield=Math.max(1,+($('ei_batchyield')?.value||1)); saveLocalOnly(); $('modal').style.display='none'; render(); saveProductDirect(x); toast('แก้สินค้าแล้ว / ส่งเข้า Google Sheet ทันที')}
 function saveNewRM(){let r={sku:mr_sku.value,name:mr_name.value,unit:mr_unit.value,cost:+mr_cost.value,stock:0,product:'Raw Material',variant:'',min:0}; if(!r.sku)return toast('ใส่ RM SKU ก่อน'); db.rm.push(r); saveLocalOnly(); $('modal').style.display='none'; render(); saveRawMaterialDirect(r); toast('บันทึกวัตถุดิบแล้ว / ส่งเข้า Google Sheet ทันที')}
 function saveEditRM(sku){let x=db.rm.find(i=>i.sku==sku); x.name=er_name.value; x.unit=er_unit.value; x.cost=+er_cost.value; x.stock=+er_stock.value; saveLocalOnly(); $('modal').style.display='none'; render(); saveRawMaterialDirect(x); toast('แก้วัตถุดิบแล้ว / ส่งเข้า Google Sheet ทันที')}
 
@@ -2001,7 +2011,7 @@ function erpMergeByFn(localArr, remoteArr, keyFn){
 function erpActive(o){return !['voided','cancelled','deleted'].includes(String(o?.status||o?.Status||'Active').toLowerCase());}
 function fromSheetData(data){
   data=data||{};
-  const items=(data.products||[]).map(p=>({sku:String(p.SKU||''),name:p.Name||'',product:p.Product||'',variant:p.Variant||'',weight:p.Weight||'',unit:p.Unit||'pcs',stock:+p.Stock||0,min:+p.Min||0,price:+p.Price||0,cost:+p.Cost||0,type:'FG',imageUrl:p.ImageURL||''})).filter(x=>x.sku);
+  const items=(data.products||[]).map(p=>({sku:String(p.SKU||''),name:p.Name||'',product:p.Product||'',variant:p.Variant||'',weight:p.Weight||'',unit:p.Unit||'pcs',stock:+p.Stock||0,min:+p.Min||0,price:+p.Price||0,cost:+p.Cost||0,type:'FG',imageUrl:p.ImageURL||'',batchYield:+p.BatchYield||1})).filter(x=>x.sku);
   const rm=(data.rawMaterials||[]).map(r=>({sku:String(r.RMCode||''),name:r.Name||'',product:r.Category||'Raw Material',variant:r.Variant||'',unit:r.Unit||'g',stock:+r.Stock||0,min:+r.Min||0,cost:+r.Cost||0})).filter(x=>x.sku);
   const bom={}; (data.bom||[]).forEach(b=>{ if(!b.SKU||!b.RMCode)return; bom[b.SKU]=bom[b.SKU]||[]; bom[b.SKU].push({sku:b.RMCode,qty:+b.QtyPerUnit||0,unit:b.Unit||''}); });
   const remoteProdLog=(data.productionLog||[]).map(r=>({id:r.LogID||'',timestamp:r.Timestamp||'',sku:r.SKU||'',product:r.Product||'',variant:r.Variant||'',qty:+r.Qty||0,expiry:r.ExpiryDate||'',operator:r.Operator||'',remark:r.Remark||'',photo:r.Photo||'',source:r.Source||'Google Sheet',status:r.Status||'Active',voidReason:r.VoidReason||'',voidAt:r.VoidAt||'',voidBy:r.VoidBy||''})).filter(x=>x.id||x.sku);
