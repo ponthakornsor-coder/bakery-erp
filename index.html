@@ -1734,8 +1734,8 @@ function reqText(sku,qty){
   let b=db.bom[sku]||[]; if(!b.length)return 'ยังไม่ได้ตั้ง BOM';
   const batchYield=getBatchYield(sku);
   const batches=Math.ceil(qty/batchYield);
-  const lines=b.map(x=>`${x.sku} ${(x.qty*batches).toFixed(2)}`).join('<br>');
-  if(batchYield>1) return lines+`<br><span class="mini">(${batches} Batch × ${batchYield} ชิ้น = ${batches*batchYield} ชิ้น)</span>`;
+  const lines=b.map(x=>`${x.sku} ${(x.qty*qty/batchYield).toFixed(2)}`).join('<br>');
+  if(batchYield>1) return lines+`<br><span class="mini">(ต้องผสม ${batches} Batch × ${batchYield} ชิ้น)</span>`;
   return lines;
 }
 function calcCost(sku){const batchYield=getBatchYield(sku); const batchCost=(db.bom[sku]||[]).reduce((a,l)=>{let r=db.rm.find(x=>x.sku==l.sku);return a+(+l.qty||0)*(+(r?.cost)||0)},0); return batchCost/batchYield;}
