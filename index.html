@@ -297,7 +297,7 @@ function upsertSheetBatch(sheet,key,rows,label){rows=rows||[]; if(!rows.length) 
 function deleteSheet(sheet,key,value,label){return apiPost({action:'delete',sheet,key,value}).then(()=>toastSaveOK(label)).catch(e=>toastSaveFail(label,e));}
 function saveProductDirect(x){if(!x||!x.sku)return; return upsertSheet('ProductMaster','SKU',fgPayload(x),'ProductMaster');}
 function saveRawMaterialDirect(r){if(!r||!r.sku)return; return upsertSheet('RawMaterial','RMCode',rmPayload(r),'RawMaterial');}
-function saveBomDirect(sku){return apiPost({action:'savebom',sku,lines:(db.bom[sku]||[]).map(l=>({RMCode:l.sku,QtyPerUnit:+l.qty||0,Unit:l.unit||'',Version:'1',Status:'Active'}))}).then(()=>toastSaveOK('BOM')).catch(e=>toastSaveFail('BOM',e));}
+function saveBomDirect(sku){return apiPost({action:'savebom',sku,lines:(db.bom[sku]||[]).map(l=>({RMCode:l.sku,QtyPerUnit:+l.qty||0,Unit:l.unit||'',Version:'1',Status:'Active',Stage:l.stage||'Production'}))}).then(()=>toastSaveOK('BOM')).catch(e=>toastSaveFail('BOM',e));}
 function savePODirect(p){if(!p||!p.id)return; return upsertSheet('ProductionOrder','PO',poPayload(p),'ProductionOrder');}
 function savePOBatchDirect(list){list=(list||[]).filter(p=>p&&p.id); if(!list.length)return Promise.resolve(); return apiPostBatched('upsertbatch',list,15,chunk=>({sheet:'ProductionOrder',key:'PO',rows:chunk.map(poPayload)})).then(()=>sheetDone('ProductionOrder เข้า Google Sheet ครบ '+list.length+' รายการแล้ว'));}
 function saveProductionBatchDirect(list){list=(list||[]).filter(x=>x&&x.SKU&&(+x.Qty||0)>0); if(!list.length)return Promise.resolve(); return apiPostBatched('producebatch',list,15,chunk=>({data:chunk})).then(()=>sheetDone('บันทึกผลผลิตเข้า Google Sheet ครบ '+list.length+' รายการ และตัด BOM แล้ว'));}
@@ -810,9 +810,9 @@ function cardItem(x){
     </div>
     <div class="stock-hero ${stockClass}">
       <div class="label">คงคลังปัจจุบัน (FG)</div>
-      <div><span class="num">${stock}</span><span class="unit">${unit}</span></div>
+      <div><span class="num">${roundDisplay(stock)}</span><span class="unit">${unit}</span></div>
     </div>
-    ${x.batchYield>1?`<div class="secondary-stats" style="margin-top:8px"><div class="stat" style="background:#fff6e8"><b>${x.wipStock||0}</b>WIP รอแพ็ค</div></div>`:''}
+    ${x.batchYield>1?`<div class="secondary-stats" style="margin-top:8px"><div class="stat" style="background:#fff6e8"><b>${roundDisplay(x.wipStock||0)}</b>WIP รอแพ็ค</div></div>`:''}
     <div class="secondary-stats">
       <div class="stat"><b>${min}</b>Min Stock</div>
       <div class="stat"><b>${bomText(x.sku)}</b>BOM</div>
@@ -835,7 +835,7 @@ function cardRM(x){
     <div class="meta"><b>${x.sku}</b> · ${x.product||'Raw Material'}</div>
     <div class="stock-hero ${stockClass}">
       <div class="label">คงคลังปัจจุบัน</div>
-      <div><span class="num">${stock}</span><span class="unit">${unit}</span></div>
+      <div><span class="num">${roundDisplay(stock)}</span><span class="unit">${unit}</span></div>
     </div>
     <div class="secondary-stats">
       <div class="stat"><b>${min}</b>Min Stock</div>
@@ -1139,7 +1139,7 @@ async function saveProductionRecord(){
       const fgMove={id:'MV-'+Date.now()+'-FG-'+l.SKU,time:ts,type:batchYield>1?'WIP':'FG',sku:l.SKU,mode:'IN',qty:+l.Qty||0,ref:l.LogID,remark:batchYield>1?'Production record (รอแพ็ค)':'Production record',stock:fg?fg[creditField]:'',synced:true};
       db.mov.push(fgMove);
       const batches=(l.ActualBatches!==undefined&&l.ActualBatches!=='')?+l.ActualBatches:(+l.Qty||0)/batchYield;
-      (db.bom[l.SKU]||[]).forEach(b=>{let rm=db.rm.find(x=>x.sku==b.sku); let used=(+b.qty||0)*batches; if(rm) rm.stock=(+rm.stock||0)-used; db.mov.push({id:'MV-'+Date.now()+'-RM-'+b.sku,time:ts,type:'RM',sku:b.sku,mode:'OUT',qty:-used,ref:l.LogID,remark:'BOM issue by production record',stock:rm?rm.stock:'',synced:true});});
+      (db.bom[l.SKU]||[]).filter(b=>(b.stage||'Production')==='Production').forEach(b=>{let rm=db.rm.find(x=>x.sku==b.sku); let used=(+b.qty||0)*batches; if(rm) rm.stock=(+rm.stock||0)-used; db.mov.push({id:'MV-'+Date.now()+'-RM-'+b.sku,time:ts,type:'RM',sku:b.sku,mode:'OUT',qty:-used,ref:l.LogID,remark:'BOM issue by production record',stock:rm?rm.stock:'',synced:true});});
     });
     saveLocalOnly(); render(); sheetDone('บันทึกผลผลิตสำเร็จ '+logs.length+' รายการ / ตัด BOM แล้ว');
   }catch(e){console.error(e); alert('บันทึกผลผลิตไม่สำเร็จ / ยังไม่บันทึกใน ERP: '+(e.message||e));}
@@ -1152,17 +1152,22 @@ function genericStatusPill(s){
   return `<span class="pill ${cls}">${s}</span>`;
 }
 function productionTransactions(){
-  const fromLog=(db.prodLog||[]).map(r=>{let it=(db.items||[]).find(x=>String(x.sku)==String(r.sku))||{}; return {id:r.id||r.LogID||'',time:r.timestamp||r.Timestamp||'',type:r.source||r.Source||'Production',kind:'FG',sku:r.sku||r.SKU||'',name:it.name||'',product:it.product||r.product||r.Product||'',variant:it.variant||it.weight||'',qty:+(r.qty||r.Qty||0),operator:r.operator||r.Operator||'',remark:r.remark||r.Remark||'',status:r.status||r.Status||'Active',voidReason:r.voidReason||r.VoidReason||'',voidAt:r.voidAt||r.VoidAt||''};});
+  // v9.91 fix: เดิม label ว่า "FG" เสมอ ทั้งที่ SKU ที่ตั้ง Batch Yield ไว้ จริงๆ แล้วเข้า WIP ไม่ใช่ FG
+  // ทำให้ดู Transaction แล้วงงว่า Void อะไรไปกันแน่ ตอนนี้บอกตรงตามที่เกิดขึ้นจริง
+  const fromLog=(db.prodLog||[]).map(r=>{let it=(db.items||[]).find(x=>String(x.sku)==String(r.sku))||{}; const kind=getBatchYield(r.sku||r.SKU)>1?'WIP':'FG'; return {id:r.id||r.LogID||'',time:r.timestamp||r.Timestamp||'',type:r.source||r.Source||'Production',kind,sku:r.sku||r.SKU||'',name:it.name||'',product:it.product||r.product||r.Product||'',variant:it.variant||it.weight||'',qty:+(r.qty||r.Qty||0),operator:r.operator||r.Operator||'',remark:r.remark||r.Remark||'',status:r.status||r.Status||'Active',voidReason:r.voidReason||r.VoidReason||'',voidAt:r.voidAt||r.VoidAt||''};});
   // v9.39 fix: กันเหนียวเผื่อ QR scan บางรายการอยู่ใน StockMovement แต่ไม่มาโผล่ใน ProductionLog
   // (เช่น ช่วง sync ไม่สมบูรณ์) ดึงมาโชว์เพิ่มด้วย กันไม่ให้หายไปจากหน้านี้เฉยๆ
   const seenIds=new Set(fromLog.map(x=>String(x.id)));
   const fromMovAuto=(db.mov||[]).filter(mv=>String(mv.source||'')==='GoogleFormCSV-auto' && String(mv.type||'').toUpperCase()==='FG' && mv.ref && !seenIds.has(String(mv.ref)))
     .map(mv=>{let it=(db.items||[]).find(x=>String(x.sku)==String(mv.sku))||{}; return {id:mv.ref,time:mv.time,type:'QR / Google Form (movement)',kind:'FG',sku:mv.sku,name:it.name||'',product:it.product||'',variant:it.variant||'',qty:+mv.qty||0,operator:'',remark:mv.remark||'',status:'Active',voidReason:'',voidAt:''};});
+  // v9.91: เพิ่มรายการ "แพ็คสินค้า" (WIP -> FG) เข้ามาโชว์ในประวัติด้วย (เดิมไม่โผล่ในหน้านี้เลย)
+  const fromPack=(db.mov||[]).filter(mv=>String(mv.source||'')==='ERP-PACK' && String(mv.type||'').toUpperCase()==='FG')
+    .map(mv=>{let it=(db.items||[]).find(x=>String(x.sku)==String(mv.sku))||{}; return {id:mv.ref||mv.id||'',time:mv.time,type:'แพ็คสินค้า (WIP → FG)',kind:'PACK',sku:mv.sku,name:it.name||'',product:it.product||'',variant:it.variant||'',qty:+mv.qty||0,operator:'',remark:mv.remark||'',status:'Active',voidReason:'',voidAt:''};});
   // v9.44: เพิ่ม Transaction ของวัตถุดิบ (RM) เข้ามาด้วย พร้อมปุ่ม Void (สร้างรายการย้อนกลับ ไม่ลบของเดิม)
   const voidRefs=new Set((db.mov||[]).filter(mv=>String(mv.source||'')==='ERP-VOID-RM' && mv.ref).map(mv=>String(mv.ref)));
   const fromRM=(db.mov||[]).filter(mv=>String(mv.type||'').toUpperCase()==='RM')
     .map(mv=>{let rmIt=(db.rm||[]).find(x=>String(x.sku)==String(mv.sku))||{}; const isVoidReverse=String(mv.source||'')==='ERP-VOID-RM'; const alreadyVoided=voidRefs.has('VOID-'+String(mv.id||'')); return {id:mv.id||mv.ref||'',time:mv.time,type:'วัตถุดิบ: '+(mv.mode||''),kind:'RM',sku:mv.sku,name:rmIt.name||'',product:rmIt.product||'Raw Material',variant:rmIt.variant||'',qty:+mv.qty||0,operator:'',remark:mv.remark||'',status:'Active',voidReason:'',voidAt:'',isVoidReverse,alreadyVoided};});
-  const withVoidReq=fromLog.concat(fromMovAuto,fromRM).map(x=>({...x,voidRequest:findVoidRequestFor(x.id)}));
+  const withVoidReq=fromLog.concat(fromMovAuto,fromPack,fromRM).map(x=>({...x,voidRequest:findVoidRequestFor(x.id)}));
   return withVoidReq;
 }
 function findVoidRequestFor(refId){
@@ -1192,28 +1197,31 @@ function transactionTable(arr){
   if(!arr.length)return '<p class="hint">ไม่พบรายการ</p>';
   const anyVoidable=arr.some(x=>{
     if(x.voidRequest && x.voidRequest.status==='Pending') return false;
-    if(x.kind==='FG') return String(x.status||'Active')!=='Voided';
+    if(x.kind==='FG'||x.kind==='WIP') return String(x.status||'Active')!=='Voided';
     if(x.kind==='RM') return !x.isVoidReverse && !x.alreadyVoided;
     return false;
   });
+  const kindLabel={FG:'📦 FG (พร้อมขาย)',WIP:'🧪 WIP (รอแพ็ค)',RM:'🧺 วัตถุดิบ',PACK:'📮 แพ็คสินค้า'};
   const bulkBar=anyVoidable?`<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px"><label style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" id="trxSelectAll" onchange="toggleAllTrxChk(this.checked)" style="width:20px;height:20px"> เลือกทั้งหมด</label><button class="danger" onclick="voidTrxBulk()">${isAdmin()?'Void':'ขอ Void'}ที่เลือกทั้งหมด</button></div>`:'';
-  return bulkBar+`<table><tr><th style="width:36px"></th><th>เวลา</th><th>LogID</th><th>Source</th><th>SKU</th><th>Product</th><th>Variant</th><th>Qty</th><th>ผู้บันทึก</th><th>Status</th><th></th></tr>${arr.map(x=>{
-    let actionCell='', chkCell='';
+  return bulkBar+`<table><tr><th style="width:36px"></th><th>เวลา</th><th>LogID</th><th>ประเภท</th><th>Source</th><th>SKU</th><th>Product</th><th>Variant</th><th>Qty</th><th>ผู้บันทึก</th><th>Status</th><th></th></tr>${arr.map(x=>{
+    let actionCell='', chkCell='', qtyNote='';
     const pendingReq=x.voidRequest && x.voidRequest.status==='Pending';
     if(pendingReq){
       actionCell='<span class="mini">รอ Admin อนุมัติ</span>';
-    }else if(x.kind==='FG' && String(x.status||'Active')!=='Voided'){
+    }else if((x.kind==='FG'||x.kind==='WIP') && String(x.status||'Active')!=='Voided'){
       actionCell=`<button class="small danger" onclick="voidProductionPrompt('${escHTML(x.id)}')">${isAdmin()?'Void':'ขอ Void'}</button>`;
       chkCell=`<input type="checkbox" class="trxChk" data-kind="FG" data-sku="${escHTML(x.sku)}" data-qty="${x.qty}" value="${escHTML(x.id)}" style="width:20px;height:20px">`;
     }else if(x.kind==='RM'){
       if(x.isVoidReverse){ actionCell='<span class="mini">รายการย้อนกลับ</span>'; }
-      else if(x.alreadyVoided){ actionCell='<span class="mini">Void แล้ว</span>'; }
+      else if(x.alreadyVoided){ actionCell='<span class="mini">Void แล้ว</span>'; qtyNote='<br><span class="mini good">(คืนแล้ว ✅)</span>'; }
       else {
         actionCell=`<button class="small danger" onclick="voidRMMovementPrompt('${escHTML(x.id)}')">${isAdmin()?'Void':'ขอ Void'}</button>`;
         chkCell=`<input type="checkbox" class="trxChk" data-kind="RM" data-sku="${escHTML(x.sku)}" data-qty="${x.qty}" value="${escHTML(x.id)}" style="width:20px;height:20px">`;
       }
+    }else if(x.kind==='PACK'){
+      actionCell='<span class="mini">-</span>';
     }
-    return `<tr><td>${chkCell}</td><td>${x.time}</td><td><b>${x.id}</b></td><td>${x.type}</td><td><b>${x.sku}</b><br><span class="mini">${escHTML(x.name)}</span></td><td>${escHTML(x.product)}</td><td>${escHTML(x.variant)}</td><td><b>${x.qty}</b></td><td>${escHTML(x.operator)}</td><td>${voidStatusCell(x)}</td><td>${actionCell}</td></tr>`;
+    return `<tr><td>${chkCell}</td><td>${x.time}</td><td><b>${x.id}</b></td><td>${kindLabel[x.kind]||x.kind}</td><td>${x.type}</td><td><b>${x.sku}</b><br><span class="mini">${escHTML(x.name)}</span></td><td>${escHTML(x.product)}</td><td>${escHTML(x.variant)}</td><td><b>${x.qty}</b>${qtyNote}</td><td>${escHTML(x.operator)}</td><td>${voidStatusCell(x)}</td><td>${actionCell}</td></tr>`;
   }).join('')}</table>`;
 }
 function toggleAllTrxChk(checked){document.querySelectorAll('.trxChk').forEach(c=>c.checked=checked);}
@@ -1376,7 +1384,7 @@ function packingPage(m){
   const batchProducts=[...new Set((db.items||[]).filter(x=>x.batchYield>1).map(x=>x.product).filter(Boolean))].sort();
   m.innerHTML=head('แพ็คสินค้า','ดึงจาก WIP (ผลิตเสร็จ รอแพ็ค) มาเข้า FG (พร้อมขาย) — แพ็คไม่ครบทีเดียวได้ แพ็คเพิ่มทีหลังได้อีก')+
   `<div class="toolbar"><input id="packQ" value="${escHTML(q)}" oninput="rerenderKeepFocus(()=>packingPage($('main')))" placeholder="ค้นหา SKU / ชื่อสินค้า">${productChipsHTML('packing','packingPageRerender',batchProducts)}</div>`+
-  `<div class="box"><h2>มี WIP รอแพ็คอยู่ (${withWip.length})</h2>${withWip.length?`<table><tr><th>SKU</th><th>ชื่อสินค้า</th><th>WIP รอแพ็ค</th><th>FG พร้อมขายตอนนี้</th><th>จำนวนที่จะแพ็ค</th><th></th></tr>${withWip.map(x=>`<tr><td><b>${x.sku}</b></td><td>${escHTML(x.name)}</td><td><b class="danger">${x.wipStock}</b></td><td>${x.stock||0}</td><td><input id="packqty_${x.sku}" type="number" min="0" max="${x.wipStock}" placeholder="จำนวน"></td><td><button class="primary" onclick="packWipAction('${x.sku}',${x.wipStock})">แพ็คทั้งหมด</button> <button class="small" onclick="packWipAction('${x.sku}')">แพ็คตามที่ใส่</button></td></tr>`).join('')}</table>`:'<p class="hint">ไม่มี SKU ไหนมี WIP ค้างอยู่ตอนนี้</p>'}</div>`+
+  `<div class="box"><h2>มี WIP รอแพ็คอยู่ (${withWip.length})</h2>${withWip.length?`<table><tr><th>SKU</th><th>ชื่อสินค้า</th><th>WIP รอแพ็ค</th><th>FG พร้อมขายตอนนี้</th><th>จำนวนที่จะแพ็ค</th><th></th></tr>${withWip.map(x=>`<tr><td><b>${x.sku}</b></td><td>${escHTML(x.name)}</td><td><b class="danger">${roundDisplay(x.wipStock)}</b></td><td>${roundDisplay(x.stock||0)}</td><td><input id="packqty_${x.sku}" type="number" min="0" max="${x.wipStock}" placeholder="จำนวน"></td><td><button class="primary" onclick="packWipAction('${x.sku}',${x.wipStock})">แพ็คทั้งหมด</button> <button class="small" onclick="packWipAction('${x.sku}')">แพ็คตามที่ใส่</button></td></tr>`).join('')}</table>`:'<p class="hint">ไม่มี SKU ไหนมี WIP ค้างอยู่ตอนนี้</p>'}</div>`+
   (noWip.length?`<div class="box"><h2>SKU ที่ผลิตแบบ Batch (ไม่มี WIP ค้าง)</h2><p class="hint">${noWip.map(x=>x.sku).join(', ')}</p></div>`:'');
 }
 function packingPageRerender(){packingPage($('main'))}
@@ -1526,7 +1534,7 @@ function prod(m){
 }
 function bulkPoTable(list){return `<table><tr><th style="width:110px"><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="poSelectAll" onchange="toggleAllPO(this.checked)" style="width:22px;height:22px"> เลือกทั้งหมด</label></th><th>SKU</th><th>ชื่อสินค้า</th><th>คงคลัง</th><th>จำนวนผลิต (pcs)</th><th>จำนวน Batch</th><th>RM ที่ต้องใช้</th></tr>${list.map(x=>{
   const batchYield=getBatchYield(x.sku);
-  return `<tr><td><input type="checkbox" class="poChk" data-sku="${x.sku}" onchange="togglePoQty('${x.sku}')" style="width:22px;height:22px"></td><td><b>${x.sku}</b></td><td>${x.name}</td><td>${x.stock||0}</td><td><input id="poqty_${x.sku}" class="poQty" type="number" min="0" placeholder="จำนวน" oninput="onPoQtyInput('${x.sku}')" onkeydown="gridKeyNav(event,this)"></td><td><input id="pobatch_${x.sku}" type="number" min="0" step="0.01" placeholder="Batch" oninput="updateBulkReq('${x.sku}')" style="${batchYield>1?'':'opacity:.4'}"></td><td id="poreq_${x.sku}">${reqText(x.sku,0)}</td></tr>`;
+  return `<tr><td><input type="checkbox" class="poChk" data-sku="${x.sku}" onchange="togglePoQty('${x.sku}')" style="width:22px;height:22px"></td><td><b>${x.sku}</b></td><td>${x.name}</td><td>${roundDisplay(x.stock||0)}</td><td><input id="poqty_${x.sku}" class="poQty" type="number" min="0" placeholder="จำนวน" oninput="onPoQtyInput('${x.sku}')" onkeydown="gridKeyNav(event,this)"></td><td><input id="pobatch_${x.sku}" type="number" min="0" step="0.01" placeholder="Batch" oninput="updateBulkReq('${x.sku}')" style="${batchYield>1?'':'opacity:.4'}"></td><td id="poreq_${x.sku}">${reqText(x.sku,0)}</td></tr>`;
 }).join('')}</table>`}
 function onPoQtyInput(sku){
   // v9.88: พิมพ์จำนวน pcs แล้วเดาจำนวน Batch ให้อัตโนมัติ (ปัดขึ้น) แต่ยังแก้เป็นทศนิยมเองได้ (เช่น 0.5, 0.25)
@@ -1755,7 +1763,7 @@ function confirmCompletePO(id){
   let p=db.po.find(x=>x.id==id); if(!p) return;
   let actual=+$('actualQtyInput')?.value;
   if(isNaN(actual)||actual<0) return toast('ใส่จำนวนที่ผลิตได้จริงก่อน');
-  const bomLines=db.bom[p.sku]||[];
+  const bomLines=(db.bom[p.sku]||[]).filter(l=>(l.stage||'Production')==='Production');
   // v9.43: เดิมตัด RM ตอนกด "Start" โดยใช้จำนวนที่สั่งไว้ (p.qty) แยกขั้นตอนจากตอนใส่จำนวนจริง
   // ตอนนี้รวมเป็นขั้นตอนเดียว (Open → Complete) ตัด RM ตามจำนวนที่ผลิตได้จริงที่เพิ่งกรอก ไม่ใช่จำนวนที่สั่ง
   if(!bomLines.length && !confirm('SKU '+p.sku+' ยังไม่ได้ตั้ง BOM จะบันทึกโดยไม่ตัดวัตถุดิบเลยหรือไม่?')) return;
@@ -1794,20 +1802,22 @@ function orderShortEditor(arr){let date=$('orderDate')?.value||todayISO(); if(!a
 function orderDayHistory(){let arr=(db.orderDays||[]).slice().sort((a,b)=>String(b.date).localeCompare(String(a.date))).slice(0,20); if(!arr.length)return '<p class="hint">ยังไม่มีข้อมูล Order</p>'; return `<table><tr><th>วันที่</th><th>Order</th><th>ส่งสำเร็จ</th><th>ไม่สำเร็จ</th><th>รายการขาด</th><th>หมายเหตุ</th></tr>${arr.map(x=>`<tr><td>${x.date}</td><td>${+x.total||0}</td><td>${+x.shipped||0}</td><td>${Math.max(0,(+x.total||0)-(+x.shipped||0))}</td><td>${(x.shortages||[]).map(s=>`${s.sku} ${s.qty}`).join('<br>')}</td><td>${x.note||''}</td></tr>`).join('')}</table>`}
 function esc(v){return String(v??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('"','&quot;')}
 function bom(m){m.innerHTML=head('BOM / สูตร','ตั้งสูตรต่อ 1 ชิ้น/1 ถุง/1 กระปุก ตามหน่วยที่คุณใช้')+`<div class="toolbar row3"><select id="bprod" onchange="bom($('main'))">${productOptions($('bprod')?.value||'')}</select><select id="bsku" onchange="bom($('main'))">${itemOptions($('bprod')?.value||'',$('bsku')?.value||db.items[0]?.sku)}</select><button class="primary" onclick="addBomLine()">เพิ่ม RM ในสูตร</button></div><div class="box">${bomEditor($('bsku')?.value||db.items[0]?.sku)}</div>`}
-function bomEditor(sku){let lines=db.bom[sku]||[]; return `<h2>${sku}</h2><table><tr><th>RM</th><th>Qty ต่อ 1 ชิ้น</th><th>หน่วย</th><th></th></tr>${lines.map((l,i)=>{let r=db.rm.find(x=>x.sku==l.sku)||{};return `<tr><td><select onchange="db.bom['${sku}'][${i}].sku=this.value;saveLocalOnly();render();saveBomDirect('${sku}')">${rmOptions(l.sku)}</select></td><td><input type="number" value="${l.qty}" onchange="db.bom['${sku}'][${i}].qty=+this.value;saveLocalOnly();render();saveBomDirect('${sku}')"></td><td>${r.unit||''}</td><td><button class="small" onclick="db.bom['${sku}'].splice(${i},1);saveLocalOnly();render();saveBomDirect('${sku}')">ลบ</button></td></tr>`}).join('')}</table>`}
-function addBomLine(){let sku=$('bsku').value; db.bom[sku]=db.bom[sku]||[]; db.bom[sku].push({sku:db.rm[0].sku,qty:0}); saveLocalOnly(); render(); saveBomDirect(sku)}
+function bomEditor(sku){let lines=db.bom[sku]||[]; return `<h2>${sku}</h2><p class="hint">"ใช้ตอนผลิต" = วัตถุดิบที่ตัดตอนผสม/ผลิต (ตัดเข้า WIP) — "ใช้ตอนแพ็ค" = PM เช่นสติกเกอร์/ถุง ที่ตัดตอนแพ็ค (WIP→FG) คิดต่อ 1 หน่วยเสมอ ไม่เกี่ยวกับ Batch</p><table><tr><th>RM / PM</th><th>Qty ต่อ 1 หน่วย</th><th>หน่วย</th><th>ขั้นตอน</th><th></th></tr>${lines.map((l,i)=>{let r=db.rm.find(x=>x.sku==l.sku)||{};return `<tr><td><select onchange="db.bom['${sku}'][${i}].sku=this.value;saveLocalOnly();render();saveBomDirect('${sku}')">${rmOptions(l.sku)}</select></td><td><input type="number" value="${l.qty}" onchange="db.bom['${sku}'][${i}].qty=+this.value;saveLocalOnly();render();saveBomDirect('${sku}')"></td><td>${r.unit||''}</td><td><select onchange="db.bom['${sku}'][${i}].stage=this.value;saveLocalOnly();render();saveBomDirect('${sku}')"><option value="Production" ${(l.stage||'Production')==='Production'?'selected':''}>ใช้ตอนผลิต (RM)</option><option value="Packing" ${l.stage==='Packing'?'selected':''}>ใช้ตอนแพ็ค (PM)</option></select></td><td><button class="small" onclick="db.bom['${sku}'].splice(${i},1);saveLocalOnly();render();saveBomDirect('${sku}')">ลบ</button></td></tr>`}).join('')}</table>`}
+function addBomLine(){let sku=$('bsku').value; db.bom[sku]=db.bom[sku]||[]; db.bom[sku].push({sku:db.rm[0].sku,qty:0,stage:'Production'}); saveLocalOnly(); render(); saveBomDirect(sku)}
 function openBom(sku){page='bom'; render(); setTimeout(()=>{if($('bsku')){$('bsku').value=sku; bom($('main'))}},0)}
 function bomText(sku){let b=db.bom[sku]||[]; return b.length?`${b.length} ส่วนผสม`:'ยังไม่ได้ตั้ง BOM'}
+function roundDisplay(n){n=+n||0; const r=Math.round(n*100)/100; return r.toLocaleString('en-US',{minimumFractionDigits:Number.isInteger(r)?0:2,maximumFractionDigits:2});}
 function getBatchYield(sku){const it=db.items.find(x=>x.sku==sku); return (it&&it.batchYield>0)?it.batchYield:1;}
 function reqText(sku,qty,batchesOverride){
-  let b=db.bom[sku]||[]; if(!b.length)return 'ยังไม่ได้ตั้ง BOM';
+  let b=(db.bom[sku]||[]).filter(x=>(x.stage||'Production')==='Production');
+  if(!b.length)return 'ยังไม่ได้ตั้ง BOM';
   const batchYield=getBatchYield(sku);
   const batches=(batchesOverride!==undefined&&batchesOverride!==null&&batchesOverride!=='')?+batchesOverride:qty/batchYield;
   const lines=b.map(x=>`${x.sku} ${(x.qty*batches).toFixed(2)}`).join('<br>');
   if(batchYield>1) return lines+`<br><span class="mini">(${batches.toFixed(2)} Batch × ${batchYield} ชิ้น)</span>`;
   return lines;
 }
-function calcCost(sku){const batchYield=getBatchYield(sku); const batchCost=(db.bom[sku]||[]).reduce((a,l)=>{let r=db.rm.find(x=>x.sku==l.sku);return a+(+l.qty||0)*(+(r?.cost)||0)},0); return batchCost/batchYield;}
+function calcCost(sku){const batchYield=getBatchYield(sku); const batchCost=(db.bom[sku]||[]).filter(l=>(l.stage||'Production')==='Production').reduce((a,l)=>{let r=db.rm.find(x=>x.sku==l.sku);return a+(+l.qty||0)*(+(r?.cost)||0)},0); return batchCost/batchYield;}
 function hist(m){m.innerHTML=head('ประวัติ','Stock movement ทั้งหมด')+`<div class="box"><button class="ghost" onclick="download('movement')">Export Movement CSV</button></div><table><tr><th>เวลา</th><th>Type</th><th>SKU</th><th>Mode</th><th>Qty</th><th>Ref</th><th>Remark</th><th>Stock หลังทำ</th></tr>${db.mov.slice().reverse().map(x=>`<tr><td>${x.time}</td><td>${x.type}</td><td><b>${x.sku}</b><br><span class="mini">${escHTML(itemName(x.sku))}</span></td><td>${x.mode}</td><td>${x.qty}</td><td>${x.ref}</td><td>${x.remark}</td><td>${x.stock}</td></tr>`).join('')}</table>`}
 
 function googlePage(m){m.innerHTML=head('Google Form / Sheets','ฐานข้อมูลกลาง Google Sheet + UX แบบ v6.4')+`<div class="box" style="border:2px solid var(--brand)"><h2>Google Sheet Database</h2><p class="hint">โหมดนี้แก้ข้อมูลใน ERP แล้วระบบจะ Auto Save ขึ้น Google Sheet เอง ไม่ต้องกดบันทึกซ้ำ</p><div class="row3"><button class="primary" onclick="loadFromGoogleSheet()">โหลดข้อมูลจาก Google Sheet</button><button class="primary" onclick="pushToGoogleSheet()">บันทึกค้างส่งขึ้น Sheet</button><button class="ghost" onclick="syncProdToSheet()">Sync Production Log จาก Form</button></div><p class="mini">Last load: ${db.remote?.lastApiSync||'-'} | Last push: ${db.remote?.lastPush||'-'} | Fast Sync: ON</p></div><div class="box"><h2>เช็ค Stock พอส่ง (ShippingPlan)</h2><p class="hint">ย้ายไปหน้า "เช็ค Stock พอส่ง" ในเมนูด้านซ้ายแล้ว — กรอกยอดสั่งซื้อแต่ละช่องทางในเว็บได้เลย ไม่ต้องพิมพ์ในชีตเอง</p><button class="ghost" onclick="page='shipcheck';render()">ไปหน้าเช็ค Stock พอส่ง</button></div><div class="box"><h2>หลักการ</h2><p class="hint">Google Sheet เป็นฐานข้อมูลกลาง / หน้า ERP ยังใช้ UX แบบเดิม / คนอื่นกดโหลดหรือ Refresh แล้วเห็นข้อมูลเดียวกัน</p></div>`}
@@ -1868,7 +1878,7 @@ function masterData(m){let target=$('mdTarget')?.value||'FG'; let q=$('mdq')?.va
  m.innerHTML=head('Master Data','เพิ่มสินค้า/วัตถุดิบเร็ว ๆ ด้วย Paste จาก Excel, Import CSV, Bulk Edit, Export Template')+
  `<div class="toolbar"><div class="row3"><select id="mdTarget" onchange="masterData($('main'))"><option value="FG" ${target=='FG'?'selected':''}>สินค้า / Finished Goods</option><option value="RM" ${target=='RM'?'selected':''}>วัตถุดิบ / Raw Material</option></select><input id="mdq" value="${escHTML(q)}" oninput="rerenderKeepFocus(()=>masterData($('main')))" placeholder="Search SKU / ชื่อ / Product / กลุ่ม"><button class="primary" onclick="openPasteImport()">Paste from Excel</button></div><div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap"><button class="ghost" onclick="exportTemplate()">Export Template CSV</button><button class="ghost" onclick="exportMaster()">Export Data CSV</button><button class="ghost" onclick="$('mdFile').click()">Import CSV</button><input id="mdFile" type="file" accept=".csv,.txt" style="display:none" onchange="importCSVFile(event)"><button class="ghost" onclick="openBulkEdit()">Bulk Edit รายการที่ติ๊ก</button><button class="ghost danger" onclick="bulkDeleteMaster()">ลบรายการที่ติ๊ก</button></div></div>`+
  `<div class="box"><div class="mini">Tip: Copy ตารางจาก Excel แล้วกด Paste from Excel ได้เลย คอลัมน์ที่รองรับ: SKU, Name, Product/Category, Variant, Weight, Unit, Stock, Price, Cost, Min, Max</div><br>${masterTable(visible,target)}</div>`;}
-function masterTable(list,target){if(!list.length)return '<p class="hint">ไม่มีข้อมูล</p>'; return `<table id="mdTable"><tr><th style="width:110px"><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" onchange="toggleAllMaster(this.checked)" style="width:22px;height:22px"> เลือกทั้งหมด</label></th><th>SKU</th><th>ชื่อ</th><th>${target=='FG'?'Product':'กลุ่ม'}</th><th>Variant</th><th>Unit/Size</th><th>Stock</th><th>Min</th><th>Cost/Price</th><th></th></tr>${list.map(x=>`<tr><td><input type="checkbox" class="mdChk" data-sku="${escHTML(x.sku)}" style="width:22px;height:22px"></td><td><b>${escHTML(x.sku)}</b></td><td>${escHTML(x.name)}</td><td>${escHTML(x.product||'')}</td><td>${escHTML(x.variant||'')}</td><td>${escHTML(x.unit||x.weight||'')}</td><td>${x.stock||0}</td><td>${x.min||0}</td><td>${target=='FG'?'฿'+(+x.price||0):'฿'+(+x.cost||0)}</td><td><button class="small" onclick="${target=='FG'?'editItem':'editRM'}('${escHTML(x.sku)}')">แก้ไข</button></td></tr>`).join('')}</table>`}
+function masterTable(list,target){if(!list.length)return '<p class="hint">ไม่มีข้อมูล</p>'; return `<table id="mdTable"><tr><th style="width:110px"><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" onchange="toggleAllMaster(this.checked)" style="width:22px;height:22px"> เลือกทั้งหมด</label></th><th>SKU</th><th>ชื่อ</th><th>${target=='FG'?'Product':'กลุ่ม'}</th><th>Variant</th><th>Unit/Size</th><th>Stock</th><th>Min</th><th>Cost/Price</th><th></th></tr>${list.map(x=>`<tr><td><input type="checkbox" class="mdChk" data-sku="${escHTML(x.sku)}" style="width:22px;height:22px"></td><td><b>${escHTML(x.sku)}</b></td><td>${escHTML(x.name)}</td><td>${escHTML(x.product||'')}</td><td>${escHTML(x.variant||'')}</td><td>${escHTML(x.unit||x.weight||'')}</td><td>${roundDisplay(x.stock||0)}</td><td>${roundDisplay(x.min||0)}</td><td>${target=='FG'?'฿'+(+x.price||0):'฿'+(+x.cost||0)}</td><td><button class="small" onclick="${target=='FG'?'editItem':'editRM'}('${escHTML(x.sku)}')">แก้ไข</button></td></tr>`).join('')}</table>`}
 function toggleAllMaster(checked){document.querySelectorAll('.mdChk').forEach(c=>c.checked=checked)}
 function openPasteImport(){let target=$('mdTarget')?.value||'FG'; modal(`<h2>Paste from Excel - ${target=='FG'?'สินค้า':'วัตถุดิบ'}</h2><p class="hint">Copy ตารางจาก Excel รวม Header แล้ววางในช่องนี้</p><textarea id="pasteBox" rows="12" placeholder="SKU\tName\tProduct\tUnit\tStock\tMin\nPS-SS-100\tProtein Stick...\tProtein Stick\tpcs\t0\t5"></textarea><br><br><button class="primary" onclick="previewImport('${target}')">Preview</button> <button class="ghost" onclick="$('modal').style.display='none'">ปิด</button><div id="importPreview" style="margin-top:16px"></div>`)}
 function previewImport(target){let rows=parseTableText($('pasteBox').value).map(o=>normalizeRow(o,target)).filter(x=>x.sku); showImportPreview(rows,target);}
@@ -2135,7 +2145,7 @@ function fromSheetData(data){
   data=data||{};
   const items=(data.products||[]).map(p=>({sku:String(p.SKU||''),name:p.Name||'',product:p.Product||'',variant:p.Variant||'',weight:p.Weight||'',unit:p.Unit||'pcs',stock:+p.Stock||0,min:+p.Min||0,price:+p.Price||0,cost:+p.Cost||0,type:'FG',imageUrl:p.ImageURL||'',batchYield:+p.BatchYield||1,wipStock:+p.WipStock||0})).filter(x=>x.sku);
   const rm=(data.rawMaterials||[]).map(r=>({sku:String(r.RMCode||''),name:r.Name||'',product:r.Category||'Raw Material',variant:r.Variant||'',unit:r.Unit||'g',stock:+r.Stock||0,min:+r.Min||0,cost:+r.Cost||0})).filter(x=>x.sku);
-  const bom={}; (data.bom||[]).forEach(b=>{ if(!b.SKU||!b.RMCode)return; bom[b.SKU]=bom[b.SKU]||[]; bom[b.SKU].push({sku:b.RMCode,qty:+b.QtyPerUnit||0,unit:b.Unit||''}); });
+  const bom={}; (data.bom||[]).forEach(b=>{ if(!b.SKU||!b.RMCode)return; bom[b.SKU]=bom[b.SKU]||[]; bom[b.SKU].push({sku:b.RMCode,qty:+b.QtyPerUnit||0,unit:b.Unit||'',stage:b.Stage||'Production'}); });
   const remoteProdLog=(data.productionLog||[]).map(r=>({id:r.LogID||'',timestamp:r.Timestamp||'',sku:r.SKU||'',product:r.Product||'',variant:r.Variant||'',qty:+r.Qty||0,expiry:r.ExpiryDate||'',operator:r.Operator||'',remark:r.Remark||'',photo:r.Photo||'',source:r.Source||'Google Sheet',status:r.Status||'Active',voidReason:r.VoidReason||'',voidAt:r.VoidAt||'',voidBy:r.VoidBy||'',actualBatches:(r.ActualBatches!==undefined&&r.ActualBatches!=='')?+r.ActualBatches:''})).filter(x=>x.id||x.sku);
   const remoteMov=(data.stockMovement||[]).map(r=>({id:r.MoveID||'',time:r.Timestamp||'',type:r.ItemType||'',sku:r.SKU||'',mode:r.Mode||'',qty:+r.Qty||0,ref:r.Ref||'',remark:r.Remark||'',stock:+r.StockAfter||0,source:r.Source||'',status:r.Status||'Active',synced:true})).filter(x=>x.id||x.sku);
   const orderItems=(data.orderItems||[]).map(i=>({orderNo:i.OrderNo||'',sku:i.SKU||'',qty:+i.Qty||0,completedQty:+i.CompletedQty||0,shortQty:+i.ShortQty||0,reason:i.Reason||'',updatedAt:i.UpdatedAt||''}));
