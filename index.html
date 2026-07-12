@@ -883,7 +883,7 @@ function stockMoveBulk(ref='Manual'){
   saveLocalOnly(); render(); sendNewMovementsSince(before); toast('บันทึก Stock '+rows.length+' รายการแล้ว / ส่งเข้า Google Sheet ทันที')
 }
 function stockMove(ref='Manual'){stockMoveBulk(ref)}
-function move(type,sku,mode,qty,ref,remark){let arr=type=='RM'?db.rm:db.items, it=arr.find(x=>x.sku==sku); if(!it) return; let signedQty=qty; if(mode=='IN'||mode=='ADJ_IN'||mode=='RETURN'){it.stock=(+it.stock||0)+qty; signedQty=qty;} else if(mode=='OUT'||mode=='ADJ_OUT'||mode=='SCRAP'){it.stock=(+it.stock||0)-qty; signedQty=-qty;} else if(mode=='ADJ'){it.stock=qty; signedQty=qty;} let rec={id:'MV-'+Date.now()+'-'+Math.floor(Math.random()*9999),time:now(),type,sku,mode,qty:signedQty,ref,remark,stock:it.stock,synced:false}; db.mov.push(rec); if(db.remote?.autoSync) setTimeout(()=>syncOne(rec),50);}
+function move(type,sku,mode,qty,ref,remark){let arr=type=='RM'?db.rm:db.items, it=arr.find(x=>x.sku==sku); if(!it) return; const stockField=type=='WIP'?'wipStock':'stock'; let signedQty=qty; if(mode=='IN'||mode=='ADJ_IN'||mode=='RETURN'){it[stockField]=(+it[stockField]||0)+qty; signedQty=qty;} else if(mode=='OUT'||mode=='ADJ_OUT'||mode=='SCRAP'){it[stockField]=(+it[stockField]||0)-qty; signedQty=-qty;} else if(mode=='ADJ'){it[stockField]=qty; signedQty=qty;} let rec={id:'MV-'+Date.now()+'-'+Math.floor(Math.random()*9999),time:now(),type,sku,mode,qty:signedQty,ref,remark,stock:it[stockField],synced:false}; db.mov.push(rec); if(db.remote?.autoSync) setTimeout(()=>syncOne(rec),50);}
 
 function cycleCount(m){
   let type=$('ctype')?.value||'FG', prod=$('cprod')?.value||'', reason=$('creason')?.value||'Cycle Count';
@@ -1131,10 +1131,13 @@ async function saveProductionRecord(){
     await saveProductionBatchDirect(logs);
     logs.forEach(l=>{
       db.prodLog=db.prodLog||[]; db.prodLog.push({id:l.LogID,timestamp:l.Timestamp,sku:l.SKU,product:l.Product,qty:+l.Qty||0,expiry:l.ExpiryDate,operator:l.Operator,remark:l.Remark,photo:'',source:l.Source,actualBatches:l.ActualBatches});
-      let fg=db.items.find(x=>x.sku==l.SKU); if(fg) fg.stock=(+fg.stock||0)+(+l.Qty||0);
-      const fgMove={id:'MV-'+Date.now()+'-FG-'+l.SKU,time:ts,type:'FG',sku:l.SKU,mode:'IN',qty:+l.Qty||0,ref:l.LogID,remark:'Production record',stock:fg?fg.stock:'',synced:true};
-      db.mov.push(fgMove);
+      // v9.90 fix: SKU ที่ตั้ง Batch Yield ไว้ ต้องเข้า WIP ก่อน (รอแพ็ค) ไม่ใช่ FG ตรงๆ เหมือน SKU ปกติ
       const batchYield=getBatchYield(l.SKU);
+      const fg=db.items.find(x=>x.sku==l.SKU);
+      const creditField=batchYield>1?'wipStock':'stock';
+      if(fg) fg[creditField]=(+fg[creditField]||0)+(+l.Qty||0);
+      const fgMove={id:'MV-'+Date.now()+'-FG-'+l.SKU,time:ts,type:batchYield>1?'WIP':'FG',sku:l.SKU,mode:'IN',qty:+l.Qty||0,ref:l.LogID,remark:batchYield>1?'Production record (รอแพ็ค)':'Production record',stock:fg?fg[creditField]:'',synced:true};
+      db.mov.push(fgMove);
       const batches=(l.ActualBatches!==undefined&&l.ActualBatches!=='')?+l.ActualBatches:(+l.Qty||0)/batchYield;
       (db.bom[l.SKU]||[]).forEach(b=>{let rm=db.rm.find(x=>x.sku==b.sku); let used=(+b.qty||0)*batches; if(rm) rm.stock=(+rm.stock||0)-used; db.mov.push({id:'MV-'+Date.now()+'-RM-'+b.sku,time:ts,type:'RM',sku:b.sku,mode:'OUT',qty:-used,ref:l.LogID,remark:'BOM issue by production record',stock:rm?rm.stock:'',synced:true});});
     });
@@ -1365,16 +1368,18 @@ async function receiveRMLotAction(){
 }
 function packingPage(m){
   const q=($('packQ')?.value||'').toLowerCase();
-  let list=(db.items||[]).filter(x=>x.batchYield>1);
+  let list=(db.items||[]).filter(x=>x.batchYield>1 && matchesProdFilter('packing',x.product));
   if(q) list=list.filter(x=>(x.sku+' '+x.name).toLowerCase().includes(q));
   list=list.slice().sort((a,b)=>(b.wipStock||0)-(a.wipStock||0));
   const withWip=list.filter(x=>(x.wipStock||0)>0);
   const noWip=list.filter(x=>!(x.wipStock||0)>0);
+  const batchProducts=[...new Set((db.items||[]).filter(x=>x.batchYield>1).map(x=>x.product).filter(Boolean))].sort();
   m.innerHTML=head('แพ็คสินค้า','ดึงจาก WIP (ผลิตเสร็จ รอแพ็ค) มาเข้า FG (พร้อมขาย) — แพ็คไม่ครบทีเดียวได้ แพ็คเพิ่มทีหลังได้อีก')+
-  `<div class="toolbar"><input id="packQ" value="${escHTML(q)}" oninput="rerenderKeepFocus(()=>packingPage($('main')))" placeholder="ค้นหา SKU / ชื่อสินค้า"></div>`+
+  `<div class="toolbar"><input id="packQ" value="${escHTML(q)}" oninput="rerenderKeepFocus(()=>packingPage($('main')))" placeholder="ค้นหา SKU / ชื่อสินค้า">${productChipsHTML('packing','packingPageRerender',batchProducts)}</div>`+
   `<div class="box"><h2>มี WIP รอแพ็คอยู่ (${withWip.length})</h2>${withWip.length?`<table><tr><th>SKU</th><th>ชื่อสินค้า</th><th>WIP รอแพ็ค</th><th>FG พร้อมขายตอนนี้</th><th>จำนวนที่จะแพ็ค</th><th></th></tr>${withWip.map(x=>`<tr><td><b>${x.sku}</b></td><td>${escHTML(x.name)}</td><td><b class="danger">${x.wipStock}</b></td><td>${x.stock||0}</td><td><input id="packqty_${x.sku}" type="number" min="0" max="${x.wipStock}" placeholder="จำนวน"></td><td><button class="primary" onclick="packWipAction('${x.sku}',${x.wipStock})">แพ็คทั้งหมด</button> <button class="small" onclick="packWipAction('${x.sku}')">แพ็คตามที่ใส่</button></td></tr>`).join('')}</table>`:'<p class="hint">ไม่มี SKU ไหนมี WIP ค้างอยู่ตอนนี้</p>'}</div>`+
   (noWip.length?`<div class="box"><h2>SKU ที่ผลิตแบบ Batch (ไม่มี WIP ค้าง)</h2><p class="hint">${noWip.map(x=>x.sku).join(', ')}</p></div>`:'');
 }
+function packingPageRerender(){packingPage($('main'))}
 async function packWipAction(sku,fixedQty){
   const qty=fixedQty!==undefined?fixedQty:+($('packqty_'+sku)?.value||0);
   if(!qty||qty<=0) return toast('ใส่จำนวนที่จะแพ็คก่อน');
@@ -1758,10 +1763,13 @@ function confirmCompletePO(id){
   const before=(db.mov||[]).length;
   const batchYield=getBatchYield(p.sku);
   bomLines.forEach(r=>move('RM',r.sku,'OUT',(+r.qty||0)*actual/batchYield,p.id,'Issue to production (ตัดตามจำนวนผลิตจริง)'));
-  move('FG',p.sku,'IN',actual,p.id,'Production completed'+(actual!==+p.qty?` (สั่ง ${p.qty} / ผลิตจริง ${actual})`:''));
+  // v9.90 fix: เดิมเข้า FG ตรงๆ เสมอ แม้ SKU จะตั้ง Batch Yield ไว้ (ต้องรอแพ็คก่อน) ทำให้ WIP ไม่ขยับ
+  // ตอนนี้ SKU ที่ตั้ง Batch Yield ไว้ (>1) จะเข้า WIP ก่อนเหมือนฝั่งอื่นๆ ที่แก้ไปแล้ว
+  const itemTypeComplete=batchYield>1?'WIP':'FG';
+  move(itemTypeComplete,p.sku,'IN',actual,p.id,(itemTypeComplete==='WIP'?'Production completed (รอแพ็ค)':'Production completed')+(actual!==+p.qty?` (สั่ง ${p.qty} / ผลิตจริง ${actual})`:''));
   p.status='Completed'; p.finish=now(); p.actualQty=actual;
   saveLocalOnly(); render(); sendNewMovementsSince(before); savePODirect(p);
-  toast(actual===+p.qty?'Completed / ตัด RM แล้ว / รับ FG เข้า Stock แล้ว / ส่งเข้า Google Sheet':`Completed ตัด RM ตามจำนวนจริง ${actual} ชิ้น (สั่ง ${p.qty}) / ส่งเข้า Google Sheet`);
+  toast(actual===+p.qty?'Completed / ตัด RM แล้ว / รับ'+(itemTypeComplete==='WIP'?' WIP':' FG')+' เข้า Stock แล้ว / ส่งเข้า Google Sheet':`Completed ตัด RM ตามจำนวนจริง ${actual} ชิ้น (สั่ง ${p.qty}) / ส่งเข้า Google Sheet`);
 }
 
 function ordersPage(m){
@@ -1885,7 +1893,19 @@ function addRM(){modal(`<h2>เพิ่มวัตถุดิบ</h2><div cla
 function editRM(sku){let x=db.rm.find(i=>i.sku==sku);modal(`<h2>แก้ RM ${sku}</h2><div class="row2"><input id="er_name" value="${escHTML(x.name)}"><input id="er_unit" value="${escHTML(x.unit)}"><input id="er_cost" type="number" value="${x.cost||0}"><input id="er_stock" type="number" value="${x.stock||0}"></div><br><button class="primary" onclick="saveEditRM('${sku}')">บันทึก</button>`)}
 
 function saveNewItem(){let x={sku:mi_sku.value,name:mi_name.value,product:mi_prod.value,weight:mi_weight.value,variant:'',type:'FG',stock:0,price:0,unit:'pcs',min:0,cost:0}; if(!x.sku)return toast('ใส่ SKU ก่อน'); db.items.push(x); saveLocalOnly(); $('modal').style.display='none'; render(); saveProductDirect(x); toast('บันทึกสินค้าแล้ว / ส่งเข้า Google Sheet ทันที')}
-function saveEditItem(sku){let x=db.items.find(i=>i.sku==sku); x.name=ei_name.value; x.product=ei_prod.value; x.price=+ei_price.value; x.stock=+ei_stock.value; x.imageUrl=($('ei_image')?.value||'').trim(); x.batchYield=Math.max(1,+($('ei_batchyield')?.value||1)); saveLocalOnly(); $('modal').style.display='none'; render(); saveProductDirect(x); toast('แก้สินค้าแล้ว / ส่งเข้า Google Sheet ทันที')}
+async function saveEditItem(sku){
+  let x=db.items.find(i=>i.sku==sku);
+  x.name=ei_name.value; x.product=ei_prod.value; x.price=+ei_price.value; x.stock=+ei_stock.value;
+  x.imageUrl=($('ei_image')?.value||'').trim();
+  x.batchYield=Math.max(1,+($('ei_batchyield')?.value||1));
+  saveLocalOnly();
+  // v9.90 fix: เดิมปิด modal + คืนการควบคุมให้ผู้ใช้ทันที ก่อนที่การบันทึกจะไปถึง Server จริง
+  // (ยิงคำขอแล้วไม่รอ) ถ้าผู้ใช้รีบไปหน้าอื่นแล้วบันทึกผลผลิตต่อทันที มีโอกาสชนกับคำขอนี้ที่ยังไม่เสร็จ
+  // ตอนนี้รอให้บันทึกเสร็จจริงก่อน ค่อยปิด modal ป้องกันปัญหานี้ไม่ให้เกิดได้อีกจากการกดเร็วเกินไป
+  await saveProductDirect(x);
+  $('modal').style.display='none';
+  render();
+}
 function saveNewRM(){let r={sku:mr_sku.value,name:mr_name.value,unit:mr_unit.value,cost:+mr_cost.value,stock:0,product:'Raw Material',variant:'',min:0}; if(!r.sku)return toast('ใส่ RM SKU ก่อน'); db.rm.push(r); saveLocalOnly(); $('modal').style.display='none'; render(); saveRawMaterialDirect(r); toast('บันทึกวัตถุดิบแล้ว / ส่งเข้า Google Sheet ทันที')}
 function saveEditRM(sku){let x=db.rm.find(i=>i.sku==sku); x.name=er_name.value; x.unit=er_unit.value; x.cost=+er_cost.value; x.stock=+er_stock.value; saveLocalOnly(); $('modal').style.display='none'; render(); saveRawMaterialDirect(x); toast('แก้วัตถุดิบแล้ว / ส่งเข้า Google Sheet ทันที')}
 
