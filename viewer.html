@@ -810,9 +810,9 @@ function cardItem(x){
     </div>
     <div class="stock-hero ${stockClass}">
       <div class="label">คงคลังปัจจุบัน (FG)</div>
-      <div><span class="num">${stock}</span><span class="unit">${unit}</span></div>
+      <div><span class="num">${roundDisplay(stock)}</span><span class="unit">${unit}</span></div>
     </div>
-    ${x.batchYield>1?`<div class="secondary-stats" style="margin-top:8px"><div class="stat" style="background:#fff6e8"><b>${x.wipStock||0}</b>WIP รอแพ็ค</div></div>`:''}
+    ${x.batchYield>1?`<div class="secondary-stats" style="margin-top:8px"><div class="stat" style="background:#fff6e8"><b>${roundDisplay(x.wipStock||0)}</b>WIP รอแพ็ค</div></div>`:''}
     <div class="secondary-stats">
       <div class="stat"><b>${min}</b>Min Stock</div>
       <div class="stat"><b>${bomText(x.sku)}</b>BOM</div>
@@ -835,7 +835,7 @@ function cardRM(x){
     <div class="meta"><b>${x.sku}</b> · ${x.product||'Raw Material'}</div>
     <div class="stock-hero ${stockClass}">
       <div class="label">คงคลังปัจจุบัน</div>
-      <div><span class="num">${stock}</span><span class="unit">${unit}</span></div>
+      <div><span class="num">${roundDisplay(stock)}</span><span class="unit">${unit}</span></div>
     </div>
     <div class="secondary-stats">
       <div class="stat"><b>${min}</b>Min Stock</div>
@@ -1384,7 +1384,7 @@ function packingPage(m){
   const batchProducts=[...new Set((db.items||[]).filter(x=>x.batchYield>1).map(x=>x.product).filter(Boolean))].sort();
   m.innerHTML=head('แพ็คสินค้า','ดึงจาก WIP (ผลิตเสร็จ รอแพ็ค) มาเข้า FG (พร้อมขาย) — แพ็คไม่ครบทีเดียวได้ แพ็คเพิ่มทีหลังได้อีก')+
   `<div class="toolbar"><input id="packQ" value="${escHTML(q)}" oninput="rerenderKeepFocus(()=>packingPage($('main')))" placeholder="ค้นหา SKU / ชื่อสินค้า">${productChipsHTML('packing','packingPageRerender',batchProducts)}</div>`+
-  `<div class="box"><h2>มี WIP รอแพ็คอยู่ (${withWip.length})</h2>${withWip.length?`<table><tr><th>SKU</th><th>ชื่อสินค้า</th><th>WIP รอแพ็ค</th><th>FG พร้อมขายตอนนี้</th><th>จำนวนที่จะแพ็ค</th><th></th></tr>${withWip.map(x=>`<tr><td><b>${x.sku}</b></td><td>${escHTML(x.name)}</td><td><b class="danger">${x.wipStock}</b></td><td>${x.stock||0}</td><td><input id="packqty_${x.sku}" type="number" min="0" max="${x.wipStock}" placeholder="จำนวน"></td><td><button class="primary" onclick="packWipAction('${x.sku}',${x.wipStock})">แพ็คทั้งหมด</button> <button class="small" onclick="packWipAction('${x.sku}')">แพ็คตามที่ใส่</button></td></tr>`).join('')}</table>`:'<p class="hint">ไม่มี SKU ไหนมี WIP ค้างอยู่ตอนนี้</p>'}</div>`+
+  `<div class="box"><h2>มี WIP รอแพ็คอยู่ (${withWip.length})</h2>${withWip.length?`<table><tr><th>SKU</th><th>ชื่อสินค้า</th><th>WIP รอแพ็ค</th><th>FG พร้อมขายตอนนี้</th><th>จำนวนที่จะแพ็ค</th><th></th></tr>${withWip.map(x=>`<tr><td><b>${x.sku}</b></td><td>${escHTML(x.name)}</td><td><b class="danger">${roundDisplay(x.wipStock)}</b></td><td>${roundDisplay(x.stock||0)}</td><td><input id="packqty_${x.sku}" type="number" min="0" max="${x.wipStock}" placeholder="จำนวน"></td><td><button class="primary" onclick="packWipAction('${x.sku}',${x.wipStock})">แพ็คทั้งหมด</button> <button class="small" onclick="packWipAction('${x.sku}')">แพ็คตามที่ใส่</button></td></tr>`).join('')}</table>`:'<p class="hint">ไม่มี SKU ไหนมี WIP ค้างอยู่ตอนนี้</p>'}</div>`+
   (noWip.length?`<div class="box"><h2>SKU ที่ผลิตแบบ Batch (ไม่มี WIP ค้าง)</h2><p class="hint">${noWip.map(x=>x.sku).join(', ')}</p></div>`:'');
 }
 function packingPageRerender(){packingPage($('main'))}
@@ -1534,7 +1534,7 @@ function prod(m){
 }
 function bulkPoTable(list){return `<table><tr><th style="width:110px"><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="poSelectAll" onchange="toggleAllPO(this.checked)" style="width:22px;height:22px"> เลือกทั้งหมด</label></th><th>SKU</th><th>ชื่อสินค้า</th><th>คงคลัง</th><th>จำนวนผลิต (pcs)</th><th>จำนวน Batch</th><th>RM ที่ต้องใช้</th></tr>${list.map(x=>{
   const batchYield=getBatchYield(x.sku);
-  return `<tr><td><input type="checkbox" class="poChk" data-sku="${x.sku}" onchange="togglePoQty('${x.sku}')" style="width:22px;height:22px"></td><td><b>${x.sku}</b></td><td>${x.name}</td><td>${x.stock||0}</td><td><input id="poqty_${x.sku}" class="poQty" type="number" min="0" placeholder="จำนวน" oninput="onPoQtyInput('${x.sku}')" onkeydown="gridKeyNav(event,this)"></td><td><input id="pobatch_${x.sku}" type="number" min="0" step="0.01" placeholder="Batch" oninput="updateBulkReq('${x.sku}')" style="${batchYield>1?'':'opacity:.4'}"></td><td id="poreq_${x.sku}">${reqText(x.sku,0)}</td></tr>`;
+  return `<tr><td><input type="checkbox" class="poChk" data-sku="${x.sku}" onchange="togglePoQty('${x.sku}')" style="width:22px;height:22px"></td><td><b>${x.sku}</b></td><td>${x.name}</td><td>${roundDisplay(x.stock||0)}</td><td><input id="poqty_${x.sku}" class="poQty" type="number" min="0" placeholder="จำนวน" oninput="onPoQtyInput('${x.sku}')" onkeydown="gridKeyNav(event,this)"></td><td><input id="pobatch_${x.sku}" type="number" min="0" step="0.01" placeholder="Batch" oninput="updateBulkReq('${x.sku}')" style="${batchYield>1?'':'opacity:.4'}"></td><td id="poreq_${x.sku}">${reqText(x.sku,0)}</td></tr>`;
 }).join('')}</table>`}
 function onPoQtyInput(sku){
   // v9.88: พิมพ์จำนวน pcs แล้วเดาจำนวน Batch ให้อัตโนมัติ (ปัดขึ้น) แต่ยังแก้เป็นทศนิยมเองได้ (เช่น 0.5, 0.25)
@@ -1806,6 +1806,7 @@ function bomEditor(sku){let lines=db.bom[sku]||[]; return `<h2>${sku}</h2><p cla
 function addBomLine(){let sku=$('bsku').value; db.bom[sku]=db.bom[sku]||[]; db.bom[sku].push({sku:db.rm[0].sku,qty:0,stage:'Production'}); saveLocalOnly(); render(); saveBomDirect(sku)}
 function openBom(sku){page='bom'; render(); setTimeout(()=>{if($('bsku')){$('bsku').value=sku; bom($('main'))}},0)}
 function bomText(sku){let b=db.bom[sku]||[]; return b.length?`${b.length} ส่วนผสม`:'ยังไม่ได้ตั้ง BOM'}
+function roundDisplay(n){n=+n||0; const r=Math.round(n*100)/100; return r.toLocaleString('en-US',{minimumFractionDigits:Number.isInteger(r)?0:2,maximumFractionDigits:2});}
 function getBatchYield(sku){const it=db.items.find(x=>x.sku==sku); return (it&&it.batchYield>0)?it.batchYield:1;}
 function reqText(sku,qty,batchesOverride){
   let b=(db.bom[sku]||[]).filter(x=>(x.stage||'Production')==='Production');
@@ -1877,7 +1878,7 @@ function masterData(m){let target=$('mdTarget')?.value||'FG'; let q=$('mdq')?.va
  m.innerHTML=head('Master Data','เพิ่มสินค้า/วัตถุดิบเร็ว ๆ ด้วย Paste จาก Excel, Import CSV, Bulk Edit, Export Template')+
  `<div class="toolbar"><div class="row3"><select id="mdTarget" onchange="masterData($('main'))"><option value="FG" ${target=='FG'?'selected':''}>สินค้า / Finished Goods</option><option value="RM" ${target=='RM'?'selected':''}>วัตถุดิบ / Raw Material</option></select><input id="mdq" value="${escHTML(q)}" oninput="rerenderKeepFocus(()=>masterData($('main')))" placeholder="Search SKU / ชื่อ / Product / กลุ่ม"><button class="primary" onclick="openPasteImport()">Paste from Excel</button></div><div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap"><button class="ghost" onclick="exportTemplate()">Export Template CSV</button><button class="ghost" onclick="exportMaster()">Export Data CSV</button><button class="ghost" onclick="$('mdFile').click()">Import CSV</button><input id="mdFile" type="file" accept=".csv,.txt" style="display:none" onchange="importCSVFile(event)"><button class="ghost" onclick="openBulkEdit()">Bulk Edit รายการที่ติ๊ก</button><button class="ghost danger" onclick="bulkDeleteMaster()">ลบรายการที่ติ๊ก</button></div></div>`+
  `<div class="box"><div class="mini">Tip: Copy ตารางจาก Excel แล้วกด Paste from Excel ได้เลย คอลัมน์ที่รองรับ: SKU, Name, Product/Category, Variant, Weight, Unit, Stock, Price, Cost, Min, Max</div><br>${masterTable(visible,target)}</div>`;}
-function masterTable(list,target){if(!list.length)return '<p class="hint">ไม่มีข้อมูล</p>'; return `<table id="mdTable"><tr><th style="width:110px"><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" onchange="toggleAllMaster(this.checked)" style="width:22px;height:22px"> เลือกทั้งหมด</label></th><th>SKU</th><th>ชื่อ</th><th>${target=='FG'?'Product':'กลุ่ม'}</th><th>Variant</th><th>Unit/Size</th><th>Stock</th><th>Min</th><th>Cost/Price</th><th></th></tr>${list.map(x=>`<tr><td><input type="checkbox" class="mdChk" data-sku="${escHTML(x.sku)}" style="width:22px;height:22px"></td><td><b>${escHTML(x.sku)}</b></td><td>${escHTML(x.name)}</td><td>${escHTML(x.product||'')}</td><td>${escHTML(x.variant||'')}</td><td>${escHTML(x.unit||x.weight||'')}</td><td>${x.stock||0}</td><td>${x.min||0}</td><td>${target=='FG'?'฿'+(+x.price||0):'฿'+(+x.cost||0)}</td><td><button class="small" onclick="${target=='FG'?'editItem':'editRM'}('${escHTML(x.sku)}')">แก้ไข</button></td></tr>`).join('')}</table>`}
+function masterTable(list,target){if(!list.length)return '<p class="hint">ไม่มีข้อมูล</p>'; return `<table id="mdTable"><tr><th style="width:110px"><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" onchange="toggleAllMaster(this.checked)" style="width:22px;height:22px"> เลือกทั้งหมด</label></th><th>SKU</th><th>ชื่อ</th><th>${target=='FG'?'Product':'กลุ่ม'}</th><th>Variant</th><th>Unit/Size</th><th>Stock</th><th>Min</th><th>Cost/Price</th><th></th></tr>${list.map(x=>`<tr><td><input type="checkbox" class="mdChk" data-sku="${escHTML(x.sku)}" style="width:22px;height:22px"></td><td><b>${escHTML(x.sku)}</b></td><td>${escHTML(x.name)}</td><td>${escHTML(x.product||'')}</td><td>${escHTML(x.variant||'')}</td><td>${escHTML(x.unit||x.weight||'')}</td><td>${roundDisplay(x.stock||0)}</td><td>${roundDisplay(x.min||0)}</td><td>${target=='FG'?'฿'+(+x.price||0):'฿'+(+x.cost||0)}</td><td><button class="small" onclick="${target=='FG'?'editItem':'editRM'}('${escHTML(x.sku)}')">แก้ไข</button></td></tr>`).join('')}</table>`}
 function toggleAllMaster(checked){document.querySelectorAll('.mdChk').forEach(c=>c.checked=checked)}
 function openPasteImport(){let target=$('mdTarget')?.value||'FG'; modal(`<h2>Paste from Excel - ${target=='FG'?'สินค้า':'วัตถุดิบ'}</h2><p class="hint">Copy ตารางจาก Excel รวม Header แล้ววางในช่องนี้</p><textarea id="pasteBox" rows="12" placeholder="SKU\tName\tProduct\tUnit\tStock\tMin\nPS-SS-100\tProtein Stick...\tProtein Stick\tpcs\t0\t5"></textarea><br><br><button class="primary" onclick="previewImport('${target}')">Preview</button> <button class="ghost" onclick="$('modal').style.display='none'">ปิด</button><div id="importPreview" style="margin-top:16px"></div>`)}
 function previewImport(target){let rows=parseTableText($('pasteBox').value).map(o=>normalizeRow(o,target)).filter(x=>x.sku); showImportPreview(rows,target);}
