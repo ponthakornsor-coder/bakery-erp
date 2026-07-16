@@ -391,7 +391,7 @@ function shipCheckPage(m){
   m.innerHTML=head('เช็ค Stock พอส่ง / ขายออก','กรอกยอดขายจริงต่อช่องทาง กดบันทึกแล้วตัด FG Stock ทันที (รวมเป็นหน้าเดียวกับขายออกแล้ว ไม่ต้องกรอกซ้ำ)')+
   `<div class="toolbar"><div class="row3"><input id="soDate" type="date" value="${date}" onchange="shipCheckPage($('main'))"><span></span><input id="soQ" value="${escHTML(q)}" oninput="rerenderKeepFocus(()=>shipCheckPage($('main')))" placeholder="ค้นหา SKU / ชื่อ"></div>${productChipsHTML('shipcheck','shipCheckPage')}<p class="mini">Filter/ค้นหาด้านบนมีผลกับตารางกรอกข้อมูลเท่านั้น — KPI และ "รายการต้องผลิตเพิ่ม" นับรวมทุก Product เสมอ</p>`+
   `<div style="display:flex;gap:20px;flex-wrap:wrap;margin-top:10px"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input id="soOnlyOrdered" type="checkbox" ${onlyOrdered?'checked':''} onchange="shipCheckPage($('main'))" style="width:20px;height:20px"> แสดงเฉพาะ SKU ที่มียอดขาย</label><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input id="soOnlyShort" type="checkbox" ${onlyShort?'checked':''} onchange="shipCheckPage($('main'))" style="width:20px;height:20px"> แสดงเฉพาะ SKU ที่ของไม่ครบ</label></div>`+
-  `<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap"><button class="primary" onclick="saveSalesOut()">บันทึกขายออก + ตัด Stock ทันที</button><button class="ghost" onclick="loadFromGoogleSheet()">Refresh จาก Google Sheet</button><button class="ghost" onclick="openShipPaste()">Paste จาก Excel</button><button class="primary" onclick="createPOFromShippingShortage()">สร้างคำสั่งผลิตจากรายการที่ขาด</button><button class="ghost" onclick="exportShipCheckCSV()">Export CSV</button></div></div>`+
+  `<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap"><button class="primary" onclick="saveSalesOut()">บันทึกขายออก + ตัด Stock ทันที</button><button class="ghost" onclick="loadFromGoogleSheet()">Refresh จาก Google Sheet</button><button class="ghost" onclick="openShipPaste()">Paste จาก Excel</button><button class="ghost" onclick="$('tiktokCsvFile').click()">นำเข้า TikTok CSV</button><input id="tiktokCsvFile" type="file" accept=".csv,.txt" style="display:none" onchange="importTiktokCSVFile(event)"><button class="primary" onclick="createPOFromShippingShortage()">สร้างคำสั่งผลิตจากรายการที่ขาด</button><button class="ghost" onclick="exportShipCheckCSV()">Export CSV</button></div></div>`+
   `<div class="kpis"><div class="kpi">ยอดขายรวม<b>${need}</b></div><div class="kpi">SKU OK<b>${ok}</b></div><div class="kpi">SKU ต้องผลิต<b>${allRows.length-ok}</b></div><div class="kpi">ต้องผลิตเพิ่มรวม<b>${shortage}</b></div></div>`+
   `<div class="box"><h2>ตารางขายออก (${shownRows.length} จาก ${rows.length} SKU)</h2>${shipCheckTable(shownRows,date)}</div>`+
   `<div class="box"><h2>รายการต้องผลิตเพิ่ม (รวมทุก Product)</h2>${shipShortTable(allRows)}</div>`;
@@ -494,6 +494,75 @@ function exportShipCheckCSV(){
     return [r.date,r.sku,r.product,r.name,...chVals,total,r.stock,diff,diff>=0?'OK':'Production',r.remark].map(csvEscape).join(',');
   }).join('\n');
   downloadText('shipping_check_'+date+'.csv','\ufeff'+header.join(',')+'\n'+body);
+}
+
+function tkGet(o,name){const key=name.toLowerCase().replace(/\s+/g,''); const kk=Object.keys(o).find(x=>x.replace(/\s+/g,'')===key); return kk?String(o[kk]||'').trim():'';}
+function tiktokMapKey(name,variant){return (String(name||'').trim()+'||'+String(variant||'').trim()).toLowerCase();}
+function normText(s){return String(s||'').toLowerCase().replace(/\(.*?\)/g,'').replace(/[^a-z0-9฀-๿]+/g,' ').trim();}
+function guessTiktokSku(name,variant){
+  db.tiktokSkuMap=db.tiktokSkuMap||{};
+  const saved=db.tiktokSkuMap[tiktokMapKey(name,variant)];
+  if(saved && (db.items||[]).some(x=>x.sku===saved)) return saved;
+  // จับคู่เฉพาะกรณีชื่อ variant ตรงกันเป๊ะ (หลัง normalize) เท่านั้น — กันเดาผิดจากคำทั่วไปที่ซ้ำกันโดยบังเอิญ
+  // (เช่น "protein" โผล่ทั้งใน Miyong กับ Protein Stick) กรณีไม่ตรงเป๊ะให้เว้นว่างไว้ให้เลือกเอง
+  // แล้วระบบจะจำคู่ที่เลือกไว้ใน db.tiktokSkuMap ให้ใช้ auto ในการนำเข้าครั้งถัดไป
+  const nVariant=normText(variant);
+  if(!nVariant || nVariant.length<3) return '';
+  const matches=(db.items||[]).filter(x=>normText(x.variant)===nVariant);
+  return matches.length===1?matches[0].sku:'';
+}
+function importTiktokCSVFile(e){
+  const f=e.target.files[0]; e.target.value=''; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{
+    let rows; try{ rows=parseTableText(r.result); }catch(err){ console.error(err); return alert('อ่านไฟล์ CSV ไม่สำเร็จ: '+(err.message||err)); }
+    if(!rows.length) return alert('ไม่พบข้อมูลในไฟล์ CSV');
+    const groupMap=new Map(); let skippedCancelled=0;
+    rows.forEach(o=>{
+      const status=tkGet(o,'order status').toLowerCase(), substatus=tkGet(o,'order substatus').toLowerCase();
+      if(status.includes('cancel')||substatus.includes('cancel')){ skippedCancelled++; return; }
+      const name=tkGet(o,'product name'), variant=tkGet(o,'variation'), sellerSku=tkGet(o,'seller sku');
+      const qty=+tkGet(o,'quantity')||0;
+      if((!name && !sellerSku)||qty<=0) return;
+      const key=sellerSku?('SELLERSKU::'+sellerSku.toLowerCase()):tiktokMapKey(name,variant);
+      if(!groupMap.has(key)) groupMap.set(key,{name,variant,sellerSku,qty:0});
+      groupMap.get(key).qty+=qty;
+    });
+    if(!groupMap.size) return alert('ไม่พบรายการสินค้าที่นำเข้าได้ในไฟล์นี้'+(skippedCancelled?' (ข้ามออเดอร์ที่ยกเลิก '+skippedCancelled+' แถว)':''));
+    openTiktokImportPreview([...groupMap.values()], skippedCancelled);
+  };
+  r.readAsText(f);
+}
+function openTiktokImportPreview(groups, skippedCancelled){
+  const date=$('soDate')?.value||todayISO();
+  const fgOptions=(db.items||[]).slice().sort((a,b)=>String(a.sku).localeCompare(String(b.sku)));
+  const rowsHtml=groups.map((g,i)=>{
+    const guess=g.sellerSku?((db.items||[]).find(x=>String(x.sku).toLowerCase()===g.sellerSku.toLowerCase())?.sku||''):guessTiktokSku(g.name,g.variant);
+    const opts='<option value="">-- เลือก SKU --</option>'+fgOptions.map(x=>`<option value="${escHTML(x.sku)}" ${x.sku===guess?'selected':''}>${escHTML(x.sku)} — ${escHTML(x.name)}</option>`).join('');
+    return `<tr><td>${escHTML(g.name)}${g.sellerSku?' <span class="mini">(SellerSKU: '+escHTML(g.sellerSku)+')</span>':''}</td><td>${escHTML(g.variant)}</td><td>${g.qty}</td><td><select id="tkMap_${i}" style="min-width:220px">${opts}</select></td></tr>`;
+  }).join('');
+  const skippedMsg=skippedCancelled?`<p class="mini">ข้ามออเดอร์ที่ยกเลิก ${skippedCancelled} แถว</p>`:'';
+  modal(`<h2>นำเข้า TikTok CSV</h2><p class="hint">ระบบรวมยอดตาม SKU ให้แล้ว ${groups.length} รายการ — ตรวจสอบ/แก้ SKU ให้ตรงกับ ERP ก่อนบันทึก (ระบบจะจำการจับคู่นี้ไว้ใช้ครั้งหน้าอัตโนมัติ)</p>${skippedMsg}<div class="row3"><label>วันที่บันทึกยอดขาย TikTok<br><input id="tkDate" type="date" value="${date}"></label></div><div style="max-height:50vh;overflow:auto;margin-top:10px"><table><tr><th>สินค้า (TikTok)</th><th>ตัวเลือก</th><th>จำนวน</th><th>SKU ใน ERP</th></tr>${rowsHtml}</table></div><br><button class="primary" onclick='confirmTiktokImport(${JSON.stringify(groups).replace(/'/g,"&#39;")})'>ยืนยันนำเข้า</button> <button class="ghost" onclick="$('modal').style.display='none'">ยกเลิก</button>`);
+}
+function confirmTiktokImport(groups){
+  const date=$('tkDate')?.value||todayISO();
+  db.tiktokSkuMap=db.tiktokSkuMap||{}; db.salesOut=db.salesOut||[];
+  const aggregated={}; let skipped=0;
+  groups.forEach((g,i)=>{
+    const sku=$('tkMap_'+i)?.value||'';
+    if(!sku){ skipped++; return; }
+    aggregated[sku]=(aggregated[sku]||0)+(+g.qty||0);
+    if(!g.sellerSku) db.tiktokSkuMap[tiktokMapKey(g.name,g.variant)]=sku;
+  });
+  const skus=Object.keys(aggregated);
+  if(!skus.length) return toast('ไม่ได้เลือก SKU ให้รายการใดเลย');
+  skus.forEach(sku=>{
+    const i=db.salesOut.findIndex(x=>x.date===date&&String(x.sku)===String(sku));
+    if(i>=0){ db.salesOut[i].tiktok=aggregated[sku]; }
+    else { const row={date,sku,remark:'Import TikTok CSV'}; SALES_CHANNELS.forEach(([k])=>row[k]=k==='tiktok'?aggregated[sku]:0); db.salesOut.push(row); }
+  });
+  saveLocalOnly(); $('modal').style.display='none'; page='shipcheck'; render();
+  toast('นำเข้า TikTok '+skus.length+' SKU แล้ว'+(skipped?' (ข้าม '+skipped+' รายการที่ไม่ได้เลือก SKU)':'')+' — ตรวจสอบตัวเลขแล้วกด "บันทึกขายออก" เพื่อตัด Stock จริง');
 }
 
 /* ===== ขายออก (SalesOut) — บันทึกยอดขายจริงต่อช่องทาง + ตัด Stock ทันที (คนละหน้ากับ ShippingPlan) ===== */
@@ -2067,7 +2136,7 @@ function installViewerGuards(){
   saveOrderDay=()=>viewerDeny(); addShortageLine=()=>viewerDeny(); removeShortageLine=()=>viewerDeny(); updateShortageReason=()=>viewerDeny();
   addBomLine=()=>viewerDeny(); openPasteImport=()=>viewerDeny(); commitImport=()=>viewerDeny(); importCSVFile=()=>viewerDeny(); openBulkEdit=()=>viewerDeny(); applyBulkEdit=()=>viewerDeny(); bulkDeleteMaster=()=>viewerDeny();
   addItem=()=>viewerDeny(); editItem=()=>viewerDeny(); addRM=()=>viewerDeny(); editRM=()=>viewerDeny(); saveNewItem=()=>viewerDeny(); saveEditItem=()=>viewerDeny(); saveNewRM=()=>viewerDeny(); saveEditRM=()=>viewerDeny();
-  voidProductionTransaction=()=>viewerDeny(); voidProductionPrompt=()=>viewerDeny(); clearFgLog=()=>viewerDeny(); loadEmbeddedFgLog=()=>viewerDeny(); importFgPaste=()=>viewerDeny(); saveGoogleConfig=()=>viewerDeny(); restore=()=>viewerDeny(); saveShippingPlan=()=>viewerDeny(); openShipPaste=()=>viewerDeny(); importShipPaste=()=>viewerDeny(); createPOFromShippingShortage=()=>viewerDeny(); saveSalesOut=()=>viewerDeny(); voidRMMovementPrompt=()=>viewerDeny(); voidRMMovement=()=>viewerDeny(); requestVoid=()=>viewerDeny(); respondVoidRequest=()=>viewerDeny(); addUserAction=()=>viewerDeny(); setUserStatusAction=()=>viewerDeny(); assignPOPrompt=()=>viewerDeny(); confirmAssignPO=()=>viewerDeny(); sendLinePOPrompt=()=>viewerDeny();
+  voidProductionTransaction=()=>viewerDeny(); voidProductionPrompt=()=>viewerDeny(); clearFgLog=()=>viewerDeny(); loadEmbeddedFgLog=()=>viewerDeny(); importFgPaste=()=>viewerDeny(); saveGoogleConfig=()=>viewerDeny(); restore=()=>viewerDeny(); saveShippingPlan=()=>viewerDeny(); openShipPaste=()=>viewerDeny(); importShipPaste=()=>viewerDeny(); importTiktokCSVFile=()=>viewerDeny(); confirmTiktokImport=()=>viewerDeny(); createPOFromShippingShortage=()=>viewerDeny(); saveSalesOut=()=>viewerDeny(); voidRMMovementPrompt=()=>viewerDeny(); voidRMMovement=()=>viewerDeny(); requestVoid=()=>viewerDeny(); respondVoidRequest=()=>viewerDeny(); addUserAction=()=>viewerDeny(); setUserStatusAction=()=>viewerDeny(); assignPOPrompt=()=>viewerDeny(); confirmAssignPO=()=>viewerDeny(); sendLinePOPrompt=()=>viewerDeny();
   const oldRender=render;
   render=function(){ oldRender(); applyViewerUI(); };
 }
