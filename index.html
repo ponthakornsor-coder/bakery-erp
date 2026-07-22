@@ -1431,7 +1431,7 @@ async function confirmImportTiktok(){
   toast('กำลังบันทึก...');
   try{
     if(newMappings.length){
-      await apiPost({action:'savechannelskumap',rows:newMappings});
+      await apiPostBatched('savechannelskumap', newMappings, 8, chunk=>({rows:chunk}));
       newMappings.forEach(nm=>{ db.channelSkuMap=db.channelSkuMap||[]; db.channelSkuMap.push(nm); });
     }
     const rows=Object.keys(skuQty).map(sku=>{
