@@ -1,0 +1,341 @@
+<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>รวมออเดอร์ช่องทางขาย → ERP</title><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%9B%92%3C/text%3E%3C/svg%3E">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{--bg:#f5f6fa;--panel:#fffaf1;--card:#fff;--line:#ead8bf;--text:#321800;--muted:#8b755d;--brand:#df6518;--good:#059669;--bad:#dc2626;--warn:#d97706;--shadow:0 10px 25px rgba(72,36,0,.08);--r:18px}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);font-family:Inter,Segoe UI,Tahoma,sans-serif;color:var(--text)}
+.wrap{max-width:1100px;margin:0 auto;padding:28px 20px 60px}
+h1{font-size:26px;margin:0 0 4px}
+.hint{color:var(--muted);margin:0 0 18px}
+.box{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:18px 20px;margin:18px 0;box-shadow:0 1px 3px rgba(20,20,40,.04)}
+.box h2{margin:0 0 10px;font-size:18px;color:#6d3000}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+input,select{border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:14px;background:#fff}
+input[type=file]{padding:8px}
+button{border:0;background:var(--brand);color:#fff;border-radius:12px;padding:10px 18px;font-size:14px;font-weight:700;cursor:pointer}
+button.ghost{background:#fff;border:1px solid var(--line);color:var(--text)}
+button.small{padding:6px 12px;font-size:12px;border-radius:10px}
+button:disabled{opacity:.5;cursor:not-allowed}
+table{width:100%;border-collapse:separate;border-spacing:0;background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;margin-top:10px;font-size:13px}
+th,td{padding:9px 11px;border-bottom:1px solid #f0e3d2;text-align:left;vertical-align:middle}
+th{background:#fff3e1;color:#6d3000;font-size:12px}
+tr:last-child td{border-bottom:0}
+.mini{color:var(--muted);font-size:11.5px;display:block;margin-top:2px}
+.pill{display:inline-block;border-radius:999px;padding:3px 9px;font-size:11px;background:#fff1d6;color:#8a4400}
+.pill.bad{background:#fee2e2;color:#991b1b}
+.pill.good{background:#dcfce7;color:#166534}
+.skuInput{width:150px}
+.channel-card{border:1px solid var(--line);border-radius:14px;padding:14px;background:#fafbfc}
+.channel-card h3{margin:0 0 8px;font-size:15px}
+.summary-line{font-size:13px;color:var(--muted);margin-top:6px}
+.toast{position:fixed;right:22px;bottom:22px;background:#321800;color:#fff;padding:12px 18px;border-radius:12px;box-shadow:var(--shadow);display:none;z-index:9;font-size:14px}
+.step-num{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:var(--brand);color:#fff;font-size:12px;font-weight:800;margin-right:8px}
+.copyBox{width:100%;height:140px;font-family:Consolas,monospace;font-size:12px}
+.badge-count{background:#fff3e1;color:#6d3000;border-radius:999px;padding:2px 9px;font-size:11px;font-weight:800}
+</style></head>
+<body>
+<div class="wrap">
+  <h1>🛒 รวมออเดอร์ช่องทางขาย → ERP</h1>
+  <p class="hint">เครื่องมือแยกต่างหากจาก Bakery ERP — อัปโหลดไฟล์ export จาก Shopee/Lazada แล้วรวมเป็นตารางเดียว คัดลอกไปวางที่หน้า "เช็ค Stock พอส่ง → Paste จาก Excel" ของ ERP ได้เลย ไม่ต้องแก้อะไรใน ERP</p>
+
+  <div class="box">
+    <h2><span class="step-num">1</span>อัปโหลดรายชื่อ SKU จาก ERP (ไม่บังคับ แต่ช่วยเดา SKU ให้อัตโนมัติ)</h2>
+    <p class="hint" style="margin:0 0 10px">ไปที่หน้า "Master Data" ใน ERP → กด "Export Data CSV" (เลือก FG) → เอาไฟล์ที่ได้มาอัปโหลดตรงนี้</p>
+    <div class="row">
+      <input type="file" id="skuFile" accept=".csv" onchange="loadSkuFile(event)">
+      <span id="skuStatus" class="mini"></span>
+    </div>
+  </div>
+
+  <div class="box">
+    <h2><span class="step-num">2</span>อัปโหลดไฟล์ออเดอร์แต่ละช่องทาง</h2>
+    <div class="row" style="align-items:flex-start">
+      <div class="channel-card" style="flex:1;min-width:240px">
+        <h3>🛍️ Shopee</h3>
+        <p class="hint" style="margin:0 0 8px">ไฟล์ .xlsx ที่ export จากหน้า "ที่ต้องจัดส่ง"</p>
+        <input type="file" id="file_shopee" accept=".xlsx,.xls" onchange="handleChannelFile('shopee',event)">
+        <div id="status_shopee" class="summary-line"></div>
+      </div>
+      <div class="channel-card" style="flex:1;min-width:240px">
+        <h3>📦 Lazada</h3>
+        <p class="hint" style="margin:0 0 8px">ไฟล์ .xlsx order item export</p>
+        <input type="file" id="file_lazada" accept=".xlsx,.xls" onchange="handleChannelFile('lazada',event)">
+        <div id="status_lazada" class="summary-line"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="box" id="reviewBox" style="display:none">
+    <h2><span class="step-num">3</span>ตรวจสอบ / แก้ SKU ก่อนรวม</h2>
+    <p class="hint" style="margin:0 0 10px">ระบบเดา SKU จากชื่อ/ตัวเลือกสินค้าให้แล้ว — ตรวจดูก่อน โดยเฉพาะแถวที่ SKU ว่าง (เดาไม่ได้) ต้องพิมพ์เองหรือเลือกจาก dropdown แนะนำ</p>
+    <div id="reviewContent"></div>
+  </div>
+
+  <div class="box" id="mergeBox" style="display:none">
+    <h2><span class="step-num">4</span>รวมผลลัพธ์ + ส่งเข้า ERP</h2>
+    <div class="row">
+      <label>วันที่ขาย <input type="date" id="mergeDate"></label>
+      <button onclick="renderMerged()">รวมข้อมูลล่าสุด</button>
+    </div>
+    <div id="mergedTableWrap"></div>
+    <div class="row" style="margin-top:14px">
+      <button onclick="copyForERP()">📋 Copy สำหรับ Paste เข้า ERP</button>
+      <button class="ghost" onclick="downloadMergedCsv()">⬇️ Download CSV</button>
+    </div>
+    <textarea id="copyFallback" class="copyBox" style="display:none;margin-top:10px" readonly></textarea>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $=(id)=>document.getElementById(id);
+function toast(t){$('toast').textContent=t;$('toast').style.display='block';setTimeout(()=>$('toast').style.display='none',2600);}
+function escHTML(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+function todayISO(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
+
+// ===== channel profiles =====
+const CHANNEL_PROFILES={
+  shopee:{
+    label:'Shopee',
+    cols:{status:'สถานะการสั่งซื้อ',product:'ชื่อสินค้า',variant:'ชื่อตัวเลือก',qty:'จำนวน',sellerSku:'เลขอ้างอิง SKU (SKU Reference No.)'},
+    cancelKeywords:['ยกเลิก'],
+    qtyMode:'column'
+  },
+  lazada:{
+    label:'Lazada',
+    cols:{status:'status',product:'itemName',variant:'variation',sellerSku:'sellerSku'},
+    cancelKeywords:['cancel'],
+    qtyMode:'countRows'
+  }
+};
+
+// ===== state =====
+let skuList=[]; // {sku,name,product,variant}
+let importedChannels={}; // channel -> {groups:[{product,variant,sellerSku,qty,statusSamples:[],autoSku,selectedSku}], cancelledCount}
+let skuMapMemory={};
+try{ skuMapMemory=JSON.parse(localStorage.getItem('channelimport_skumap')||'{}'); }catch(e){ skuMapMemory={}; }
+
+// ===== SKU list upload (simple CSV parser, same convention as ERP export) =====
+function parseCSVLine(line){let out=[],cur='',q=false;for(let i=0;i<line.length;i++){let c=line[i];if(c=='"'){if(q&&line[i+1]=='"'){cur+='"';i++;}else q=!q;}else if(c==','&&!q){out.push(cur);cur='';}else cur+=c;}out.push(cur);return out;}
+function loadSkuFile(e){
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{
+    const text=String(r.result||'');
+    const lines=text.split(/\r?\n/).filter(x=>x.trim());
+    if(!lines.length){ $('skuStatus').textContent='ไฟล์ว่าง'; return; }
+    const header=parseCSVLine(lines[0]).map(h=>h.trim().toLowerCase());
+    const idx=(name)=>header.indexOf(name);
+    const iSku=idx('sku'), iName=idx('name'), iProd=idx('product'), iVar=idx('variant');
+    skuList=lines.slice(1).map(l=>{
+      const c=parseCSVLine(l);
+      return {sku:(c[iSku]||'').trim(), name:(c[iName]||'').trim(), product:(c[iProd]||'').trim(), variant:(c[iVar]||'').trim()};
+    }).filter(x=>x.sku);
+    $('skuStatus').textContent=`โหลดแล้ว ${skuList.length} SKU`;
+    toast('โหลดรายชื่อ SKU แล้ว '+skuList.length+' รายการ');
+    reguessAll();
+  };
+  r.readAsText(f);
+}
+
+// ===== text normalization (mirrors ERP's normText/guessTiktokSku pattern) =====
+function normVariant(s){
+  return String(s||'')
+    .replace(/\*\s*\d+[^,]*/g,'') // ตัด "*1 slice" แบบ Lazada
+    .replace(/\(.*?\)/g,'')
+    .toLowerCase()
+    .replace(/[^a-z0-9ก-๙]+/g,' ')
+    .trim();
+}
+function extractQtyMultiplier(text){
+  // "Dubai*4" = 4 ชิ้นในแถวนี้ (ไม่ใช่ 1 เสมอ) — ดึงตัวเลขหลัง * มาใช้เป็นตัวคูณ
+  const m=String(text||'').match(/\*\s*(\d+)/);
+  if(!m) return null;
+  const n=parseInt(m[1],10);
+  return (n>0 && n<1000) ? n : null;
+}
+function guessSku(channel,product,variant,sellerSku){
+  const memKey=channel+'::'+normVariant(product+' '+variant);
+  if(skuMapMemory[memKey] && skuList.some(x=>x.sku===skuMapMemory[memKey])) return skuMapMemory[memKey];
+  if(sellerSku){
+    const bySeller=skuList.find(x=>String(x.sku).toLowerCase()===sellerSku.toLowerCase());
+    if(bySeller) return bySeller.sku;
+  }
+  const nv=normVariant(variant);
+  if(nv.length>=3){
+    const matches=skuList.filter(x=>normVariant(x.variant)===nv);
+    if(matches.length===1) return matches[0].sku;
+  }
+  return '';
+}
+function rememberSkuChoice(channel,product,variant,sku){
+  if(!sku) return;
+  const memKey=channel+'::'+normVariant(product+' '+variant);
+  skuMapMemory[memKey]=sku;
+  localStorage.setItem('channelimport_skumap',JSON.stringify(skuMapMemory));
+}
+
+// ===== xlsx parsing per channel =====
+function handleChannelFile(channel,e){
+  const f=e.target.files[0]; e.target.value=''; if(!f) return;
+  const profile=CHANNEL_PROFILES[channel];
+  const reader=new FileReader();
+  reader.onload=(ev)=>{
+    let rows;
+    try{
+      const data=new Uint8Array(ev.target.result);
+      const wb=XLSX.read(data,{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      rows=XLSX.utils.sheet_to_json(ws,{defval:''});
+    }catch(err){ console.error(err); toast('อ่านไฟล์ไม่สำเร็จ: '+(err.message||err)); return; }
+    processChannelRows(channel,profile,rows);
+  };
+  reader.onerror=()=>toast('อ่านไฟล์ไม่สำเร็จ');
+  reader.readAsArrayBuffer(f);
+}
+function processChannelRows(channel,profile,rows){
+  const groups=new Map();
+  let cancelledCount=0;
+  rows.forEach(o=>{
+    const status=String(o[profile.cols.status]||'').trim();
+    const statusLower=status.toLowerCase();
+    const isCancelled=profile.cancelKeywords.some(k=>statusLower.includes(k.toLowerCase()));
+    if(isCancelled){ cancelledCount++; return; }
+    const product=String(o[profile.cols.product]||'').trim();
+    let variant=String(o[profile.cols.variant]||'').trim();
+    if(channel==='lazada'){
+      const idx=variant.indexOf(':');
+      if(idx>=0) variant=variant.slice(idx+1).trim();
+    }
+    const sellerSku=profile.cols.sellerSku?String(o[profile.cols.sellerSku]||'').trim():'';
+    if(!product && !variant) return;
+    // ใช้ normVariant() ทำ key ทั้งคู่ (ตัด "*จำนวน" ออกก่อนเทียบ) กัน "Dubai*4" กับ "Dubai*2"
+    // ถูกมองเป็นคนละกลุ่ม ทั้งที่จริงเป็น SKU เดียวกันแค่ปริมาณต่อแถวไม่เท่ากัน
+    const normSellerSku=sellerSku?normVariant(sellerSku):'';
+    const key=(normSellerSku?('SKU::'+normSellerSku):'')+'||'+normVariant(product+' '+variant);
+    if(!groups.has(key)) groups.set(key,{product,variant,sellerSku,qty:0,statusSamples:new Set()});
+    const g=groups.get(key);
+    g.statusSamples.add(status||'(ว่าง)');
+    if(profile.qtyMode==='column'){
+      g.qty+=(+o[profile.cols.qty]||0);
+    }else{
+      // ไม่มีคอลัมน์จำนวน (Lazada) — เดิมนับ 1 แถว = 1 ชิ้นเสมอ แต่บางแถวมี "*N" ต่อท้าย
+      // sellerSku/variation หมายถึง N ชิ้นในแถวนั้น (เช่น "Dubai*4" = 4 ชิ้น) ต้องดึงมาคูณแทน
+      const mult=extractQtyMultiplier(sellerSku) ?? extractQtyMultiplier(variant) ?? 1;
+      g.qty+=mult;
+    }
+  });
+  const groupArr=[...groups.values()].map(g=>{
+    const autoSku=guessSku(channel,g.product,g.variant,g.sellerSku);
+    return {...g,statusSamples:[...g.statusSamples],autoSku,selectedSku:autoSku};
+  });
+  importedChannels[channel]={groups:groupArr,cancelledCount};
+  $('status_'+channel).innerHTML=`<span class="badge-count">${groupArr.length} รายการ</span> ${cancelledCount?`<span class="mini">ข้ามที่ยกเลิก ${cancelledCount} แถว</span>`:''}`;
+  toast(CHANNEL_PROFILES[channel].label+': นำเข้า '+groupArr.length+' รายการแล้ว');
+  renderReview();
+}
+function reguessAll(){
+  Object.keys(importedChannels).forEach(channel=>{
+    importedChannels[channel].groups.forEach(g=>{
+      if(!g.selectedSku || g.selectedSku===g.autoSku){
+        g.autoSku=guessSku(channel,g.product,g.variant,g.sellerSku);
+        g.selectedSku=g.autoSku;
+      }
+    });
+  });
+  renderReview();
+}
+
+// ===== review table =====
+function renderReview(){
+  const channels=Object.keys(importedChannels);
+  if(!channels.length) return;
+  $('reviewBox').style.display='block';
+  $('mergeBox').style.display='block';
+  if(!$('mergeDate').value) $('mergeDate').value=todayISO();
+  const datalistOptions=skuList.map(x=>`<option value="${escHTML(x.sku)}">${escHTML(x.sku)} — ${escHTML(x.name)}</option>`).join('');
+  let html=`<datalist id="skuOptions">${datalistOptions}</datalist>`;
+  channels.forEach(channel=>{
+    const data=importedChannels[channel];
+    html+=`<h3 style="margin:16px 0 6px">${CHANNEL_PROFILES[channel].label} (${data.groups.length} รายการ${data.cancelledCount?', ข้ามที่ยกเลิก '+data.cancelledCount+' แถว':''})</h3>`;
+    html+=`<table><tr><th>สินค้า / ตัวเลือก (ต้นฉบับ)</th><th>สถานะที่พบ</th><th>จำนวนรวม</th><th>SKU ใน ERP</th></tr>`;
+    data.groups.forEach((g,i)=>{
+      const unmapped=!g.selectedSku;
+      html+=`<tr><td><b>${escHTML(g.product)}</b>${g.variant?'<span class="mini">'+escHTML(g.variant)+'</span>':''}${g.sellerSku?'<span class="mini">SellerSKU: '+escHTML(g.sellerSku)+'</span>':''}</td>`+
+        `<td>${g.statusSamples.map(s=>`<span class="pill">${escHTML(s)}</span>`).join(' ')}</td>`+
+        `<td><b>${g.qty}</b></td>`+
+        `<td><input class="skuInput" list="skuOptions" value="${escHTML(g.selectedSku)}" placeholder="${unmapped?'⚠ พิมพ์ SKU':'SKU'}" style="${unmapped?'border-color:var(--bad)':''}" onchange="setGroupSku('${channel}',${i},this.value)"></td>`+
+        `</tr>`;
+    });
+    html+='</table>';
+  });
+  $('reviewContent').innerHTML=html;
+}
+function setGroupSku(channel,i,val){
+  const g=importedChannels[channel].groups[i];
+  g.selectedSku=val.trim();
+  rememberSkuChoice(channel,g.product,g.variant,g.selectedSku);
+}
+
+// ===== merge =====
+const ALL_CHANNEL_KEYS=['baimiang','b2b','tiktok','shopee','lazada','line','grab'];
+const ALL_CHANNEL_LABELS=['BaiMiang','B2B','TikTok','Shopee','Lazada','Line','Grab'];
+function buildMergedRows(){
+  const merged={};
+  let unmappedCount=0;
+  Object.keys(importedChannels).forEach(channel=>{
+    importedChannels[channel].groups.forEach(g=>{
+      const sku=(g.selectedSku||'').trim();
+      if(!sku){ unmappedCount++; return; }
+      if(!merged[sku]) merged[sku]={sku,remark:''};
+      merged[sku][channel]=(merged[sku][channel]||0)+g.qty;
+    });
+  });
+  return {rows:Object.values(merged).sort((a,b)=>a.sku.localeCompare(b.sku)),unmappedCount};
+}
+function renderMerged(){
+  const {rows,unmappedCount}=buildMergedRows();
+  let html='';
+  if(unmappedCount) html+=`<p class="hint" style="color:var(--bad)">⚠ มี ${unmappedCount} รายการยังไม่ได้ระบุ SKU — จะไม่ถูกรวมในตารางนี้ กลับไปแก้ในตารางรีวิวด้านบนก่อน</p>`;
+  if(!rows.length){ html+='<p class="hint">ยังไม่มีรายการที่ระบุ SKU ครบ</p>'; $('mergedTableWrap').innerHTML=html; return; }
+  html+=`<table><tr><th>SKU</th>${ALL_CHANNEL_LABELS.map(l=>`<th>${l}</th>`).join('')}<th>รวม</th></tr>`;
+  rows.forEach(r=>{
+    const total=ALL_CHANNEL_KEYS.reduce((a,k)=>a+(r[k]||0),0);
+    html+=`<tr><td><b>${escHTML(r.sku)}</b></td>${ALL_CHANNEL_KEYS.map(k=>`<td>${r[k]||0}</td>`).join('')}<td><b>${total}</b></td></tr>`;
+  });
+  html+='</table>';
+  $('mergedTableWrap').innerHTML=html;
+}
+function buildPasteText(){
+  const date=$('mergeDate').value||todayISO();
+  const {rows}=buildMergedRows();
+  const header=['Date','SKU',...ALL_CHANNEL_LABELS,'Remark'];
+  const lines=[header.join('\t')];
+  rows.forEach(r=>{
+    const vals=[date,r.sku,...ALL_CHANNEL_KEYS.map(k=>r[k]||0),r.remark||''];
+    lines.push(vals.join('\t'));
+  });
+  return {text:lines.join('\n'),count:rows.length};
+}
+function copyForERP(){
+  renderMerged();
+  const {text,count}=buildPasteText();
+  if(!count){ toast('ยังไม่มีข้อมูลที่ระบุ SKU ครบให้คัดลอก'); return; }
+  navigator.clipboard.writeText(text).then(()=>{
+    toast('คัดลอกแล้ว '+count+' SKU — ไปวางที่ ERP หน้า "เช็ค Stock พอส่ง → Paste จาก Excel" ได้เลย');
+  }).catch(()=>{
+    const box=$('copyFallback'); box.style.display='block'; box.value=text; box.focus(); box.select();
+    toast('คัดลอกอัตโนมัติไม่ได้ — เลือกข้อความในกล่องด้านล่างแล้ว Ctrl+C เอง');
+  });
+}
+function downloadMergedCsv(){
+  renderMerged();
+  const {text,count}=buildPasteText();
+  if(!count){ toast('ยังไม่มีข้อมูลที่ระบุ SKU ครบให้ดาวน์โหลด'); return; }
+  const csv=text.split('\n').map(line=>line.split('\t').map(v=>/[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v).join(',')).join('\n');
+  const blob=new Blob(['﻿'+csv],{type:'text/csv'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob); a.download='channel_sales_merged.csv'; a.click();
+}
+$('mergeDate').value=todayISO();
+</script>
+</body></html>
