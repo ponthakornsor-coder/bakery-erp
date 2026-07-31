@@ -282,11 +282,11 @@ async function pushMovementsOnly(movements, silent=true){
 function sendNewMovementsSince(index){
   const newMov=(db.mov||[]).slice(index).filter(x=>!x.synced);
   if(!newMov.length) return;
-  pushMovementsOnly(newMov,true).then(()=>sheetDone('StockMovement เข้า Google Sheet เรียบร้อยแล้ว')).catch(e=>{console.error(e); alert('StockMovement ไม่เข้า Google Sheet: '+(e.message||e));});
+  pushMovementsOnly(newMov,true).then(()=>sheetDone('StockMovement เข้า Google Sheet เรียบร้อยแล้ว')).catch(e=>{console.error(e); alertModal('StockMovement ไม่เข้า Google Sheet: '+(e.message||e));});
 }
 
 function toastSaveOK(name){toast(name+' เข้า Google Sheet แล้ว')}
-function toastSaveFail(name,e){console.error(e); alert(name+' ไม่เข้า Google Sheet: '+(e.message||e));}
+function toastSaveFail(name,e){console.error(e); alertModal(name+' ไม่เข้า Google Sheet: '+(e.message||e));}
 function fgPayload(x){return {SKU:x.sku,Name:x.name,Product:x.product||'',Variant:x.variant||'',Weight:x.weight||'',Unit:x.unit||'pcs',Stock:+x.stock||0,Min:+x.min||0,Price:+x.price||0,Cost:+x.cost||0,Status:'Active',ImageURL:x.imageUrl||'',BatchYield:+x.batchYield||1};}
 function rmPayload(r){return {RMCode:r.sku,Name:r.name,Category:r.product||'Raw Material',Variant:r.variant||'',Unit:r.unit||'g',Stock:+r.stock||0,Min:+r.min||0,Cost:+r.cost||0,Status:'Active'};}
 function poPayload(p){return {PO:p.id,SKU:p.sku,Qty:+p.qty||0,Status:p.status||'Open',CreatedAt:p.time||'',StartAt:p.start||'',FinishAt:p.finish||'',Remark:p.remark||'',UpdatedAt:now(),ActualQty:(p.actualQty!==undefined&&p.actualQty!==''&&p.actualQty!==null)?+p.actualQty:'',Batches:(p.batches!==undefined&&p.batches!==''&&p.batches!==null)?+p.batches:'',ActualBatches:(p.actualBatches!==undefined&&p.actualBatches!==''&&p.actualBatches!==null)?+p.actualBatches:''};}
@@ -351,7 +351,7 @@ async function pushToGoogleSheet(silent=false){
     else sheetDone('บันทึกขึ้น Google Sheet สำเร็จ '+total+' รายการ');
   }catch(e){
     console.error(e);
-    if(!silent) alert('บันทึกไม่ได้: '+(e.message||e));
+    if(!silent) alertModal('บันทึกไม่ได้: '+(e.message||e));
     else toast('Auto save ไม่สำเร็จ: '+(e.message||e));
   }finally{apiBusy=false;}
 }
@@ -365,7 +365,7 @@ async function syncProdToSheet(){
   // ตอนนี้ไม่ว่า sync ข้างบนจะสำเร็จหรือไม่ ก็จะพยายามโหลดข้อมูลล่าสุดให้เสมอ
   try{ await loadFromGoogleSheet(); }catch(e2){ console.error('refresh after sync failed', e2); }
   if(syncError){
-    alert('การเชื่อมต่อตอน Sync มีปัญหา (Server มักทำงานเสร็จจริงแล้ว แค่ตอบกลับช้า): '+(syncError.message||syncError)+'\n\nระบบโหลดข้อมูลล่าสุดให้อัตโนมัติแล้ว ลองเช็คตัวเลขว่าถูกต้องหรือยัง');
+    alertModal('การเชื่อมต่อตอน Sync มีปัญหา (Server มักทำงานเสร็จจริงแล้ว แค่ตอบกลับช้า): '+(syncError.message||syncError)+'\n\nระบบโหลดข้อมูลล่าสุดให้อัตโนมัติแล้ว ลองเช็คตัวเลขว่าถูกต้องหรือยัง');
   }
 }
 /* ===== เช็ค Stock พอส่ง (ShippingPlan) — บันทึกลง Google Sheet ชีต ShippingPlan โดยตรง ===== */
@@ -445,12 +445,12 @@ async function createPOFromShippingShortage(){
   if(liveRows.length){
     toast('กำลังบันทึกยอดขายก่อนสร้างคำสั่งผลิต...');
     try{ await persistSalesOutRows(liveRows,date); }
-    catch(e){ console.error(e); alert('บันทึกยอดขายไม่สำเร็จ (ยังไม่ได้สร้างคำสั่งผลิต): '+(e.message||e)); return; }
+    catch(e){ console.error(e); alertModal('บันทึกยอดขายไม่สำเร็จ (ยังไม่ได้สร้างคำสั่งผลิต): '+(e.message||e)); return; }
   }
   const shortage=currentShippingShortageRows();
   if(!shortage.length) return toast('ไม่มีรายการที่ต้องผลิตเพิ่ม');
   const msg='สร้างคำสั่งผลิต '+shortage.length+' SKU จากรายการ Stock ไม่พอ?\n\n'+shortage.slice(0,12).map(x=>x.sku+' ต้องผลิต '+x.need).join('\n')+(shortage.length>12?'\n...':'');
-  if(!confirm(msg)) return;
+  if(!await confirmModal(msg)) return;
   toast('กำลังสร้างคำสั่งผลิตจากรายการที่ขาด...');
   try{
     const res=await apiPost({action:'createpofromshipping',data:{date,rows:shortage.map(x=>({sku:x.sku,qty:x.need,remark:'Auto PO from ShippingPlan '+date}))}});
@@ -462,7 +462,7 @@ async function createPOFromShippingShortage(){
     const skipped=res?.skipped||[];
     const skipMsg=skipped.length?(' | ข้าม '+skipped.length+' SKU เพราะมี PO เปิดอยู่แล้ว: '+skipped.slice(0,10).join(', ')+(skipped.length>10?'...':'')):'';
     sheetDone('สร้างคำสั่งผลิตจากรายการที่ขาดแล้ว '+poRows.length+' รายการ (สถานะ Open รอตรวจสอบที่หน้าสั่งผลิต)'+skipMsg);
-  }catch(e){console.error(e); alert('สร้างคำสั่งผลิตไม่สำเร็จ: '+(e.message||e));}
+  }catch(e){console.error(e); alertModal('สร้างคำสั่งผลิตไม่สำเร็จ: '+(e.message||e));}
 }
 function openShipPaste(){
   const chHint=SALES_CHANNELS.map(([,l])=>l).join(', ');
@@ -515,8 +515,8 @@ function importTiktokCSVFile(e){
   const f=e.target.files[0]; e.target.value=''; if(!f) return;
   const r=new FileReader();
   r.onload=()=>{
-    let rows; try{ rows=parseTableText(r.result); }catch(err){ console.error(err); return alert('อ่านไฟล์ CSV ไม่สำเร็จ: '+(err.message||err)); }
-    if(!rows.length) return alert('ไม่พบข้อมูลในไฟล์ CSV');
+    let rows; try{ rows=parseTableText(r.result); }catch(err){ console.error(err); return alertModal('อ่านไฟล์ CSV ไม่สำเร็จ: '+(err.message||err)); }
+    if(!rows.length) return alertModal('ไม่พบข้อมูลในไฟล์ CSV');
     const groupMap=new Map(); let skippedCancelled=0;
     rows.forEach(o=>{
       const status=tkGet(o,'order status').toLowerCase(), substatus=tkGet(o,'order substatus').toLowerCase();
@@ -528,7 +528,7 @@ function importTiktokCSVFile(e){
       if(!groupMap.has(key)) groupMap.set(key,{name,variant,sellerSku,qty:0});
       groupMap.get(key).qty+=qty;
     });
-    if(!groupMap.size) return alert('ไม่พบรายการสินค้าที่นำเข้าได้ในไฟล์นี้'+(skippedCancelled?' (ข้ามออเดอร์ที่ยกเลิก '+skippedCancelled+' แถว)':''));
+    if(!groupMap.size) return alertModal('ไม่พบรายการสินค้าที่นำเข้าได้ในไฟล์นี้'+(skippedCancelled?' (ข้ามออเดอร์ที่ยกเลิก '+skippedCancelled+' แถว)':''));
     openTiktokImportPreview([...groupMap.values()], skippedCancelled);
   };
   r.readAsText(f);
@@ -641,14 +641,14 @@ async function saveSalesOut(){
   if(shortages.length){
     confirmMsg='⚠️ Stock ไม่พอ '+shortages.length+' รายการ:\n'+shortages.slice(0,10).map(x=>x.sku+' ต้องการ '+x.total+' มีแค่ '+x.stock+' (ขาด '+Math.abs(x.diff)+')').join('\n')+(shortages.length>10?'\n...':'')+'\n\nยืนยันจะบันทึกต่อไหม? (Stock จะติดลบ ถ้าไม่แน่ใจ กด "ยกเลิก" แล้วไปสั่งผลิตเพิ่มก่อน)';
   }
-  if(!confirm(confirmMsg)) return;
+  if(!await confirmModal(confirmMsg)) return;
   toast('กำลังบันทึกขายออก...');
   try{
     const totalDeducted=await persistSalesOutRows(rows,date);
     await loadFromGoogleSheet();
     page='shipcheck'; render();
     sheetDone('บันทึกขายออกแล้ว ตัด Stock '+totalDeducted+' รายการ');
-  }catch(e){console.error(e); alert('บันทึกขายออกไม่สำเร็จ: '+(e.message||e));}
+  }catch(e){console.error(e); alertModal('บันทึกขายออกไม่สำเร็จ: '+(e.message||e));}
 }
 function saveLocalOnly(){localStorage.setItem('bakery_erp_v6_1',JSON.stringify(db));}
 function scheduleAutoPush(){
@@ -670,6 +670,39 @@ function load(){
 }
 function save(){saveLocalOnly();}
 function toast(t){$('toast').textContent=t;$('toast').style.display='block';setTimeout(()=>$('toast').style.display='none',2300)}
+function _closeModal(){$('modal').style.display='none';}
+function alertModal(msg,title){
+  return new Promise(resolve=>{
+    modal(`<h2>${escHTML(title||'แจ้งเตือน')}</h2><p class="hint" style="white-space:pre-wrap">${escHTML(msg)}</p><div style="margin-top:16px;text-align:right"><button class="primary" id="amOk">ตกลง</button></div>`);
+    let done=false;
+    const finish=()=>{ if(done)return; done=true; _closeModal(); resolve(); };
+    $('amOk').onclick=finish;
+    $('modal').addEventListener('click',e=>{ if(e.target.id==='modal') finish(); });
+  });
+}
+function confirmModal(msg,okLabel,cancelLabel){
+  return new Promise(resolve=>{
+    modal(`<h2>ยืนยันการทำรายการ</h2><p class="hint" style="white-space:pre-wrap">${escHTML(msg)}</p><div class="row3" style="margin-top:16px"><button class="ghost" id="cmCancel">${escHTML(cancelLabel||'ยกเลิก')}</button><button class="primary" id="cmOk">${escHTML(okLabel||'ยืนยัน')}</button></div>`);
+    let done=false;
+    const finish=v=>{ if(done)return; done=true; _closeModal(); resolve(v); };
+    $('cmOk').onclick=()=>finish(true);
+    $('cmCancel').onclick=()=>finish(false);
+    $('modal').addEventListener('click',e=>{ if(e.target.id==='modal') finish(false); });
+  });
+}
+function promptModal(msg,defVal){
+  return new Promise(resolve=>{
+    modal(`<h2>กรอกข้อมูล</h2><p class="hint" style="white-space:pre-wrap">${escHTML(msg)}</p><input id="pmInput" value="${escHTML(defVal||'')}"><div class="row3" style="margin-top:16px"><button class="ghost" id="pmCancel">ยกเลิก</button><button class="primary" id="pmOk">ตกลง</button></div>`);
+    const inp=$('pmInput');
+    setTimeout(()=>{ if(inp){ inp.focus(); inp.select(); } },30);
+    let done=false;
+    const finish=v=>{ if(done)return; done=true; _closeModal(); resolve(v); };
+    $('pmOk').onclick=()=>finish(inp.value);
+    $('pmCancel').onclick=()=>finish(null);
+    if(inp) inp.onkeydown=e=>{ if(e.key==='Enter') finish(inp.value); if(e.key==='Escape') finish(null); };
+    $('modal').addEventListener('click',e=>{ if(e.target.id==='modal') finish(null); });
+  });
+}
 function sheetDone(t){
   toast(t);
 }
@@ -1087,7 +1120,7 @@ async function syncProductionCsv(){
     const text=await fetchCsvText(url);
     const rows=parseProductionCsv(text);
     if(!rows.length){
-      alert('โหลดได้ แต่ไม่พบคอลัมน์ SKU/จำนวน\nเช็คว่า Sheet ที่ Publish เป็น Form Responses 1 และ Format เป็น CSV');
+      alertModal('โหลดได้ แต่ไม่พบคอลัมน์ SKU/จำนวน\nเช็คว่า Sheet ที่ Publish เป็น Form Responses 1 และ Format เป็น CSV');
       return;
     }
     // v9.29 fix: เดิมบรรทัดนี้เรียก applyFgStockFromProdLog() ซึ่งเขียนทับ db.items[].stock ด้วยค่าที่
@@ -1101,7 +1134,7 @@ async function syncProductionCsv(){
     toast('โหลดตัวอย่างสำเร็จ '+rows.length+' รายการ — นี่เป็นแค่ตัวอย่าง ต้องกด "Sync เข้า Database" เพื่ออัปเดต Stock จริง');
   }catch(e){
     console.error(e);
-    alert('โหลดตัวอย่างไม่สำเร็จ: '+(e.message||e)+'\n\nไม่กระทบ Stock จริง ลองกด "Sync เข้า Database" ตรงๆ ได้เลยถ้าต้องการอัปเดตข้อมูลจริง');
+    alertModal('โหลดตัวอย่างไม่สำเร็จ: '+(e.message||e)+'\n\nไม่กระทบ Stock จริง ลองกด "Sync เข้า Database" ตรงๆ ได้เลยถ้าต้องการอัปเดตข้อมูลจริง');
   }
 }
 
@@ -1211,7 +1244,7 @@ async function saveProductionRecord(){
       (db.bom[l.SKU]||[]).filter(b=>(b.stage||'Production')==='Production').forEach(b=>{let rm=db.rm.find(x=>x.sku==b.sku); let used=(+b.qty||0)*batches; if(rm) rm.stock=(+rm.stock||0)-used; db.mov.push({id:'MV-'+Date.now()+'-RM-'+b.sku,time:ts,type:'RM',sku:b.sku,mode:'OUT',qty:-used,ref:l.LogID,remark:'BOM issue by production record',stock:rm?rm.stock:'',synced:true});});
     });
     saveLocalOnly(); render(); sheetDone('บันทึกผลผลิตสำเร็จ '+logs.length+' รายการ / ตัด BOM แล้ว');
-  }catch(e){console.error(e); alert('บันทึกผลผลิตไม่สำเร็จ / ยังไม่บันทึกใน ERP: '+(e.message||e));}
+  }catch(e){console.error(e); alertModal('บันทึกผลผลิตไม่สำเร็จ / ยังไม่บันทึกใน ERP: '+(e.message||e));}
 }
 
 function trxStatusPill(s){s=String(s||'Active'); return s.toLowerCase()==='voided'?'<span class="pill bad">Voided</span>':'<span class="pill good">Active</span>';}
@@ -1297,11 +1330,11 @@ function toggleAllTrxChk(checked){document.querySelectorAll('.trxChk').forEach(c
 async function voidTrxBulk(){
   const chks=[...document.querySelectorAll('.trxChk:checked')];
   if(!chks.length) return toast('ติ๊กเลือกรายการก่อน');
-  const reason=prompt('เหตุผลการ'+(isAdmin()?'Void':'ขอ Void')+' (ใช้ร่วมกันทั้ง '+chks.length+' รายการ)');
+  const reason=await promptModal('เหตุผลการ'+(isAdmin()?'Void':'ขอ Void')+' (ใช้ร่วมกันทั้ง '+chks.length+' รายการ)');
   if(reason===null) return;
   const reasonTrim=String(reason||'').trim();
   if(!reasonTrim) return toast('ต้องใส่เหตุผลก่อน');
-  if(!confirm((isAdmin()?'Void':'ส่งคำขอ Void')+' '+chks.length+' รายการที่เลือกไว้?'))return;
+  if(!await confirmModal((isAdmin()?'Void':'ส่งคำขอ Void')+' '+chks.length+' รายการที่เลือกไว้?'))return;
   toast('กำลังดำเนินการ '+chks.length+' รายการ...');
   let okCount=0, failList=[];
   for(const c of chks){
@@ -1319,7 +1352,7 @@ async function voidTrxBulk(){
   saveLocalOnly();
   await loadFromGoogleSheet();
   page='trx'; render();
-  if(failList.length) alert('ดำเนินการสำเร็จ '+okCount+'/'+chks.length+' รายการ\n\nที่พลาด:\n'+failList.join('\n'));
+  if(failList.length) alertModal('ดำเนินการสำเร็จ '+okCount+'/'+chks.length+' รายการ\n\nที่พลาด:\n'+failList.join('\n'));
   else sheetDone((isAdmin()?'Void':'ส่งคำขอ Void')+'ครบ '+okCount+' รายการแล้ว');
 }
 function voidApprovalPage(m){
@@ -1350,8 +1383,8 @@ async function respondVoidRequestBulk(approve){
   const ids=[...document.querySelectorAll('.voidChk:checked')].map(c=>c.value);
   if(!ids.length) return toast('ติ๊กเลือกคำขอก่อน');
   let rejectReason='';
-  if(!approve){ rejectReason=prompt('เหตุผลที่ปฏิเสธ (ใช้ร่วมกันทั้ง '+ids.length+' รายการ, ไม่บังคับ)')||''; }
-  if(!confirm((approve?'อนุมัติ':'ปฏิเสธ')+' '+ids.length+' คำขอที่เลือกไว้?'+(approve?' จะตัด/คืน Stock จริงทันที':'')))return;
+  if(!approve){ rejectReason=(await promptModal('เหตุผลที่ปฏิเสธ (ใช้ร่วมกันทั้ง '+ids.length+' รายการ, ไม่บังคับ)'))||''; }
+  if(!await confirmModal((approve?'อนุมัติ':'ปฏิเสธ')+' '+ids.length+' คำขอที่เลือกไว้?'+(approve?' จะตัด/คืน Stock จริงทันที':'')))return;
   toast('กำลังดำเนินการ '+ids.length+' รายการ...');
   let okCount=0, failList=[];
   for(const requestId of ids){
@@ -1360,20 +1393,20 @@ async function respondVoidRequestBulk(approve){
   }
   await loadFromGoogleSheet();
   page='voidapproval'; render();
-  if(failList.length) alert((approve?'อนุมัติ':'ปฏิเสธ')+'สำเร็จ '+okCount+'/'+ids.length+' รายการ\n\nที่พลาด:\n'+failList.join('\n'));
+  if(failList.length) alertModal((approve?'อนุมัติ':'ปฏิเสธ')+'สำเร็จ '+okCount+'/'+ids.length+' รายการ\n\nที่พลาด:\n'+failList.join('\n'));
   else sheetDone((approve?'อนุมัติ':'ปฏิเสธ')+'ครบ '+okCount+' รายการแล้ว');
 }
 async function respondVoidRequest(requestId,approve){
   let rejectReason='';
-  if(!approve){ rejectReason=prompt('เหตุผลที่ปฏิเสธ (ไม่บังคับ)')||''; }
-  if(!confirm(approve?'อนุมัติคำขอ Void นี้? จะตัด/คืน Stock จริงทันที':'ปฏิเสธคำขอนี้?')) return;
+  if(!approve){ rejectReason=(await promptModal('เหตุผลที่ปฏิเสธ (ไม่บังคับ)'))||''; }
+  if(!await confirmModal(approve?'อนุมัติคำขอ Void นี้? จะตัด/คืน Stock จริงทันที':'ปฏิเสธคำขอนี้?')) return;
   toast('กำลังดำเนินการ...');
   try{
     await apiPost({action:'approvevoidrequest',requestId,approve,rejectReason});
     await loadFromGoogleSheet();
     page='voidapproval'; render();
     sheetDone(approve?'อนุมัติ Void แล้ว':'ปฏิเสธคำขอแล้ว');
-  }catch(e){console.error(e); alert('ดำเนินการไม่สำเร็จ: '+(e.message||e));}
+  }catch(e){console.error(e); alertModal('ดำเนินการไม่สำเร็จ: '+(e.message||e));}
 }
 let tiktokImportGrouped=[];
 function importOrdersPage(m){
@@ -1384,9 +1417,9 @@ function importOrdersPage(m){
 function handleTiktokFile(input){
   const file=input.files[0];
   if(!file) return;
-  if(typeof Papa==='undefined'){ alert('โหลดตัวช่วยอ่านไฟล์ CSV ไม่สำเร็จ ลองรีเฟรชหน้าใหม่'); return; }
+  if(typeof Papa==='undefined'){ alertModal('โหลดตัวช่วยอ่านไฟล์ CSV ไม่สำเร็จ ลองรีเฟรชหน้าใหม่'); return; }
   toast('กำลังอ่านไฟล์...');
-  Papa.parse(file,{header:true,skipEmptyLines:true,complete:(res)=>processTiktokRows(res.data),error:(err)=>alert('อ่านไฟล์ไม่สำเร็จ: '+err.message)});
+  Papa.parse(file,{header:true,skipEmptyLines:true,complete:(res)=>processTiktokRows(res.data),error:(err)=>alertModal('อ่านไฟล์ไม่สำเร็จ: '+err.message)});
 }
 function processTiktokRows(rows){
   const valid=rows.filter(r=>!String(r['Order Status']||'').toLowerCase().includes('cancel'));
@@ -1423,7 +1456,7 @@ async function confirmImportTiktok(){
     let sku=existing?.sku;
     if(!sku){
       sku=$('tiktokmap_'+i)?.value;
-      if(!sku){ alert('กรุณาเลือก SKU ให้ครบทุกรายการก่อน (แถวที่ '+(i+1)+': '+g.name+' - '+g.variant+' ยังไม่ได้เลือก)'); return; }
+      if(!sku){ alertModal('กรุณาเลือก SKU ให้ครบทุกรายการก่อน (แถวที่ '+(i+1)+': '+g.name+' - '+g.variant+' ยังไม่ได้เลือก)'); return; }
       newMappings.push({channel:'TikTok',externalKey:g.key,externalLabel:g.name+' - '+g.variant,sku});
     }
     skuQty[sku]=(skuQty[sku]||0)+g.qty;
@@ -1446,7 +1479,7 @@ async function confirmImportTiktok(){
     page='shipcheck'; render();
     sheetDone('นำเข้า TikTok สำเร็จ '+Object.keys(skuQty).length+' SKU / ตัด Stock '+totalDeducted+' รายการ');
   }catch(e){
-    console.error(e); alert('นำเข้าไม่สำเร็จ: '+(e.message||e));
+    console.error(e); alertModal('นำเข้าไม่สำเร็จ: '+(e.message||e));
   }
 }
 function suppliersPage(m){
@@ -1465,17 +1498,17 @@ async function addSupplierAction(){
     await loadFromGoogleSheet();
     page='suppliers'; render();
     sheetDone('เพิ่มซัพพลายเออร์ '+name+' แล้ว');
-  }catch(e){console.error(e); alert('เพิ่มไม่สำเร็จ: '+(e.message||e));}
+  }catch(e){console.error(e); alertModal('เพิ่มไม่สำเร็จ: '+(e.message||e));}
 }
 async function setSupplierStatusAction(supplierId,status){
-  if(!confirm((status==='Active'?'เปิด':'ปิด')+'ใช้งานซัพพลายเออร์นี้?'))return;
+  if(!await confirmModal((status==='Active'?'เปิด':'ปิด')+'ใช้งานซัพพลายเออร์นี้?'))return;
   toast('กำลังอัปเดต...');
   try{
     await apiPost({action:'setsupplierstatus',supplierId,status});
     await loadFromGoogleSheet();
     page='suppliers'; render();
     sheetDone('อัปเดตแล้ว');
-  }catch(e){console.error(e); alert('อัปเดตไม่สำเร็จ: '+(e.message||e));}
+  }catch(e){console.error(e); alertModal('อัปเดตไม่สำเร็จ: '+(e.message||e));}
 }
 function rmLotExpiryInfo(l){
   if(!l.expiryDate) return null;
@@ -1515,7 +1548,7 @@ async function receiveRMLotAction(){
     await loadFromGoogleSheet();
     page='rmlots'; render();
     sheetDone(res?.message||'รับเข้า Lot เรียบร้อยแล้ว');
-  }catch(e){console.error(e); alert('รับเข้าไม่สำเร็จ: '+(e.message||e));}
+  }catch(e){console.error(e); alertModal('รับเข้าไม่สำเร็จ: '+(e.message||e));}
 }
 function packingPage(m){
   const q=($('packQ')?.value||'').toLowerCase();
@@ -1534,14 +1567,14 @@ function packingPageRerender(){packingPage($('main'))}
 async function packWipAction(sku,fixedQty){
   const qty=fixedQty!==undefined?fixedQty:+($('packqty_'+sku)?.value||0);
   if(!qty||qty<=0) return toast('ใส่จำนวนที่จะแพ็คก่อน');
-  if(!confirm('แพ็ค '+sku+' จำนวน '+qty+' ชิ้น จาก WIP เข้า FG?'))return;
+  if(!await confirmModal('แพ็ค '+sku+' จำนวน '+qty+' ชิ้น จาก WIP เข้า FG?'))return;
   toast('กำลังแพ็ค...');
   try{
     const res=await apiPost({action:'packwip',sku,qty});
     await loadFromGoogleSheet();
     page='packing'; render();
     sheetDone(res?.message||'แพ็คเรียบร้อยแล้ว');
-  }catch(e){console.error(e); alert('แพ็คไม่สำเร็จ: '+(e.message||e));}
+  }catch(e){console.error(e); alertModal('แพ็คไม่สำเร็จ: '+(e.message||e));}
 }
 function userManagementPage(m){
   if(!isAdmin()){ m.innerHTML=head('จัดการ User','')+'<div class="box"><p class="hint">หน้านี้สำหรับ Admin เท่านั้น</p></div>'; return; }
@@ -1563,14 +1596,14 @@ function toggleAllUserChk(checked){document.querySelectorAll('.userChk').forEach
 async function disableUsersBulk(){
   const usernames=[...document.querySelectorAll('.userChk:checked')].map(c=>c.value);
   if(!usernames.length) return toast('ติ๊กเลือก User ที่จะปิดใช้งานก่อน');
-  if(!confirm('ปิดใช้งาน '+usernames.length+' คนที่เลือกไว้?\n\n'+usernames.join(', ')))return;
+  if(!await confirmModal('ปิดใช้งาน '+usernames.length+' คนที่เลือกไว้?\n\n'+usernames.join(', ')))return;
   toast('กำลังปิดใช้งาน '+usernames.length+' คน...');
   let okCount=0, failList=[];
   for(const username of usernames){
     try{ await apiPost({action:'setuserstatus',username,status:'Disabled'}); okCount++; }
     catch(e){ console.error(e); failList.push(username+': '+(e.message||e)); }
   }
-  if(failList.length) alert('ปิดใช้งานสำเร็จ '+okCount+'/'+usernames.length+' คน\n\nที่พลาด:\n'+failList.join('\n'));
+  if(failList.length) alertModal('ปิดใช้งานสำเร็จ '+okCount+'/'+usernames.length+' คน\n\nที่พลาด:\n'+failList.join('\n'));
   else sheetDone('ปิดใช้งานครบ '+okCount+' คนแล้ว');
   loadUserList();
 }
@@ -1586,16 +1619,16 @@ async function addUserAction(){
     sheetDone('เพิ่ม User '+username+' แล้ว');
     $('newUserName').value=''; $('newUserDisplay').value=''; $('newUserPw').value='';
     loadUserList();
-  }catch(e){console.error(e); alert('เพิ่ม User ไม่สำเร็จ: '+(e.message||e));}
+  }catch(e){console.error(e); alertModal('เพิ่ม User ไม่สำเร็จ: '+(e.message||e));}
 }
 async function setUserStatusAction(username,status){
-  if(!confirm((status==='Active'?'เปิด':'ปิด')+'ใช้งาน '+username+' ?')) return;
+  if(!await confirmModal((status==='Active'?'เปิด':'ปิด')+'ใช้งาน '+username+' ?')) return;
   toast('กำลังอัปเดต...');
   try{
     await apiPost({action:'setuserstatus',username,status});
     sheetDone('อัปเดตสถานะแล้ว');
     loadUserList();
-  }catch(e){console.error(e); alert('อัปเดตไม่สำเร็จ: '+(e.message||e));}
+  }catch(e){console.error(e); alertModal('อัปเดตไม่สำเร็จ: '+(e.message||e));}
 }
 async function requestVoid(kind,refId,sku,qty,reason){
   toast('กำลังส่งคำขอ Void...');
@@ -1606,36 +1639,36 @@ async function requestVoid(kind,refId,sku,qty,reason){
     db.voidRequests.push({requestId:res.requestId||('local-'+now()),kind,refId,sku,qty,reason,requestedBy:userDisplayName||userUsername||'',requestedAt:now(),status:'Pending',approvedBy:'',approvedAt:'',rejectReason:''});
     saveLocalOnly(); render();
     sheetDone(res.message||'ส่งคำขอ Void แล้ว รอ Admin อนุมัติ');
-  }catch(e){console.error(e); alert('ส่งคำขอไม่สำเร็จ: '+(e.message||e));}
+  }catch(e){console.error(e); alertModal('ส่งคำขอไม่สำเร็จ: '+(e.message||e));}
 }
-function voidProductionPrompt(logId){
+async function voidProductionPrompt(logId){
   if(!logId)return;
-  let reason=prompt('ยืนยันยกเลิก Transaction นี้\n\nLogID: '+logId+'\n\nใส่เหตุผล เช่น คีย์จำนวนผิด / SKU ผิด');
+  let reason=await promptModal('ยืนยันยกเลิก Transaction นี้\n\nLogID: '+logId+'\n\nใส่เหตุผล เช่น คีย์จำนวนผิด / SKU ผิด');
   if(reason===null)return;
   reason=String(reason||'').trim();
   if(!reason)return toast('ต้องใส่เหตุผลก่อน');
   // v9.53: Staff ส่งเป็น "คำขอ Void" รอ Admin อนุมัติก่อนถึงจะมีผลจริง / Admin กด Void ตรงได้เลย
   if(isAdmin()){
-    if(!confirm('Void รายการ '+logId+' ?\nระบบจะ Reverse FG/RM Stock อัตโนมัติ'))return;
+    if(!await confirmModal('Void รายการ '+logId+' ?\nระบบจะ Reverse FG/RM Stock อัตโนมัติ'))return;
     voidProductionTransaction(logId,reason);
   }else{
     const r=(db.prodLog||[]).find(x=>String(x.id||x.LogID||'')===String(logId));
-    if(!confirm('ส่งคำขอ Void รายการ '+logId+' ให้ Admin อนุมัติ?\n(Stock จะยังไม่เปลี่ยนจนกว่า Admin จะอนุมัติ)'))return;
+    if(!await confirmModal('ส่งคำขอ Void รายการ '+logId+' ให้ Admin อนุมัติ?\n(Stock จะยังไม่เปลี่ยนจนกว่า Admin จะอนุมัติ)'))return;
     requestVoid('FG',logId,r?.sku||'',r?.qty||0,reason);
   }
 }
-function voidRMMovementPrompt(moveId){
+async function voidRMMovementPrompt(moveId){
   if(!moveId)return;
-  let reason=prompt('ยืนยันยกเลิกรายการวัตถุดิบนี้\n\nMoveID: '+moveId+'\n\nใส่เหตุผล เช่น คีย์จำนวนผิด / บันทึกผิดรายการ');
+  let reason=await promptModal('ยืนยันยกเลิกรายการวัตถุดิบนี้\n\nMoveID: '+moveId+'\n\nใส่เหตุผล เช่น คีย์จำนวนผิด / บันทึกผิดรายการ');
   if(reason===null)return;
   reason=String(reason||'').trim();
   if(!reason)return toast('ต้องใส่เหตุผลก่อน');
   if(isAdmin()){
-    if(!confirm('Void รายการวัตถุดิบ '+moveId+' ?\nระบบจะสร้างรายการย้อนกลับให้อัตโนมัติ (ไม่ลบรายการเดิม)'))return;
+    if(!await confirmModal('Void รายการวัตถุดิบ '+moveId+' ?\nระบบจะสร้างรายการย้อนกลับให้อัตโนมัติ (ไม่ลบรายการเดิม)'))return;
     voidRMMovement(moveId,reason);
   }else{
     const mv=(db.mov||[]).find(x=>String(x.id||x.ref||'')===String(moveId));
-    if(!confirm('ส่งคำขอ Void รายการวัตถุดิบ '+moveId+' ให้ Admin อนุมัติ?\n(Stock จะยังไม่เปลี่ยนจนกว่า Admin จะอนุมัติ)'))return;
+    if(!await confirmModal('ส่งคำขอ Void รายการวัตถุดิบ '+moveId+' ให้ Admin อนุมัติ?\n(Stock จะยังไม่เปลี่ยนจนกว่า Admin จะอนุมัติ)'))return;
     requestVoid('RM',moveId,mv?.sku||'',mv?.qty||0,reason);
   }
 }
@@ -1661,11 +1694,11 @@ async function voidRMMovement(moveId,reason){
     sheetDone('Void รายการวัตถุดิบสำเร็จ / Stock อัปเดตแล้ว');
   }catch(e){
     try{ await loadFromGoogleSheet(); page='trx'; render(); }catch(e2){ console.error('refresh after RM void failed', e2); }
-    alert('การเชื่อมต่อตอน Void มีปัญหา (Server มักทำงานเสร็จจริงแล้ว): '+(e.message||e)+'\n\nระบบโหลดข้อมูลล่าสุดให้แล้ว เช็คในตารางว่า Void สำเร็จหรือยัง');
+    alertModal('การเชื่อมต่อตอน Void มีปัญหา (Server มักทำงานเสร็จจริงแล้ว): '+(e.message||e)+'\n\nระบบโหลดข้อมูลล่าสุดให้แล้ว เช็คในตารางว่า Void สำเร็จหรือยัง');
   }
 }
 function loadEmbeddedFgLog(){db.prodLog=EMBEDDED_FG_LOG.slice(); save(); render(); toast('โหลด Production Log จากไฟล์ที่ส่งมาแล้ว')}
-function clearFgLog(){if(!confirm('ล้าง Production Log ที่เก็บใน ERP? ไม่กระทบ Google Sheet'))return; db.prodLog=[]; save(); render(); toast('ล้าง Log ใน ERP แล้ว')}
+async function clearFgLog(){if(!await confirmModal('ล้าง Production Log ที่เก็บใน ERP? ไม่กระทบ Google Sheet'))return; db.prodLog=[]; save(); render(); toast('ล้าง Log ใน ERP แล้ว')}
 function parsePasteRows(text){let lines=String(text||'').trim().split(/\r?\n/).filter(Boolean); if(!lines.length)return []; let sep=lines[0].includes('\t')?'\t':','; return lines.map(line=>{let out=[], cur='', q=false; for(let i=0;i<line.length;i++){let ch=line[i]; if(ch=='"'){q=!q; continue;} if(ch==sep && !q){out.push(cur); cur='';} else cur+=ch;} out.push(cur); return out.map(x=>x.trim());});}
 function importFgPaste(){let rows=parsePasteRows($('fgPaste').value); if(rows.length<2)return toast('วางข้อมูลพร้อมหัวตารางก่อน'); let h=rows[0].map(x=>x.toLowerCase()); const find=(names)=>names.map(n=>h.findIndex(x=>x.includes(n))).find(i=>i>=0); let iSku=find(['sku','รหัสสินค้า']), iQty=find(['จำนวน','qty']), iProd=find(['หมวด','product']), iExp=find(['expiry','หมดอายุ']), iOp=find(['ผู้บันทึก','operator','ชื่อ']), iRem=find(['หมายเหตุ','remark']), iTime=find(['timestamp','เวลา']); let added=0; for(let r of rows.slice(1)){let sku=r[iSku]||''; let qty=+(r[iQty]||0); if(!sku||!qty)continue; let rec={id:'FGP-'+Date.now()+'-'+added,timestamp:r[iTime]||now(),sku,product:r[iProd]||'',qty,expiry:r[iExp]||'',operator:r[iOp]||'',remark:r[iRem]||'',source:'Paste'}; db.prodLog=db.prodLog||[]; if(!db.prodLog.some(x=>x.id==rec.id||((x.timestamp||'')==rec.timestamp&&x.sku==rec.sku&&(+x.qty||0)==qty))) {db.prodLog.push(rec); added++;}}
   save(); render(); toast('Import Production Log แล้ว '+added+' รายการ')}
@@ -1718,10 +1751,10 @@ async function createBulkPO(){
     sheetDone('สั่งผลิต '+created.length+' รายการเข้า Google Sheet แล้ว');
   }catch(e){
     console.error(e);
-    alert('สั่งผลิตไม่สำเร็จ / ยังไม่บันทึกใน ERP: '+(e.message||e));
+    alertModal('สั่งผลิตไม่สำเร็จ / ยังไม่บันทึกใน ERP: '+(e.message||e));
   }
 }
-async function createPO(){let sku=$('psku')?.value, qty=+$('pqty')?.value; if(!sku||!qty) return toast('เลือก SKU และจำนวน'); let id='PO-'+String(nextPoSeq()).padStart(5,'0'); let p={id,sku,qty,status:'Open',time:now(),start:'',finish:'',remark:$('premark')?.value||''}; toast('กำลังบันทึก '+id+' เข้า Google Sheet...'); try{await savePODirect(p); db.po.push(p); saveLocalOnly(); render(); sheetDone('สร้าง '+id+' เข้า Google Sheet แล้ว');}catch(e){console.error(e); alert('สร้างงานผลิตไม่สำเร็จ: '+(e.message||e));}}
+async function createPO(){let sku=$('psku')?.value, qty=+$('pqty')?.value; if(!sku||!qty) return toast('เลือก SKU และจำนวน'); let id='PO-'+String(nextPoSeq()).padStart(5,'0'); let p={id,sku,qty,status:'Open',time:now(),start:'',finish:'',remark:$('premark')?.value||''}; toast('กำลังบันทึก '+id+' เข้า Google Sheet...'); try{await savePODirect(p); db.po.push(p); saveLocalOnly(); render(); sheetDone('สร้าง '+id+' เข้า Google Sheet แล้ว');}catch(e){console.error(e); alertModal('สร้างงานผลิตไม่สำเร็จ: '+(e.message||e));}}
 let cachedUserList=null;
 async function ensureUserListLoaded(){
   if(cachedUserList) return cachedUserList;
@@ -1743,19 +1776,19 @@ async function confirmAssignPO(poId){
     if(p){ p.assignedTo=username; if(username) p.lineNotifiedAt=now(); }
     saveLocalOnly(); $('modal').style.display='none'; render();
     sheetDone(res?.message||(username?('มอบหมาย '+username+' + ส่ง LINE แล้ว'):'ยกเลิกการมอบหมายแล้ว'));
-  }catch(e){console.error(e); alert('มอบหมาย/ส่ง LINE ไม่สำเร็จ: '+(e.message||e));}
+  }catch(e){console.error(e); alertModal('มอบหมาย/ส่ง LINE ไม่สำเร็จ: '+(e.message||e));}
 }
 async function sendLinePOPrompt(poId){
   const p=db.po.find(x=>x.id===poId);
   if(!p?.assignedTo) return toast('มอบหมายพนักงานก่อนถึงจะส่ง LINE ได้');
-  if(!confirm('ส่งแจ้งเตือน LINE ซ้ำหา '+p.assignedTo+' สำหรับ '+poId+' ?'))return;
+  if(!await confirmModal('ส่งแจ้งเตือน LINE ซ้ำหา '+p.assignedTo+' สำหรับ '+poId+' ?'))return;
   toast('กำลังส่ง LINE...');
   try{
     await apiPost({action:'sendlinepo',poId});
     p.lineNotifiedAt=now();
     saveLocalOnly(); render();
     sheetDone('ส่ง LINE แล้ว');
-  }catch(e){console.error(e); alert('ส่ง LINE ไม่สำเร็จ: '+(e.message||e));}
+  }catch(e){console.error(e); alertModal('ส่ง LINE ไม่สำเร็จ: '+(e.message||e));}
 }
 function poDuration(p){
   // v9.63: เวลาที่ใช้ผลิตจริง (จบ-เริ่ม) เฉพาะงานที่มี StartAt/FinishAt บันทึกไว้ (ผ่าน LINE)
@@ -1834,13 +1867,13 @@ async function confirmAssignPOBulk(){
     }catch(e){ console.error(e); failList.push(poId+': '+(e.message||e)); }
   }
   saveLocalOnly(); render();
-  if(failList.length) alert('มอบหมายสำเร็จ '+okCount+'/'+ids.length+' งาน\n\nที่พลาด:\n'+failList.join('\n'));
+  if(failList.length) alertModal('มอบหมายสำเร็จ '+okCount+'/'+ids.length+' งาน\n\nที่พลาด:\n'+failList.join('\n'));
   else sheetDone('มอบหมาย + ส่ง LINE ครบ '+okCount+' งานแล้ว');
 }
 async function cancelPOBulk(){
   const ids=[...document.querySelectorAll('.poAssignChk:checked')].map(c=>c.value);
   if(!ids.length) return toast('ติ๊กเลือกงานที่จะยกเลิกก่อน');
-  if(!confirm('ยกเลิกคำสั่งผลิต '+ids.length+' งานที่เลือกไว้?\n\n'+ids.join(', ')+'\n\nถ้ามอบหมายพนักงานไว้แล้ว ระบบจะแจ้งเตือนทาง LINE ให้แต่ละงาน'))return;
+  if(!await confirmModal('ยกเลิกคำสั่งผลิต '+ids.length+' งานที่เลือกไว้?\n\n'+ids.join(', ')+'\n\nถ้ามอบหมายพนักงานไว้แล้ว ระบบจะแจ้งเตือนทาง LINE ให้แต่ละงาน'))return;
   toast('กำลังยกเลิก '+ids.length+' งาน...');
   let okCount=0, failList=[];
   for(const poId of ids){
@@ -1856,7 +1889,7 @@ async function cancelPOBulk(){
     }
   }
   saveLocalOnly(); render();
-  if(failList.length) alert('ยกเลิกสำเร็จ '+okCount+'/'+ids.length+' งาน\n\nที่พลาด:\n'+failList.join('\n'));
+  if(failList.length) alertModal('ยกเลิกสำเร็จ '+okCount+'/'+ids.length+' งาน\n\nที่พลาด:\n'+failList.join('\n'));
   else sheetDone('ยกเลิกครบ '+okCount+' งานแล้ว');
 }
 function statusPill(s){let c=s=='Completed'?'good':s=='Cancelled'?'bad':''; return `<span class="pill ${c}">${s}</span>`}
@@ -1867,7 +1900,7 @@ function poActions(p){
   return completeBtn+`<button class="small danger" onclick="cancelPO('${id}')">Cancel</button>`;
 }
 async function cancelPO(id){
-  if(!confirm('ยกเลิกคำสั่งผลิต '+id+' ? ถ้ามอบหมายพนักงานไว้แล้ว ระบบจะแจ้งเตือนทาง LINE ให้ด้วย'))return;
+  if(!await confirmModal('ยกเลิกคำสั่งผลิต '+id+' ? ถ้ามอบหมายพนักงานไว้แล้ว ระบบจะแจ้งเตือนทาง LINE ให้ด้วย'))return;
   const p=db.po.find(x=>x.id==id); if(!p) return;
   const prevStatus=p.status;
   p.status='Cancelled'; saveLocalOnly(); render();
@@ -1877,7 +1910,7 @@ async function cancelPO(id){
     sheetDone(res?.message||'ยกเลิกแล้ว');
   }catch(e){
     p.status=prevStatus; saveLocalOnly(); render();
-    console.error(e); alert('ยกเลิกไม่สำเร็จ: '+(e.message||e)+'\n\nสถานะถูกย้อนกลับแล้ว ลองใหม่อีกครั้ง');
+    console.error(e); alertModal('ยกเลิกไม่สำเร็จ: '+(e.message||e)+'\n\nสถานะถูกย้อนกลับแล้ว ลองใหม่อีกครั้ง');
   }
 }
 async function setPO(id,s){
@@ -1895,21 +1928,21 @@ async function setPO(id,s){
   }catch(e){
     p.status=prevStatus; p.finish=prevFinish;
     saveLocalOnly(); render();
-    alert('เปลี่ยนสถานะไม่สำเร็จ: '+(e.message||e)+'\n\nสถานะใน ERP ถูกย้อนกลับเป็น "'+prevStatus+'" แล้ว (ของจริงใน Google Sheet ไม่เคยเปลี่ยน) ลองกดใหม่อีกครั้ง');
+    alertModal('เปลี่ยนสถานะไม่สำเร็จ: '+(e.message||e)+'\n\nสถานะใน ERP ถูกย้อนกลับเป็น "'+prevStatus+'" แล้ว (ของจริงใน Google Sheet ไม่เคยเปลี่ยน) ลองกดใหม่อีกครั้ง');
   }
 }
 function completePO(id){
   let p=db.po.find(x=>x.id==id); if(!p) return;
   modal(`<h2>ยืนยันจำนวนที่ผลิตได้จริง</h2><p class="hint">${p.sku} · สั่งผลิต ${p.qty} ชิ้น — ใส่จำนวนที่ทำได้จริง (ถ้าเท่ากับที่สั่งไว้ไม่ต้องแก้)<br>ระบบจะตัดวัตถุดิบ (BOM) ตามจำนวนที่ใส่นี้เลย</p><input id="actualQtyInput" type="number" min="0" value="${p.qty}" style="font-size:20px;text-align:center"><br><br><button class="primary" onclick="confirmCompletePO('${id}')">ยืนยัน / ตัด RM / รับเข้า Stock</button> <button class="ghost" onclick="$('modal').style.display='none'">ยกเลิก</button>`);
 }
-function confirmCompletePO(id){
+async function confirmCompletePO(id){
   let p=db.po.find(x=>x.id==id); if(!p) return;
   let actual=+$('actualQtyInput')?.value;
   if(isNaN(actual)||actual<0) return toast('ใส่จำนวนที่ผลิตได้จริงก่อน');
   const bomLines=(db.bom[p.sku]||[]).filter(l=>(l.stage||'Production')==='Production');
   // v9.43: เดิมตัด RM ตอนกด "Start" โดยใช้จำนวนที่สั่งไว้ (p.qty) แยกขั้นตอนจากตอนใส่จำนวนจริง
   // ตอนนี้รวมเป็นขั้นตอนเดียว (Open → Complete) ตัด RM ตามจำนวนที่ผลิตได้จริงที่เพิ่งกรอก ไม่ใช่จำนวนที่สั่ง
-  if(!bomLines.length && !confirm('SKU '+p.sku+' ยังไม่ได้ตั้ง BOM จะบันทึกโดยไม่ตัดวัตถุดิบเลยหรือไม่?')) return;
+  if(!bomLines.length && !await confirmModal('SKU '+p.sku+' ยังไม่ได้ตั้ง BOM จะบันทึกโดยไม่ตัดวัตถุดิบเลยหรือไม่?')) return;
   $('modal').style.display='none';
   const before=(db.mov||[]).length;
   const batchYield=getBatchYield(p.sku);
@@ -1993,9 +2026,9 @@ function exportMaster(){let target=$('mdTarget')?.value||'FG'; let arr=target=='
 function selectedMasterSkus(){return [...document.querySelectorAll('.mdChk:checked')].map(c=>c.dataset.sku)}
 function openBulkEdit(){let target=$('mdTarget')?.value||'FG'; let skus=selectedMasterSkus(); if(!skus.length)return toast('ติ๊กรายการก่อน'); modal(`<h2>Bulk Edit ${skus.length} รายการ</h2><p class="hint">ใส่เฉพาะช่องที่ต้องการเปลี่ยน ถ้าเว้นว่างจะไม่แก้</p><div class="row2"><input id="be_product" placeholder="Product / กลุ่ม"><input id="be_variant" placeholder="Variant"><input id="be_unit" placeholder="Unit"><input id="be_min" type="number" placeholder="Min Stock"></div><br><button class="primary" onclick="applyBulkEdit('${target}', '${skus.join('|')}')">Apply</button> <button class="ghost" onclick="$('modal').style.display='none'">ปิด</button>`)}
 function applyBulkEdit(target, joined){let arr=target=='FG'?db.items:db.rm; let set=new Set(joined.split('|')), changed=[]; arr.forEach(x=>{if(!set.has(x.sku))return; if(be_product.value)x.product=be_product.value; if(be_variant.value)x.variant=be_variant.value; if(be_unit.value)x.unit=be_unit.value; if(be_min.value!=='')x.min=+be_min.value; changed.push(x);}); saveLocalOnly(); $('modal').style.display='none'; render(); changed.forEach(x=>target=='FG'?saveProductDirect(x):saveRawMaterialDirect(x)); toast('Bulk Edit แล้ว / ส่งเข้า Google Sheet')}
-function bulkDeleteMaster(){let target=$('mdTarget')?.value||'FG'; let skus=selectedMasterSkus(); if(!skus.length)return toast('ติ๊กรายการก่อน'); if(!confirm('ลบ '+skus.length+' รายการ?'))return; let set=new Set(skus); if(target=='FG') db.items=db.items.filter(x=>!set.has(x.sku)); else db.rm=db.rm.filter(x=>!set.has(x.sku)); saveLocalOnly(); render(); skus.forEach(sku=>deleteSheet(target=='FG'?'ProductMaster':'RawMaterial',target=='FG'?'SKU':'RMCode',sku,target=='FG'?'ProductMaster':'RawMaterial')); toast('ลบแล้ว / ส่งเข้า Google Sheet')}
+async function bulkDeleteMaster(){let target=$('mdTarget')?.value||'FG'; let skus=selectedMasterSkus(); if(!skus.length)return toast('ติ๊กรายการก่อน'); if(!await confirmModal('ลบ '+skus.length+' รายการ?'))return; let set=new Set(skus); if(target=='FG') db.items=db.items.filter(x=>!set.has(x.sku)); else db.rm=db.rm.filter(x=>!set.has(x.sku)); saveLocalOnly(); render(); skus.forEach(sku=>deleteSheet(target=='FG'?'ProductMaster':'RawMaterial',target=='FG'?'SKU':'RMCode',sku,target=='FG'?'ProductMaster':'RawMaterial')); toast('ลบแล้ว / ส่งเข้า Google Sheet')}
 
-function settings(m){m.innerHTML=head('ตั้งค่า','Google Sheet API / Backup')+`<div class="box"><h2>Apps Script API</h2><input id="apiUrl" value="${escHTML(apiUrl)}" placeholder="https://script.google.com/macros/s/.../exec"><br><br><input id="apiKey" type="password" value="${escHTML(apiKey)}" placeholder="API Key (ตั้งไว้ใน Apps Script ด้วยการรัน setApiKey('...') ครั้งเดียว)"><p class="mini">ต้องตรงกับ key ที่ตั้งไว้ใน Apps Script ไม่งั้นจะโหลด/บันทึกข้อมูลไม่ได้ (Unauthorized)</p><br><div class="row3"><button class="primary" onclick="apiUrl=$('apiUrl').value.trim();apiKey=$('apiKey').value.trim();localStorage.setItem('bakery_api_url',apiUrl);localStorage.setItem('bakery_api_key',apiKey);toast('บันทึก API URL/Key แล้ว')">บันทึก URL & Key</button><button class="ghost" onclick="apiGet('ping').then(r=>alert('API OK: '+(r.version||r.message||'OK'))).catch(e=>alert('API ERROR: '+e.message))">ทดสอบ API</button><button class="primary" onclick="loadFromGoogleSheet()">โหลดข้อมูลจาก Google Sheet</button><button class="primary" onclick="pushToGoogleSheet()">บันทึกค้างส่งขึ้น Sheet</button></div><p class="mini">Fast Sync: ON | Last load: ${db.remote?.lastApiSync||'-'} | Last push: ${db.remote?.lastPush||'-'}</p></div><div class="box"><button class="ghost" onclick="backup()">Download Backup JSON</button> <input type="file" id="imp" onchange="restore(event)"> <button class="ghost danger" onclick="if(confirm('ล้างข้อมูลใน Browser? ไม่กระทบ Google Sheet')){localStorage.removeItem('bakery_erp_v6_1');db=load();render()}">Reset Browser</button></div><div class="box"><button class="ghost danger" onclick="logout()">ออกจากระบบ (Logout)</button></div>`}
+function settings(m){m.innerHTML=head('ตั้งค่า','Google Sheet API / Backup')+`<div class="box"><h2>Apps Script API</h2><input id="apiUrl" value="${escHTML(apiUrl)}" placeholder="https://script.google.com/macros/s/.../exec"><br><br><input id="apiKey" type="password" value="${escHTML(apiKey)}" placeholder="API Key (ตั้งไว้ใน Apps Script ด้วยการรัน setApiKey('...') ครั้งเดียว)"><p class="mini">ต้องตรงกับ key ที่ตั้งไว้ใน Apps Script ไม่งั้นจะโหลด/บันทึกข้อมูลไม่ได้ (Unauthorized)</p><br><div class="row3"><button class="primary" onclick="apiUrl=$('apiUrl').value.trim();apiKey=$('apiKey').value.trim();localStorage.setItem('bakery_api_url',apiUrl);localStorage.setItem('bakery_api_key',apiKey);toast('บันทึก API URL/Key แล้ว')">บันทึก URL & Key</button><button class="ghost" onclick="apiGet('ping').then(r=>alertModal('API OK: '+(r.version||r.message||'OK'))).catch(e=>alertModal('API ERROR: '+e.message))">ทดสอบ API</button><button class="primary" onclick="loadFromGoogleSheet()">โหลดข้อมูลจาก Google Sheet</button><button class="primary" onclick="pushToGoogleSheet()">บันทึกค้างส่งขึ้น Sheet</button></div><p class="mini">Fast Sync: ON | Last load: ${db.remote?.lastApiSync||'-'} | Last push: ${db.remote?.lastPush||'-'}</p></div><div class="box"><button class="ghost" onclick="backup()">Download Backup JSON</button> <input type="file" id="imp" onchange="restore(event)"> <button class="ghost danger" onclick="(async()=>{ if(await confirmModal('ล้างข้อมูลใน Browser? ไม่กระทบ Google Sheet')){localStorage.removeItem('bakery_erp_v6_1');db=load();render()} })()">Reset Browser</button></div><div class="box"><button class="ghost danger" onclick="logout()">ออกจากระบบ (Logout)</button></div>`}
 function backup(){let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(db,null,2)],{type:'application/json'}));a.download='bakery_erp_backup.json';a.click()}
 function restore(e){let f=e.target.files[0]; if(!f)return; let r=new FileReader(); r.onload=()=>{db=JSON.parse(r.result); save(); render(); toast('Restore แล้ว')}; r.readAsText(f)}
 function download(){let rows=[['time','type','sku','mode','qty','ref','remark','stock'],...db.mov.map(x=>[x.time,x.type,x.sku,x.mode,x.qty,x.ref,x.remark,x.stock])]; let csv=rows.map(r=>r.map(v=>'"'+String(v??'').replaceAll('"','""')+'"').join(',')).join('\n'); let a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv'}));a.download='stock_movement.csv';a.click()}
@@ -2047,7 +2080,7 @@ function productionSummaryRawTable(rows){
   return `<table><tr><th>เวลา</th><th>แหล่งที่มา</th><th>Ref</th><th>SKU</th><th>Product</th><th>Variant</th><th>จำนวน</th></tr>${rows.map(r=>`<tr><td>${escHTML(r.timestamp||'')}</td><td>${escHTML(r.source)}</td><td>${escHTML(r.ref||'')}</td><td><b>${escHTML(r.sku)}</b></td><td>${escHTML(r.product)}</td><td>${escHTML(r.variant)}</td><td><b>${roundDisplay(r.qty)}</b></td></tr>`).join('')}</table>`;
 }
 
-function viewerDeny(){ alert('โหมด Viewer ดูได้อย่างเดียว แก้ไข/บันทึก/ลบ/ตัด Stock ไม่ได้'); }
+function viewerDeny(){ alertModal('โหมด Viewer ดูได้อย่างเดียว แก้ไข/บันทึก/ลบ/ตัด Stock ไม่ได้'); }
 function applyViewerUI(){
   if(!VIEWER_ONLY) return;
   document.body.classList.add('viewer-mode');
@@ -2219,12 +2252,12 @@ function yieldSummaryTable(){
   return `<table><tr><th>SKU</th><th>ชื่อสินค้า</th><th>จำนวนครั้งที่บันทึก</th><th>Yield เฉลี่ย</th><th>Batch Yield ปัจจุบัน</th><th>Batch Yield ที่แนะนำ</th><th></th></tr>${rows.map(r=>`<tr><td><b>${r.sku}</b></td><td>${escHTML(itemName(r.sku))}</td><td>${r.count}</td><td><b class="${r.pct>=98?'good':(r.pct>=90?'':'danger')}">${r.pct.toFixed(1)}%</b></td><td>${r.currentBatchYield}</td><td><b>${r.suggested}</b></td><td>${Math.abs(r.suggested-r.currentBatchYield)>=0.5?`<button class="small" onclick="applySuggestedBatchYield('${r.sku}',${r.suggested})">ปรับเป็นค่าแนะนำ</button>`:'<span class="mini">ใกล้เคียงอยู่แล้ว</span>'}</td></tr>`).join('')}</table>`;
 }
 async function applySuggestedBatchYield(sku,suggested){
-  if(!confirm('ปรับ Batch Yield ของ '+sku+' เป็น '+suggested+' (จากค่าเฉลี่ยย้อนหลัง)?'))return;
+  if(!await confirmModal('ปรับ Batch Yield ของ '+sku+' เป็น '+suggested+' (จากค่าเฉลี่ยย้อนหลัง)?'))return;
   const x=db.items.find(i=>i.sku==sku); if(!x) return;
   x.batchYield=suggested; saveLocalOnly(); render();
   toast('กำลังบันทึก...');
   try{ await saveProductDirect(x); sheetDone('ปรับ Batch Yield ของ '+sku+' เป็น '+suggested+' แล้ว'); }
-  catch(e){ console.error(e); alert('บันทึกไม่สำเร็จ: '+(e.message||e)); }
+  catch(e){ console.error(e); alertModal('บันทึกไม่สำเร็จ: '+(e.message||e)); }
 }
 
 
@@ -2315,7 +2348,7 @@ function saveCycleCount(){
       const statusMsg=savedCount===0
         ? 'ยังไม่มีรายการไหนบันทึกสำเร็จเลยสักตัว (0/'+pairs.length+')'
         : 'บันทึกสำเร็จไปแล้ว '+savedCount+' จาก '+pairs.length+' รายการ ส่วนที่เหลือยังไม่สำเร็จ';
-      alert('Cycle Count: '+statusMsg+'\n\nสาเหตุ: '+(e.message||e)+'\n\nลองกด "บันทึก Cycle Count" ซ้ำได้เลย ระบบจะคำนวณผลต่างใหม่จากสต๊อกล่าสุด ตัวที่บันทึกสำเร็จไปแล้วจะไม่ถูกปรับซ้ำอีก (ผลต่างกลายเป็น 0 แล้ว) ไม่ต้องกังวลเรื่องข้อมูลซ้ำ');
+      alertModal('Cycle Count: '+statusMsg+'\n\nสาเหตุ: '+(e.message||e)+'\n\nลองกด "บันทึก Cycle Count" ซ้ำได้เลย ระบบจะคำนวณผลต่างใหม่จากสต๊อกล่าสุด ตัวที่บันทึกสำเร็จไปแล้วจะไม่ถูกปรับซ้ำอีก (ผลต่างกลายเป็น 0 แล้ว) ไม่ต้องกังวลเรื่องข้อมูลซ้ำ');
     }
   })();
 }
@@ -2345,7 +2378,7 @@ async function voidProductionTransaction(logId,reason){
   }catch(e){
     // เชื่อมต่อมีปัญหาจริง ไม่รู้ผลชัวร์ ต้องโหลดใหม่ทั้งหมดเพื่อเช็คสถานะจริง (กรณีนี้เท่านั้นถึงจะช้า)
     try{ await loadFromGoogleSheet(); page='trx'; render(); }catch(e2){ console.error('refresh after void failed', e2); }
-    alert('การเชื่อมต่อตอน Void มีปัญหา (Server มักทำงานเสร็จจริงแล้ว): '+(e.message||e)+'\n\nระบบโหลดข้อมูลล่าสุดให้แล้ว เช็คในตารางว่า Void สำเร็จหรือยัง');
+    alertModal('การเชื่อมต่อตอน Void มีปัญหา (Server มักทำงานเสร็จจริงแล้ว): '+(e.message||e)+'\n\nระบบโหลดข้อมูลล่าสุดให้แล้ว เช็คในตารางว่า Void สำเร็จหรือยัง');
   }
 }
 
@@ -2385,8 +2418,8 @@ async function doLogin(){
     if(btn){btn.disabled=false;btn.textContent='เข้าสู่ระบบ';}
   }
 }
-function logout(){
-  if(!confirm('ออกจากระบบ?')) return;
+async function logout(){
+  if(!await confirmModal('ออกจากระบบ?')) return;
   localStorage.removeItem('bakery_session_token');
   localStorage.removeItem('bakery_user_role');
   localStorage.removeItem('bakery_user_display_name');
