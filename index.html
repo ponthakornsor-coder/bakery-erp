@@ -1969,47 +1969,6 @@ function saveGoogleConfig(){db.remote=db.remote||{};db.remote.url=$('gurl').valu
 async function syncOne(rec){if(!db.remote?.url)return; try{await fetch(db.remote.url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'movement',movement:rec})}); rec.synced=true; db.remote.lastSync=now(); save();}catch(e){console.warn(e)}}
 async function syncAll(){if(!db.remote?.url)return toast('ใส่ Apps Script URL ก่อน'); let list=db.mov.filter(x=>!x.synced); if(!list.length)return toast('ไม่มี Movement ค้าง Sync'); for(const r of list){await syncOne(r)} render(); toast('Sync ไป Google Sheets แล้ว')}
 async function pullGoogleForm(){if(!db.remote?.url)return toast('ใส่ Apps Script URL ก่อน'); try{let res=await fetch(db.remote.url+'?action=movements'); let data=await res.json(); let count=0; (data.movements||[]).forEach(r=>{if(db.mov.some(x=>x.id==r.id))return; let mode=(r.mode||'IN').toUpperCase(), type=(r.type||'FG').toUpperCase(), qty=+r.qty||0, sku=r.sku; if(!sku||!qty)return; move(type,sku,mode,qty,r.ref||'GoogleForm',r.remark||'Import from Google Form'); db.mov[db.mov.length-1].id=r.id||db.mov[db.mov.length-1].id; db.mov[db.mov.length-1].synced=true; count++;}); db.remote.lastSync=now(); save(); render(); toast('ดึงข้อมูลจาก Google แล้ว '+count+' รายการ')}catch(e){toast('ดึงข้อมูลไม่ได้: เช็ค URL/สิทธิ์ Deploy')}}
-function showAppsScript(){modal(`<h2>Google Apps Script Code</h2><p class="hint">สร้าง Apps Script ที่ผูกกับ Google Sheet แล้ววาง Code นี้ จากนั้น Deploy เป็น Web App: Execute as Me, Who has access = Anyone with the link</p><textarea style="height:420px;font-family:Consolas,monospace" readonly>${APPS_SCRIPT_CODE.replaceAll('&','&amp;').replaceAll('<','&lt;')}</textarea>`)}
-const APPS_SCRIPT_CODE = `const SS = SpreadsheetApp.getActive();
-function setup(){
-  ['Stock_Movement','Production_Log'].forEach(name=>{ if(!SS.getSheetByName(name)) SS.insertSheet(name); });
-  const sh=SS.getSheetByName('Stock_Movement');
-  if(sh.getLastRow()==0) sh.appendRow(['id','time','type','sku','mode','qty','ref','remark','stock','source']);
-  const po=SS.getSheetByName('Production_Log');
-  if(po.getLastRow()==0) po.appendRow(['id','time','sku','qty','status','start','finish','remark']);
-}
-function doPost(e){
-  setup();
-  const data=JSON.parse(e.postData.contents||'{}');
-  if(data.action==='movement') appendMovement(data.movement,'ERP');
-  if(data.action==='movements') (data.movements||[]).forEach(r=>appendMovement(r,'ERP'));
-  return json({ok:true});
-}
-function doGet(e){
-  setup();
-  const action=e.parameter.action||'';
-  if(action==='movements') return json({ok:true,movements:readAllMovements()});
-  return json({ok:true,message:'Bakery ERP Google Sheet API'});
-}
-function appendMovement(r,source){
-  const sh=SS.getSheetByName('Stock_Movement');
-  sh.appendRow([r.id||Utilities.getUuid(),r.time||new Date(),r.type||'',r.sku||'',r.mode||'',Number(r.qty||0),r.ref||'',r.remark||'',r.stock||'',source||'']);
-}
-function readAllMovements(){
-  let rows=[];
-  ['Stock_Movement','Form Responses 1','Form_Receive'].forEach(name=>{
-    const sh=SS.getSheetByName(name); if(!sh||sh.getLastRow()<2)return;
-    const values=sh.getDataRange().getValues(); const h=values.shift().map(x=>String(x).toLowerCase().trim());
-    values.forEach((v,i)=>{ const get=(names)=>{for(const n of names){let ix=h.indexOf(n); if(ix>=0)return v[ix]} return ''};
-      const sku=get(['sku','skuid','รหัส','รหัสสินค้า']); const qty=get(['qty','quantity','จำนวน']); if(!sku||!qty)return;
-      rows.push({id:get(['id'])||name+'-'+(i+2),time:get(['time','timestamp','เวลา','ประทับเวลา'])||'',type:get(['type','item type','ประเภท'])||'FG',sku,mode:get(['mode','transaction','รับเข้า/ออก','รายการ'])||'IN',qty,ref:get(['ref','reference'])||name,remark:get(['remark','หมายเหตุ'])||''});
-    });
-  });
-  return rows;
-}
-function json(o){return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);}`;
-
-
 function escHTML(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function csvEscape(v){v=String(v??''); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}
 function downloadText(filename, text, mime='text/csv;charset=utf-8'){let a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([text],{type:mime})); a.download=filename; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000);}
