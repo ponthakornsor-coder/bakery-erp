@@ -85,13 +85,13 @@ const ERP_QUERY = new URLSearchParams(window.location.search);
 const VIEWER_ONLY = ERP_QUERY.get('view') === '1' || ERP_QUERY.get('role') === 'viewer';
 const MASTER_SKUS = [];
 const DEFAULT_RM = [];
-const pages=[['dashboard','Dashboard','🏠'],['master','Master Data','🗂️'],['items','สินค้า & สูตร','📦'],['rm','วัตถุดิบ','🧺'],['stockops','จัดการสต๊อก','↕️'],['fglog','Production Log FG','📋'],['prodrecord','บันทึกผลผลิต','📝'],['packing','แพ็คสินค้า','📮'],['trxhistory','Transaction / ประวัติ','🏦'],['prodsummary','สรุปผลผลิต','📊'],['shipcheck','เช็ค Stock พอส่ง / ขายออก','🛒'],['importorders','นำเข้า Order TikTok','📥'],['prod','สั่งผลิต','⚙️'],['orders','Order / ส่งของ','🚚'],['bom','BOM / สูตร','🧮'],['suppliers','ซัพพลายเออร์','🚚'],['rmlots','รับเข้า Lot วัตถุดิบ','📥'],['voidapproval','อนุมัติ Void','✅',true],['users','จัดการ User','👥',true],['settings','ตั้งค่า','⚙️']];
+const pages=[['dashboard','Dashboard','🏠'],['master','Master Data','🗂️'],['items','สินค้า & สูตร','📦'],['rm','วัตถุดิบ','🧺'],['stockops','จัดการสต๊อก','↕️'],['fglog','Production Log FG','📋'],['prodrecord','บันทึกผลผลิต','📝'],['packing','แพ็คสินค้า','📮'],['trxhistory','Transaction / ประวัติ','🏦'],['prodsummary','สรุปผลผลิต','📊'],['shipcheck','เช็ค Stock พอส่ง / ขายออก','🛒'],['importorders','นำเข้า Order TikTok','📥'],['prod','สั่งผลิต','⚙️'],['orders','Order / ส่งของ','🚚'],['boothship','ส่งของไปบูธ','🏪'],['bom','BOM / สูตร','🧮'],['suppliers','ซัพพลายเออร์','🚚'],['rmlots','รับเข้า Lot วัตถุดิบ','📥'],['voidapproval','อนุมัติ Void','✅',true],['users','จัดการ User','👥',true],['settings','ตั้งค่า','⚙️']];
 const pageGroups=[
   {label:'ภาพรวม',ids:['dashboard']},
   {label:'🏭 การผลิต',ids:['prod','prodrecord','packing','fglog','prodsummary','bom']},
   {label:'📦 คลังสินค้า',ids:['items','rm','stockops']},
   {label:'🛍️ จัดซื้อ',ids:['suppliers','rmlots']},
-  {label:'🛒 การขาย',ids:['shipcheck','importorders','orders']},
+  {label:'🛒 การขาย',ids:['shipcheck','importorders','orders','boothship']},
   {label:'⚙️ ระบบ/ผู้ดูแล',ids:['master','trxhistory','voidapproval','users','settings']}
 ];
 const now=()=>new Date().toLocaleString('th-TH');
@@ -784,7 +784,7 @@ function updateTopbar(){
     if(n>0){ badge.textContent=n>99?'99+':n; badge.style.display='flex'; } else badge.style.display='none';
   }
 }
-function render(){try{nav(); if(isOperator() && !OPERATOR_PAGES_.includes(page)){ page='prodrecord'; nav(); } const m=$('main'); if(page=='dashboard') return dash(m); if(page=='master') return masterData(m); if(page=='items') return items(m); if(page=='rm') return rm(m); if(page=='stockops') return stockOpsPage(m); if(page=='fglog') return fgLogPage(m); if(page=='prodrecord') return productionRecordPage(m); if(page=='trxhistory') return trxHistPage(m); if(page=='prodsummary') return productionSummaryPage(m); if(page=='shipcheck') return shipCheckPage(m); if(page=='prod') return prod(m); if(page=='orders') return ordersPage(m); if(page=='bom') return bom(m); if(page=='packing') return packingPage(m); if(page=='importorders') return importOrdersPage(m); if(page=='suppliers') return suppliersPage(m); if(page=='rmlots') return rmLotsPage(m); if(page=='voidapproval') return voidApprovalPage(m); if(page=='users') return userManagementPage(m); if(page=='settings') return settings(m); return dash(m);}catch(e){console.error(e); $('main').innerHTML='<h1>เกิด Error</h1><div class="box"><b>'+String(e.message||e)+'</b><p class="hint">กด Settings → Reset หรือส่งรูปหน้านี้มาให้ผมดู</p><button class="primary" onclick="localStorage.removeItem(\'bakery_erp_v6_1\');location.reload()">Reset ข้อมูลใน Browser</button></div>';}}
+function render(){try{nav(); if(isOperator() && !OPERATOR_PAGES_.includes(page)){ page='prodrecord'; nav(); } const m=$('main'); if(page=='dashboard') return dash(m); if(page=='master') return masterData(m); if(page=='items') return items(m); if(page=='rm') return rm(m); if(page=='stockops') return stockOpsPage(m); if(page=='fglog') return fgLogPage(m); if(page=='prodrecord') return productionRecordPage(m); if(page=='trxhistory') return trxHistPage(m); if(page=='prodsummary') return productionSummaryPage(m); if(page=='shipcheck') return shipCheckPage(m); if(page=='prod') return prod(m); if(page=='orders') return ordersPage(m); if(page=='boothship') return boothShipPage(m); if(page=='bom') return bom(m); if(page=='packing') return packingPage(m); if(page=='importorders') return importOrdersPage(m); if(page=='suppliers') return suppliersPage(m); if(page=='rmlots') return rmLotsPage(m); if(page=='voidapproval') return voidApprovalPage(m); if(page=='users') return userManagementPage(m); if(page=='settings') return settings(m); return dash(m);}catch(e){console.error(e); $('main').innerHTML='<h1>เกิด Error</h1><div class="box"><b>'+String(e.message||e)+'</b><p class="hint">กด Settings → Reset หรือส่งรูปหน้านี้มาให้ผมดู</p><button class="primary" onclick="localStorage.removeItem(\'bakery_erp_v6_1\');location.reload()">Reset ข้อมูลใน Browser</button></div>';}}
 function head(t,h=''){return `<h1>${t}</h1><div class="hint">${h}</div>`}
 function todayISO(){
   const d=new Date();
@@ -1628,6 +1628,62 @@ async function receiveRMLotAction(){
     page='rmlots'; render();
     sheetDone(res?.message||'รับเข้า Lot เรียบร้อยแล้ว');
   }catch(e){console.error(e); alertModal('รับเข้าไม่สำเร็จ: '+(e.message||e));}
+}
+function boothShipPage(m){
+  const q=($('bshQ')?.value||'').toLowerCase();
+  let list=db.items.filter(x=>matchesProdFilter('boothship',x.product) && (!q||(x.sku+' '+x.name).toLowerCase().includes(q)));
+  const boothNames=[...new Set((db.boothShipment||[]).map(x=>x.Booth).filter(Boolean))].sort();
+  m.innerHTML=head('ส่งของไปบูธ','เลือกสินค้าที่จะส่งไปบูธ ระบบคำนวณมูลค่า (ราคาขาย × จำนวน — มูลค่าของที่โอนไป ไม่ใช่ยอดขายจริง) ให้อัตโนมัติ และตัด Stock ทันที')+
+  `<div class="toolbar"><div class="row3">
+    <input id="bshBooth" list="boothNameList" placeholder="ชื่อบูธ">
+    <datalist id="boothNameList">${boothNames.map(b=>`<option value="${escHTML(b)}">`).join('')}</datalist>
+    <input id="bshDate" type="date" value="${todayISO()}">
+  </div>
+  <div class="row3" style="margin-top:10px"><input id="bshQty" type="number" placeholder="ใส่จำนวนเดียวกันทุก SKU ที่ติ๊ก"><input id="bshQ" oninput="rerenderKeepFocus(()=>boothShipPage($('main')))" placeholder="ค้นหา SKU / ชื่อ"><button class="ghost" onclick="fillCheckedBoothShipQty()">เติมจำนวนให้รายการที่ติ๊ก</button></div>
+  ${productChipsHTML('boothship','boothShipPageRerender')}
+  </div>`+
+  `<div class="box">${boothShipTable(list)}<div class="row" style="margin-top:14px;justify-content:space-between;align-items:center"><b>มูลค่ารวมที่เลือก: ฿<span id="bshTotalValue">0</span></b><button class="primary" onclick="saveBoothShipment()">ส่งของ + ตัด Stock ทันที</button></div></div>`+
+  `<div class="box"><h2>ประวัติส่งของไปบูธ</h2>${boothShipHistoryTable()}</div>`;
+}
+function boothShipPageRerender(){ boothShipPage($('main')); }
+function boothShipTable(list){
+  if(!list.length) return '<p class="hint">ไม่มีรายการ</p>';
+  return `<table id="bshTable"><tr><th style="width:40px"><input type="checkbox" onchange="toggleAllBoothShip(this.checked)" style="width:20px;height:20px"></th><th>SKU</th><th>ชื่อ</th><th>คงคลัง</th><th>ราคาขาย</th><th>จำนวนที่ส่ง</th><th>มูลค่า</th></tr>${list.map(x=>`<tr><td><input type="checkbox" class="bshChk" data-sku="${x.sku}" onchange="toggleBoothShipQty('${x.sku}')" style="width:20px;height:20px"></td><td><b>${x.sku}</b></td><td>${escHTML(x.name)}</td><td>${roundDisplay(x.stock||0)}</td><td>฿${roundNum(x.price||0)}</td><td><input id="bshqty_${x.sku}" class="bshQtyInput" type="number" min="0" placeholder="0" oninput="updateBoothShipRowValue('${x.sku}',${+x.price||0})" onkeydown="gridKeyNav(event,this)"></td><td id="bshval_${x.sku}">฿0</td></tr>`).join('')}</table>`;
+}
+function toggleAllBoothShip(checked){document.querySelectorAll('.bshChk').forEach(c=>{let row=c.closest('tr'); if(row && row.style.display=='none') return; c.checked=checked; toggleBoothShipQty(c.dataset.sku);});}
+function toggleBoothShipQty(sku){let q=$('bshqty_'+sku), chk=document.querySelector(`.bshChk[data-sku="${sku}"]`); if(chk?.checked && !q.value){ q.value=$('bshQty')?.value||1; q.dispatchEvent(new Event('input')); } }
+function fillCheckedBoothShipQty(){let v=+$('bshQty').value||0; if(!v)return toast('ใส่จำนวนก่อน'); document.querySelectorAll('.bshChk:checked').forEach(c=>{const inp=$('bshqty_'+c.dataset.sku); inp.value=v; inp.dispatchEvent(new Event('input'));});}
+function updateBoothShipRowValue(sku,price){
+  const qty=+$('bshqty_'+sku)?.value||0;
+  const val=qty*price;
+  const cell=$('bshval_'+sku); if(cell) cell.textContent='฿'+roundNum(val);
+  let total=0;
+  document.querySelectorAll('.bshChk:checked').forEach(c=>{
+    const q2=+$('bshqty_'+c.dataset.sku)?.value||0;
+    const it=db.items.find(x=>x.sku===c.dataset.sku);
+    total+=q2*(+it?.price||0);
+  });
+  const totalEl=$('bshTotalValue'); if(totalEl) totalEl.textContent=roundNum(total);
+}
+async function saveBoothShipment(){
+  const booth=($('bshBooth')?.value||'').trim();
+  const date=$('bshDate')?.value||todayISO();
+  if(!booth) return toast('ใส่ชื่อบูธก่อน');
+  const rows=[...document.querySelectorAll('.bshChk:checked')].map(c=>({sku:c.dataset.sku,qty:+$('bshqty_'+c.dataset.sku)?.value||0})).filter(x=>x.qty>0);
+  if(!rows.length) return toast('ติ๊ก SKU และใส่จำนวนก่อน');
+  if(!await confirmModal('ส่งของไปบูธ "'+booth+'" '+rows.length+' รายการ วันที่ '+date+'?\nระบบจะตัด Stock ทันที')) return;
+  toast('กำลังบันทึกส่งของไปบูธ...');
+  try{
+    const res=await apiPost({action:'boothshipment',data:{booth,date,rows}});
+    await loadFromGoogleSheet();
+    page='boothship'; render();
+    sheetDone(res?.message||'ส่งของไปบูธเรียบร้อยแล้ว');
+  }catch(e){console.error(e); alertModal('ส่งของไม่สำเร็จ: '+(e.message||e));}
+}
+function boothShipHistoryTable(){
+  const rows=(db.boothShipment||[]).slice().sort((a,b)=>trxSortKey(b.Date||b.UpdatedAt)-trxSortKey(a.Date||a.UpdatedAt)).slice(0,50);
+  if(!rows.length) return '<p class="hint">ยังไม่มีประวัติส่งของไปบูธ</p>';
+  return `<table><tr><th>วันที่</th><th>บูธ</th><th>SKU</th><th>ชื่อ</th><th>จำนวน</th><th>ราคา/หน่วย</th><th>มูลค่า</th><th>หมายเหตุ</th></tr>${rows.map(r=>`<tr><td>${r.Date||''}</td><td>${escHTML(r.Booth||'')}</td><td><b>${r.SKU||''}</b></td><td>${escHTML(itemName(r.SKU))}</td><td>${roundDisplay(r.Qty||0)}</td><td>฿${roundNum(r.UnitPrice||0)}</td><td>฿${roundNum(r.Value||0)}</td><td>${escHTML(r.Remark||'')}</td></tr>`).join('')}</table>`;
 }
 function packingPage(m){
   const q=($('packQ')?.value||'').toLowerCase();
