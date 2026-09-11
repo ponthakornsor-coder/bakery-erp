@@ -85,14 +85,14 @@ const ERP_QUERY = new URLSearchParams(window.location.search);
 const VIEWER_ONLY = ERP_QUERY.get('view') === '1' || ERP_QUERY.get('role') === 'viewer';
 const MASTER_SKUS = [];
 const DEFAULT_RM = [];
-const pages=[['dashboard','Dashboard','🏠'],['master','Master Data','🗂️'],['items','สินค้า & สูตร','📦'],['rm','วัตถุดิบ','🧺'],['stockops','จัดการสต๊อก','↕️'],['fglog','Production Log FG','📋'],['prodrecord','บันทึกผลผลิต','📝'],['packing','แพ็คสินค้า','📮'],['trxhistory','Transaction / ประวัติ','🏦'],['prodsummary','สรุปผลผลิต','📊'],['shipcheck','เช็ค Stock พอส่ง / ขายออก','🛒'],['importorders','นำเข้า Order TikTok','📥'],['prod','สั่งผลิต','⚙️'],['orders','Order / ส่งของ','🚚'],['boothship','ส่งของไปบูธ','🏪'],['bom','BOM / สูตร','🧮'],['suppliers','ซัพพลายเออร์','🚚'],['rmlots','รับเข้า Lot วัตถุดิบ','📥'],['voidapproval','อนุมัติ Void','✅',true],['users','จัดการ User','👥',true],['settings','ตั้งค่า','⚙️']];
+const pages=[['dashboard','Dashboard','🏠'],['master','Master Data','🗂️'],['items','สินค้า & สูตร','📦'],['rm','วัตถุดิบ','🧺'],['stockops','จัดการสต๊อก','↕️'],['fglog','Production Log FG','📋'],['prodrecord','บันทึกผลผลิต','📝'],['packing','แพ็คสินค้า','📮'],['trxhistory','Transaction / ประวัติ','🏦'],['prodsummary','สรุปผลผลิต','📊'],['shipcheck','เช็ค Stock พอส่ง / ขายออก','🛒'],['importorders','นำเข้า Order TikTok','📥'],['prod','สั่งผลิต','⚙️'],['autoproduction','สั่งผลิตอัตโนมัติ','🤖',true],['orders','Order / ส่งของ','🚚'],['boothship','ส่งของไปบูธ','🏪'],['bom','BOM / สูตร','🧮'],['suppliers','ซัพพลายเออร์','🚚'],['rmlots','รับเข้า Lot วัตถุดิบ','📥'],['purchasing','จัดซื้อ / รับของเข้า','🛒'],['stations','จัดการ Station / Tablet','📟',true],['voidapproval','อนุมัติ Void','✅',true],['users','จัดการ User','👥',true],['settings','ตั้งค่า','⚙️']];
 const pageGroups=[
   {label:'ภาพรวม',ids:['dashboard']},
-  {label:'🏭 การผลิต',ids:['prod','prodrecord','packing','fglog','prodsummary','bom']},
+  {label:'🏭 การผลิต',ids:['prod','autoproduction','prodrecord','packing','fglog','prodsummary','bom']},
   {label:'📦 คลังสินค้า',ids:['items','rm','stockops']},
-  {label:'🛍️ จัดซื้อ',ids:['suppliers','rmlots']},
+  {label:'🛍️ จัดซื้อ',ids:['suppliers','rmlots','purchasing']},
   {label:'🛒 การขาย',ids:['shipcheck','importorders','orders','boothship']},
-  {label:'⚙️ ระบบ/ผู้ดูแล',ids:['master','trxhistory','voidapproval','users','settings']}
+  {label:'⚙️ ระบบ/ผู้ดูแล',ids:['master','trxhistory','voidapproval','users','stations','settings']}
 ];
 const now=()=>new Date().toLocaleString('th-TH');
 
@@ -676,6 +676,10 @@ function scheduleAutoPush(){
 const EMBEDDED_FG_LOG = [{"id": "FG-1", "timestamp": "2026-06-28 14:56:20", "sku": "TEST", "product": "⭐ Special", "qty": 500.0, "expiry": "2026-09-28", "operator": "Rin", "remark": "WASTETEST", "photo": "https://drive.google.com/open?id=1d4AbHZrJ9JfdmSZ846wih6L6_mhOJiyj", "mfgDate": "28/06/2026", "mfgTime": "14:56:23", "day": "วันอาทิตย์", "source": "Uploaded Production Log"}];
 let db=load(); let page='dashboard';
 let stockOpsTab='inout';   // 'inout' | 'cycle'
+let purchasingTab='po';    // 'po' | 'receive'
+let poDraftLines=[{rmCode:'',qty:'',price:''}];        // draft lines for create-PO form
+let grDraftLines=[{rmCode:'',qty:'',price:''}];        // draft lines for receive-goods form
+let grLinkedPO='';                                     // selected PO for receiving
 let trxHistTab='trx';      // 'trx' | 'history'
 function load(){
   // v9.32 fix: เดิมโหลดข้อมูลจาก localStorage ก่อนเสมอ (ถ้ามี) ทำให้บางครั้งเห็นข้อมูลเก่า/ค้าง
@@ -784,7 +788,7 @@ function updateTopbar(){
     if(n>0){ badge.textContent=n>99?'99+':n; badge.style.display='flex'; } else badge.style.display='none';
   }
 }
-function render(){try{nav(); if(isOperator() && !OPERATOR_PAGES_.includes(page)){ page='prodrecord'; nav(); } const m=$('main'); if(page=='dashboard') return dash(m); if(page=='master') return masterData(m); if(page=='items') return items(m); if(page=='rm') return rm(m); if(page=='stockops') return stockOpsPage(m); if(page=='fglog') return fgLogPage(m); if(page=='prodrecord') return productionRecordPage(m); if(page=='trxhistory') return trxHistPage(m); if(page=='prodsummary') return productionSummaryPage(m); if(page=='shipcheck') return shipCheckPage(m); if(page=='prod') return prod(m); if(page=='orders') return ordersPage(m); if(page=='boothship') return boothShipPage(m); if(page=='bom') return bom(m); if(page=='packing') return packingPage(m); if(page=='importorders') return importOrdersPage(m); if(page=='suppliers') return suppliersPage(m); if(page=='rmlots') return rmLotsPage(m); if(page=='voidapproval') return voidApprovalPage(m); if(page=='users') return userManagementPage(m); if(page=='settings') return settings(m); return dash(m);}catch(e){console.error(e); $('main').innerHTML='<h1>เกิด Error</h1><div class="box"><b>'+String(e.message||e)+'</b><p class="hint">กด Settings → Reset หรือส่งรูปหน้านี้มาให้ผมดู</p><button class="primary" onclick="localStorage.removeItem(\'bakery_erp_v6_1\');location.reload()">Reset ข้อมูลใน Browser</button></div>';}}
+function render(){try{nav(); if(isOperator() && !OPERATOR_PAGES_.includes(page)){ page='prodrecord'; nav(); } const m=$('main'); if(page=='dashboard') return dash(m); if(page=='master') return masterData(m); if(page=='items') return items(m); if(page=='rm') return rm(m); if(page=='stockops') return stockOpsPage(m); if(page=='fglog') return fgLogPage(m); if(page=='prodrecord') return productionRecordPage(m); if(page=='trxhistory') return trxHistPage(m); if(page=='prodsummary') return productionSummaryPage(m); if(page=='shipcheck') return shipCheckPage(m); if(page=='prod') return prod(m); if(page=='orders') return ordersPage(m); if(page=='boothship') return boothShipPage(m); if(page=='bom') return bom(m); if(page=='packing') return packingPage(m); if(page=='importorders') return importOrdersPage(m); if(page=='suppliers') return suppliersPage(m); if(page=='rmlots') return rmLotsPage(m); if(page=='purchasing') return purchasingPage(m); if(page=='stations') return stationsPage(m); if(page=='autoproduction') return autoProductionPage(m); if(page=='voidapproval') return voidApprovalPage(m); if(page=='users') return userManagementPage(m); if(page=='settings') return settings(m); return dash(m);}catch(e){console.error(e); $('main').innerHTML='<h1>เกิด Error</h1><div class="box"><b>'+String(e.message||e)+'</b><p class="hint">กด Settings → Reset หรือส่งรูปหน้านี้มาให้ผมดู</p><button class="primary" onclick="localStorage.removeItem(\'bakery_erp_v6_1\');location.reload()">Reset ข้อมูลใน Browser</button></div>';}}
 function head(t,h=''){return `<h1>${t}</h1><div class="hint">${h}</div>`}
 function todayISO(){
   const d=new Date();
@@ -1589,6 +1593,105 @@ async function setSupplierStatusAction(supplierId,status){
     sheetDone('อัปเดตแล้ว');
   }catch(e){console.error(e); alertModal('อัปเดตไม่สำเร็จ: '+(e.message||e));}
 }
+/* === v9.95: Station / Kiosk Tablet management ===
+ * แต่ละ Station = จุดผลิต/Tablet 1 เครื่อง มี Token ลับของตัวเอง (ไม่โชว์ในตารางปกติ ต้องกด "คัดลอกลิงก์
+ * Kiosk" ถึงจะไปขอ Token จาก Server มาสร้างลิงก์ให้ครั้งเดียว) เอาลิงก์นั้นไปเปิดค้างไว้ในเบราว์เซอร์ของ
+ * Tablet ที่ station นั้น ไม่ต้อง login ทุกครั้ง เพราะ Token ผูกกับ Station ไม่ใช่ผูกกับ user คนใดคนหนึ่ง
+ */
+function stationsPage(m){
+  const stations=(db.stations||[]).slice().sort((a,b)=>a.name.localeCompare(b.name));
+  m.innerHTML=head('จัดการ Station / Tablet','ตั้งจุดผลิตแต่ละจุด แล้วคัดลอกลิงก์ไปเปิดค้างไว้ที่ Tablet ประจำจุดนั้น')+
+  `<div class="box"><h2>เพิ่ม Station ใหม่</h2><div class="row2"><input id="newStationName" placeholder="ชื่อจุดผลิต เช่น สถานีอบ 1"><span></span><span></span><button class="primary" onclick="addStationAction()">เพิ่ม</button></div></div>`+
+  `<div class="box"><h2>รายชื่อ Station (${stations.length})</h2>${stations.length?`<table><tr><th>ชื่อ</th><th>สถานะ</th><th></th></tr>${stations.map(s=>`<tr><td><b>${escHTML(s.name)}</b></td><td>${genericStatusPill(s.status)}</td><td class="actions"><button class="small" onclick="copyKioskLink('${s.id}')">📋 คัดลอกลิงก์ Kiosk</button> ${s.status==='Active'?`<button class="small danger" onclick="setStationStatusAction('${s.id}','Disabled')">ปิดใช้งาน</button>`:`<button class="small" onclick="setStationStatusAction('${s.id}','Active')">เปิดใช้งาน</button>`}</td></tr>`).join('')}</table>`:'<p class="hint">ยังไม่มี Station เพิ่มก่อนเลยครับ</p>'}</div>`+
+  `<div class="box"><h2>วิธีตั้ง Tablet ที่ Station</h2><p class="hint">1. กด "คัดลอกลิงก์ Kiosk" ของ Station ที่ต้องการ<br>2. เปิดลิงก์นั้นในเบราว์เซอร์ของ Tablet เครื่องนั้น (Chrome แนะนำ)<br>3. ที่ตัว Tablet: Settings → Display → Screen timeout ตั้งเป็นนานสุด/ไม่มีวันหมดเวลา แล้วเสียบสายชาร์จทิ้งไว้ตลอด กันจอดับ<br>4. หน้า Kiosk จะขึ้นปุ่ม "เริ่มใช้งาน Kiosk" ให้กดครั้งแรกเพื่อปลดล็อกเสียงแจ้งเตือน จากนั้นจะทำงานเองตลอด ไม่ต้องแตะอีก</p></div>`;
+}
+async function addStationAction(){
+  const name=($('newStationName')?.value||'').trim();
+  if(!name) return toast('กรอกชื่อ Station ก่อน');
+  toast('กำลังเพิ่ม Station...');
+  try{
+    await apiPost({action:'addstation',data:{name}});
+    await loadFromGoogleSheet();
+    page='stations'; render();
+    sheetDone('เพิ่ม Station '+name+' แล้ว');
+  }catch(e){console.error(e); alertModal('เพิ่มไม่สำเร็จ: '+(e.message||e));}
+}
+async function setStationStatusAction(stationId,status){
+  if(!await confirmModal((status==='Active'?'เปิด':'ปิด')+'ใช้งาน Station นี้? (ปิดแล้ว Tablet ของ Station นี้จะดึงงานไม่ได้จนกว่าจะเปิดใหม่)'))return;
+  toast('กำลังอัปเดต...');
+  try{
+    await apiPost({action:'setstationstatus',stationId,status});
+    await loadFromGoogleSheet();
+    page='stations'; render();
+    sheetDone('อัปเดตแล้ว');
+  }catch(e){console.error(e); alertModal('อัปเดตไม่สำเร็จ: '+(e.message||e));}
+}
+async function copyKioskLink(stationId){
+  toast('กำลังขอลิงก์...');
+  try{
+    const res=await apiPost({action:'getstationtoken',stationId});
+    const url=new URL(location.href);
+    url.search='';
+    url.searchParams.set('kiosk','1');
+    url.searchParams.set('station',stationId);
+    url.searchParams.set('token',res.token);
+    if(apiKey) url.searchParams.set('key',apiKey);
+    const link=url.toString();
+    try{
+      await navigator.clipboard.writeText(link);
+      sheetDone('คัดลอกลิงก์แล้ว เอาไปเปิดที่ Tablet ของ Station นี้ได้เลย');
+    }catch(copyErr){
+      await promptModal('คัดลอกอัตโนมัติไม่ได้ (เบราว์เซอร์นี้ไม่อนุญาต) คัดลอกด้วยมือจากช่องนี้แทน:',link);
+    }
+  }catch(e){console.error(e); alertModal('ขอลิงก์ไม่สำเร็จ: '+(e.message||e));}
+}
+
+/* === v9.95: สั่งผลิตอัตโนมัติ — เทียบ Stock กับ Min Stock (คำนวณฝั่ง browser จาก db.items ที่โหลดมาแล้ว
+ * ไม่ต้องเรียก API เพิ่มสำหรับส่วนคำนวณ) แล้วให้ Admin เลือก Station + ปรับจำนวนก่อนยืนยันจริงเสมอ
+ * ไม่มีการสร้าง Production Order อัตโนมัติโดยไม่มีคนเห็นก่อน — กดยืนยันเท่านั้นถึงจะเข้าคิว Kiosk จริง
+ */
+function autoProductionSuggestions(){
+  return (db.items||[])
+    .filter(x=>String(x.status||'Active')==='Active')
+    .map(x=>{
+      const stock=+x.stock||0;
+      const min=x.min!==undefined&&x.min!==null&&x.min!==''?+x.min:5;
+      if(stock>min) return null;
+      const suggestedQty=Math.max(1,Math.round(min*2-stock));
+      return {sku:x.sku,name:x.name,stock,min,suggestedQty};
+    })
+    .filter(Boolean)
+    .sort((a,b)=>(a.stock-a.min)-(b.stock-b.min));
+}
+function autoProductionPage(m){
+  const rows=autoProductionSuggestions();
+  const stations=(db.stations||[]).filter(s=>s.status==='Active').sort((a,b)=>a.name.localeCompare(b.name));
+  m.innerHTML=head('สั่งผลิตอัตโนมัติ','เทียบ Stock สินค้ากับ Min Stock ที่ตั้งไว้ — รายการที่ต่ำกว่าจะขึ้นให้เลือก Station แล้วกดยืนยันสั่งผลิตได้เลย')+
+  (stations.length?'':'<div class="box"><p class="hint">⚠️ ยังไม่มี Station ที่เปิดใช้งานอยู่ ต้องไปเพิ่มที่หน้า "จัดการ Station / Tablet" ก่อน ถึงจะเลือกส่งงานได้</p></div>')+
+  `<div class="box">${rows.length?`<table><tr><th><input type="checkbox" onclick="document.querySelectorAll('.apChk').forEach(c=>c.checked=this.checked)"></th><th>สินค้า</th><th>Stock</th><th>Min</th><th>จำนวนที่จะสั่งผลิต</th><th>ส่งไป Station</th></tr>${rows.map(r=>`<tr><td><input type="checkbox" class="apChk" data-sku="${escHTML(r.sku)}" checked></td><td><b>${escHTML(r.sku)}</b><br><span class="mini">${escHTML(r.name)}</span></td><td><b class="danger">${roundDisplay(r.stock)}</b></td><td>${roundDisplay(r.min)}</td><td><input type="number" min="1" class="apQty" id="apQty_${escHTML(r.sku)}" value="${r.suggestedQty}" style="width:110px"></td><td><select class="apStation" id="apStation_${escHTML(r.sku)}"><option value="">-- เลือก Station --</option>${stations.map(s=>`<option value="${s.id}">${escHTML(s.name)}</option>`).join('')}</select></td></tr>`).join('')}</table><div style="margin-top:16px"><button class="primary" onclick="confirmAutoProductionAction()">✅ ยืนยันสั่งผลิตรายการที่ติ๊กไว้</button></div>`:'<p class="hint">✅ ตอนนี้สินค้าทุกตัวยังมี Stock สูงกว่า Min Stock อยู่ ไม่มีอะไรต้องสั่งผลิตเพิ่ม</p>'}</div>`;
+}
+async function confirmAutoProductionAction(){
+  const checked=[...document.querySelectorAll('.apChk:checked')];
+  if(!checked.length) return toast('ติ๊กรายการที่จะสั่งผลิตก่อน');
+  const items=[];
+  for(const c of checked){
+    const sku=c.dataset.sku;
+    const qty=+($('apQty_'+sku)?.value||0);
+    const stationId=$('apStation_'+sku)?.value||'';
+    if(!qty||qty<=0) return toast('ใส่จำนวนของ '+sku+' ให้ถูกต้องก่อน');
+    if(!stationId) return toast('เลือก Station ให้ '+sku+' ก่อน');
+    items.push({sku,qty,stationId,remark:'สั่งผลิตอัตโนมัติ (Stock ต่ำกว่า Min)'});
+  }
+  if(!await confirmModal('ยืนยันสั่งผลิต '+items.length+' รายการ และส่งเข้าคิว Tablet ที่เลือกไว้ทันที?'))return;
+  toast('กำลังสั่งผลิต...');
+  try{
+    await apiPost({action:'confirmautoproduction',data:{items}});
+    await loadFromGoogleSheet();
+    page='autoproduction'; render();
+    sheetDone('สั่งผลิต '+items.length+' รายการแล้ว ส่งเข้าคิว Tablet เรียบร้อย');
+  }catch(e){console.error(e); alertModal('สั่งผลิตไม่สำเร็จ: '+(e.message||e));}
+}
+
 function rmLotExpiryInfo(l){
   if(!l.expiryDate) return null;
   const days=Math.floor((new Date(l.expiryDate)-new Date(todayISO()))/86400000);
@@ -1684,6 +1787,185 @@ function boothShipHistoryTable(){
   const rows=(db.boothShipment||[]).slice().sort((a,b)=>trxSortKey(b.Date||b.UpdatedAt)-trxSortKey(a.Date||a.UpdatedAt)).slice(0,50);
   if(!rows.length) return '<p class="hint">ยังไม่มีประวัติส่งของไปบูธ</p>';
   return `<table><tr><th>วันที่</th><th>บูธ</th><th>SKU</th><th>ชื่อ</th><th>จำนวน</th><th>ราคา/หน่วย</th><th>มูลค่า</th><th>หมายเหตุ</th></tr>${rows.map(r=>`<tr><td>${r.Date||''}</td><td>${escHTML(r.Booth||'')}</td><td><b>${r.SKU||''}</b></td><td>${escHTML(itemName(r.SKU))}</td><td>${roundDisplay(r.Qty||0)}</td><td>฿${roundNum(r.UnitPrice||0)}</td><td>฿${roundNum(r.Value||0)}</td><td>${escHTML(r.Remark||'')}</td></tr>`).join('')}</table>`;
+}
+/* === จัดซื้อ / รับของเข้า วัตถุดิบ (Purchase Order + Goods Receipt) === */
+function purchasingPage(m){
+  m.innerHTML=head('จัดซื้อ / รับของเข้า','บันทึกใบสั่งซื้อวัตถุดิบ/ของใช้ และรับของเข้าคลัง — เทียบได้ว่าสั่งอะไรไปแล้วรับครบหรือยัง พร้อมเตือนเมื่อสั่งซ้ำภายใน 6 วัน')+
+    `<div class="row3" style="margin-bottom:14px">
+      <button class="chip ${purchasingTab==='po'?'active':''}" onclick="purchasingTab='po';purchasingPage($('main'))">📝 ใบสั่งซื้อ</button>
+      <button class="chip ${purchasingTab==='receive'?'active':''}" onclick="purchasingTab='receive';purchasingPage($('main'))">📥 รับของเข้า</button>
+    </div><div id="purchasingBody"></div>`;
+  if(purchasingTab==='receive') grTabRender(); else poTabRender();
+}
+function _pcSupplierList(){
+  const a=(db.suppliers||[]).map(s=>s.name).filter(Boolean);
+  const b=(db.purchaseOrder||[]).map(p=>p.supplier).filter(Boolean);
+  return [...new Set([...a,...b])].sort();
+}
+function _pcRmSelect(id,sel){
+  return `<select id="${id}"><option value="">-- เลือกวัตถุดิบ --</option>${rmOptions(sel||'')}</select>`;
+}
+/* ---------- Tab: ใบสั่งซื้อ ---------- */
+function _pcReadPoLines(){
+  poDraftLines=poDraftLines.map((_,i)=>({
+    rmCode:$('poLine_'+i+'_rm')?.value||'',
+    qty:$('poLine_'+i+'_qty')?.value||'',
+    price:$('poLine_'+i+'_price')?.value||''
+  }));
+}
+function poAddLine(){ _pcReadPoLines(); poDraftLines.push({rmCode:'',qty:'',price:''}); poTabRender(); }
+function poDelLine(i){ _pcReadPoLines(); poDraftLines.splice(i,1); if(!poDraftLines.length) poDraftLines=[{rmCode:'',qty:'',price:''}]; poTabRender(); }
+function poTabRender(){
+  const b=$('purchasingBody'); if(!b) return;
+  const suppliers=_pcSupplierList();
+  const linesHTML=poDraftLines.map((ln,i)=>`<tr>
+    <td>${_pcRmSelect('poLine_'+i+'_rm',ln.rmCode)}</td>
+    <td><input id="poLine_${i}_qty" type="number" min="0" step="any" value="${escHTML(ln.qty)}" placeholder="จำนวน" style="width:110px"></td>
+    <td><input id="poLine_${i}_price" type="number" min="0" step="any" value="${escHTML(ln.price)}" placeholder="ราคา/หน่วย" style="width:120px"></td>
+    <td><button class="small" onclick="poDelLine(${i})">ลบ</button></td>
+  </tr>`).join('');
+  b.innerHTML=`<div class="box"><h2>สร้างใบสั่งซื้อ</h2>
+    <div class="row3">
+      <input id="poSupplier" list="poSupplierList" placeholder="ซัพพลายเออร์ / ร้าน (เช่น Makro)">
+      <datalist id="poSupplierList">${suppliers.map(s=>`<option value="${escHTML(s)}">`).join('')}</datalist>
+      <input id="poOrderDate" type="date" value="${todayISO()}">
+      <input id="poRemark" placeholder="หมายเหตุ (ไม่บังคับ)">
+    </div>
+    <table style="margin-top:12px"><tr><th>วัตถุดิบ</th><th>จำนวนสั่ง</th><th>ราคา/หน่วย</th><th></th></tr>${linesHTML}</table>
+    <div class="row" style="margin-top:10px"><button class="ghost" onclick="poAddLine()">+ เพิ่มไลน์</button><button class="primary" onclick="submitPurchaseOrder()">บันทึกใบสั่งซื้อ</button></div>
+  </div>
+  <div class="box"><h2>ใบสั่งซื้อทั้งหมด (${(db.purchaseOrder||[]).length})</h2>${poListHTML()}</div>`;
+}
+function poListHTML(){
+  const pos=(db.purchaseOrder||[]).slice().sort((a,b)=>trxSortKey(b.orderDate)-trxSortKey(a.orderDate));
+  if(!pos.length) return '<p class="hint">ยังไม่มีใบสั่งซื้อ</p>';
+  return pos.map(p=>{
+    const items=(db.purchaseOrderItems||[]).filter(x=>x.po===p.po);
+    const rows=items.map(it=>{
+      const remain=Math.max(0,(+it.orderQty||0)-(+it.receivedQty||0));
+      return `<tr><td><b>${escHTML(it.rmCode)}</b> <span class="mini">${escHTML(itemName(it.rmCode))}</span></td><td>${roundDisplay(it.orderQty)}</td><td>${roundDisplay(it.receivedQty)}</td><td><b class="${remain>0?'danger':''}">${roundDisplay(remain)}</b></td><td>฿${roundNum(it.unitPrice||0)}</td></tr>`;
+    }).join('');
+    return `<div style="border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:10px">
+      <div class="row" style="justify-content:space-between;align-items:center"><b>${escHTML(p.po)}</b> ${genericStatusPill(p.status)}</div>
+      <div class="mini">${escHTML(p.supplier||'-')} · สั่งเมื่อ ${escHTML(p.orderDate)}${p.remark?' · '+escHTML(p.remark):''}</div>
+      <table style="margin-top:8px"><tr><th>วัตถุดิบ</th><th>สั่ง</th><th>รับแล้ว</th><th>เหลือ</th><th>ราคา/หน่วย</th></tr>${rows}</table>
+    </div>`;
+  }).join('');
+}
+function _pcDupWarnings(lines){
+  const out=[];
+  (lines||[]).forEach(ln=>{
+    if(!ln.rmCode) return;
+    (db.purchaseOrderItems||[]).forEach(it=>{
+      if(String(it.rmCode)!==String(ln.rmCode)) return;
+      const po=(db.purchaseOrder||[]).find(p=>p.po===it.po); if(!po||!po.orderDate) return;
+      const age=Date.now()-trxSortKey(po.orderDate);
+      if(age>=0 && age<=6*864e5){
+        out.push(`• ${ln.rmCode} (${itemName(ln.rmCode)}) เคยสั่งเมื่อ ${po.orderDate} จำนวน ${roundDisplay(it.orderQty)} — ${po.po}`);
+      }
+    });
+  });
+  return out;
+}
+async function submitPurchaseOrder(){
+  _pcReadPoLines();
+  const supplier=($('poSupplier')?.value||'').trim();
+  const orderDate=$('poOrderDate')?.value||todayISO();
+  const remark=($('poRemark')?.value||'').trim();
+  const items=poDraftLines.map(l=>({rmCode:l.rmCode,qty:+l.qty||0,price:+l.price||0})).filter(l=>l.rmCode&&l.qty>0);
+  if(!supplier) return toast('ใส่ชื่อซัพพลายเออร์ก่อน');
+  if(!items.length) return toast('เพิ่มรายการวัตถุดิบอย่างน้อย 1 ไลน์ (พร้อมจำนวน)');
+  const dup=_pcDupWarnings(items);
+  if(dup.length){
+    const ok=await confirmModal('พบการสั่งซ้ำภายใน 6 วัน:\n\n'+dup.join('\n')+'\n\nยืนยันบันทึกใบสั่งซื้อนี้ต่อ?','ยืนยันบันทึก','ยกเลิก');
+    if(!ok) return;
+  }
+  toast('กำลังบันทึกใบสั่งซื้อ...');
+  try{
+    const res=await apiPost({action:'createpurchaseorder',data:{supplier,orderDate,remark,items}});
+    poDraftLines=[{rmCode:'',qty:'',price:''}];
+    await loadFromGoogleSheet();
+    page='purchasing'; purchasingTab='po'; render();
+    sheetDone(res?.message||'บันทึกใบสั่งซื้อเรียบร้อยแล้ว');
+  }catch(e){console.error(e); alertModal('บันทึกใบสั่งซื้อไม่สำเร็จ: '+(e.message||e));}
+}
+/* ---------- Tab: รับของเข้า ---------- */
+function _pcReadGrLines(){
+  grDraftLines=grDraftLines.map((_,i)=>({
+    rmCode:$('grLine_'+i+'_rm')?.value||'',
+    qty:$('grLine_'+i+'_qty')?.value||'',
+    price:$('grLine_'+i+'_price')?.value||'',
+    orderQty:grDraftLines[i]?.orderQty||0,
+    receivedQty:grDraftLines[i]?.receivedQty||0
+  }));
+}
+function grAddLine(){ _pcReadGrLines(); grDraftLines.push({rmCode:'',qty:'',price:''}); grTabRender(); }
+function grDelLine(i){ _pcReadGrLines(); grDraftLines.splice(i,1); if(!grDraftLines.length) grDraftLines=[{rmCode:'',qty:'',price:''}]; grTabRender(); }
+function grSelectPO(){
+  grLinkedPO=$('grPO')?.value||'';
+  if(grLinkedPO){
+    const items=(db.purchaseOrderItems||[]).filter(x=>x.po===grLinkedPO);
+    const rem=items.map(it=>{
+      const r=Math.max(0,(+it.orderQty||0)-(+it.receivedQty||0));
+      return {rmCode:it.rmCode,qty:r>0?String(r):'',price:it.unitPrice?String(it.unitPrice):'',orderQty:+it.orderQty||0,receivedQty:+it.receivedQty||0};
+    });
+    grDraftLines=rem.length?rem:[{rmCode:'',qty:'',price:''}];
+  }
+  grTabRender();
+}
+function grTabRender(){
+  const b=$('purchasingBody'); if(!b) return;
+  const suppliers=_pcSupplierList();
+  const openPOs=(db.purchaseOrder||[]).filter(p=>p.status!=='Received').slice().sort((a,b)=>trxSortKey(b.orderDate)-trxSortKey(a.orderDate));
+  const linkedPO=(db.purchaseOrder||[]).find(p=>p.po===grLinkedPO);
+  const linesHTML=grDraftLines.map((ln,i)=>{
+    const remain=grLinkedPO?Math.max(0,(+ln.orderQty||0)-(+ln.receivedQty||0)):null;
+    return `<tr>
+      <td>${_pcRmSelect('grLine_'+i+'_rm',ln.rmCode)}</td>
+      <td><input id="grLine_${i}_qty" type="number" min="0" step="any" value="${escHTML(ln.qty)}" placeholder="รับจริง" style="width:100px"></td>
+      <td><input id="grLine_${i}_price" type="number" min="0" step="any" value="${escHTML(ln.price)}" placeholder="ราคา/หน่วย" style="width:110px"></td>
+      ${grLinkedPO?`<td class="mini">สั่ง ${roundDisplay(ln.orderQty)} · รับแล้ว ${roundDisplay(ln.receivedQty)} · เหลือ <b>${roundDisplay(remain)}</b></td>`:''}
+      <td><button class="small" onclick="grDelLine(${i})">ลบ</button></td>
+    </tr>`;
+  }).join('');
+  b.innerHTML=`<div class="box"><h2>รับของเข้า</h2>
+    <div class="row3">
+      <label class="mini">วันที่รับ<br><input type="date" value="${todayISO()}" disabled></label>
+      <select id="grPO" onchange="grSelectPO()">
+        <option value="">— รับแบบไม่อิงใบสั่งซื้อ —</option>
+        ${openPOs.map(p=>`<option value="${escHTML(p.po)}" ${p.po===grLinkedPO?'selected':''}>${escHTML(p.po)} · ${escHTML(p.supplier||'')} (${escHTML(p.status)})</option>`).join('')}
+      </select>
+      <input id="grSupplier" list="poSupplierList" value="${escHTML(linkedPO?linkedPO.supplier:'')}" placeholder="ซัพพลายเออร์ / ร้าน">
+      <datalist id="poSupplierList">${suppliers.map(s=>`<option value="${escHTML(s)}">`).join('')}</datalist>
+    </div>
+    <table style="margin-top:12px"><tr><th>วัตถุดิบ</th><th>จำนวนรับ</th><th>ราคา/หน่วย</th>${grLinkedPO?'<th>สถานะใบสั่ง</th>':''}<th></th></tr>${linesHTML}</table>
+    <div class="row" style="margin-top:10px"><button class="ghost" onclick="grAddLine()">+ เพิ่มไลน์</button><input id="grRemark" placeholder="หมายเหตุ (ไม่บังคับ)" style="flex:1"><button class="primary" onclick="submitReceiveGoods()">บันทึกรับของ + เพิ่ม Stock</button></div>
+  </div>
+  <div class="box"><h2>ประวัติรับของเข้า</h2>${grHistoryHTML()}</div>`;
+}
+function grHistoryHTML(){
+  const rows=(db.goodsReceipt||[]).slice().sort((a,b)=>trxSortKey(b.receiveDate)-trxSortKey(a.receiveDate)).slice(0,80);
+  if(!rows.length) return '<p class="hint">ยังไม่มีประวัติรับของ</p>';
+  return `<table><tr><th>วันที่รับ</th><th>ใบสั่งซื้อ</th><th>วัตถุดิบ</th><th>จำนวน</th><th>ราคา/หน่วย</th><th>มูลค่า</th><th>ซัพพลายเออร์</th></tr>${rows.map(r=>`<tr><td>${escHTML(r.receiveDate)}</td><td>${escHTML(r.po||'-')}</td><td><b>${escHTML(r.rmCode)}</b> <span class="mini">${escHTML(itemName(r.rmCode))}</span></td><td>${roundDisplay(r.qty)}</td><td>฿${roundNum(r.unitPrice||0)}</td><td>฿${roundNum((+r.qty||0)*(+r.unitPrice||0))}</td><td>${escHTML(r.supplier||'-')}</td></tr>`).join('')}</table>`;
+}
+async function submitReceiveGoods(){
+  _pcReadGrLines();
+  const po=$('grPO')?.value||'';
+  const supplier=($('grSupplier')?.value||'').trim();
+  const remark=($('grRemark')?.value||'').trim();
+  const items=grDraftLines.map(l=>({rmCode:l.rmCode,qty:+l.qty||0,price:+l.price||0})).filter(l=>l.rmCode&&l.qty>0);
+  if(!items.length) return toast('ใส่รายการที่รับจริงอย่างน้อย 1 ไลน์');
+  const total=items.reduce((a,l)=>a+l.qty*l.price,0);
+  const ok=await confirmModal('บันทึกรับของ '+items.length+' รายการ มูลค่ารวม ฿'+roundNum(total)+'\nระบบจะเพิ่ม Stock วัตถุดิบทันที ยืนยัน?','ยืนยัน','ยกเลิก');
+  if(!ok) return;
+  toast('กำลังบันทึกรับของ...');
+  try{
+    const res=await apiPost({action:'receivegoods',data:{receiveDate:todayISO(),po,supplier,remark,items}});
+    grDraftLines=[{rmCode:'',qty:'',price:''}]; grLinkedPO='';
+    await loadFromGoogleSheet();
+    page='purchasing'; purchasingTab='receive'; render();
+    sheetDone(res?.message||('รับของเรียบร้อย มูลค่ารวม ฿'+roundNum(total)));
+  }catch(e){console.error(e); alertModal('บันทึกรับของไม่สำเร็จ: '+(e.message||e));}
 }
 function packingPage(m){
   const q=($('packQ')?.value||'').toLowerCase();
@@ -2426,6 +2708,9 @@ function fromSheetData(data){
   const remoteSuppliers=(data.suppliers||[]).map(s=>({id:s.SupplierID||'',name:s.Name||'',contact:s.Contact||'',status:s.Status||'Active'})).filter(x=>x.id);
   const remoteChannelSkuMap=(data.channelSkuMap||[]).map(m=>({channel:m.Channel||'',externalKey:m.ExternalKey||'',externalLabel:m.ExternalLabel||'',sku:m.SKU||''})).filter(x=>x.externalKey);
   const remoteRMLots=(data.rmLots||[]).map(l=>({id:l.LotID||'',rmCode:String(l.RMCode||''),supplierId:l.SupplierID||'',supplierName:l.SupplierName||'',qty:+l.Qty||0,remainingQty:+l.RemainingQty||0,receivedDate:dateISO(l.ReceivedDate)||String(l.ReceivedDate||''),expiryDate:dateISO(l.ExpiryDate)||String(l.ExpiryDate||''),cost:+l.Cost||0,remark:l.Remark||''})).filter(x=>x.id);
+  // v9.95: Station master (สำหรับสั่งผลิตอัตโนมัติ -> ส่งเข้าคิว Kiosk ของแต่ละ Tablet) — Token ไม่ถูกส่งมาด้วย
+  // (เก็บเฉพาะฝั่ง Server) เพราะหน้า Admin ทั่วไปไม่จำเป็นต้องเห็น ใช้ copyKioskLink() ที่เรียก API แยกตอนต้องการ
+  const remoteStations=(data.stations||[]).map(s=>({id:s.StationID||'',name:s.StationName||'',status:s.Status||'Active'})).filter(x=>x.id);
   if(items.length) db.items=items;
   if(rm.length) db.rm=rm;
   if((data.bom||[]).length) db.bom=bom;
@@ -2440,6 +2725,10 @@ function fromSheetData(data){
   db.suppliers=remoteSuppliers;
   db.channelSkuMap=remoteChannelSkuMap;
   db.rmLots=remoteRMLots;
+  db.stations=remoteStations;
+  db.purchaseOrder=(data.purchaseOrder||[]).map(p=>({po:p.PO,orderDate:dateISO(p.OrderDate)||String(p.OrderDate||''),supplier:p.Supplier||'',status:p.Status||'Open',remark:p.Remark||''})).filter(x=>x.po);
+  db.purchaseOrderItems=(data.purchaseOrderItems||[]).map(i=>({po:i.PO,rmCode:String(i.RMCode||''),orderQty:+i.OrderQty||0,unitPrice:+i.UnitPrice||0,receivedQty:+i.ReceivedQty||0})).filter(x=>x.po);
+  db.goodsReceipt=(data.goodsReceipt||[]).map(g=>({id:g.ReceiptID,receiveDate:dateISO(g.ReceiveDate)||String(g.ReceiveDate||''),po:g.PO||'',rmCode:String(g.RMCode||''),qty:+g.Qty||0,unitPrice:+g.UnitPrice||0,supplier:g.Supplier||'',remark:g.Remark||''})).filter(x=>x.id);
   db.dashboard=(data.dashboard&&data.dashboard.length)?data.dashboard:(db.dashboard||[]);
   db.remote=db.remote||{}; db.remote.lastApiSync=now();
 }
@@ -2572,7 +2861,95 @@ function startApp(){
   setupAutoCsvSync();
   setTimeout(()=>{ if(apiUrl) loadFromGoogleSheet(); },300);
 }
-if(localStorage.getItem('bakery_logged_in')==='1' && sessionToken){
+/* === v9.95: Kiosk mode สำหรับ Tablet ประจำ Station ===
+ * เปิดผ่านลิงก์ ?kiosk=1&station=...&token=...&key=... (สร้างจากปุ่ม "คัดลอกลิงก์ Kiosk" ในหน้า
+ * "จัดการ Station / Tablet") ทำงานแยกจากแอปหลักทั้งหมด ไม่ผ่านหน้า Login เลย เพราะ Token ผูกกับตัว
+ * Station ไม่ใช่ผูกกับ user คนใดคนหนึ่ง — เหมาะกับ Tablet ที่เสียบทิ้งไว้ประจำจุด ไม่มีคนล็อกอินเข้าออก
+ */
+const KIOSK_MODE = ERP_QUERY.get('kiosk') === '1';
+function startKiosk(){
+  const stationId = ERP_QUERY.get('station') || '';
+  const stationToken = ERP_QUERY.get('token') || '';
+  const urlKey = ERP_QUERY.get('key') || '';
+  if(urlKey){ apiKey = urlKey; localStorage.setItem('bakery_api_key', urlKey); }
+  document.body.classList.add('login-locked'); // ซ่อนแอปหลัก/หน้า login ปกติทั้งหมด ไม่ให้ปนกับ Kiosk
+  const root=document.createElement('div');
+  root.id='kioskRoot';
+  root.style.cssText='position:fixed;inset:0;background:#1c1f2e;color:#fff;z-index:100;display:flex;flex-direction:column;font-family:Inter,Segoe UI,Tahoma,sans-serif;overflow:auto';
+  document.body.appendChild(root);
+  if(!stationId || !stationToken){
+    root.innerHTML='<div style="margin:auto;text-align:center;padding:24px"><div style="font-size:60px">⚠️</div><h1>ลิงก์ Kiosk ไม่ถูกต้อง</h1><p>ขาด station หรือ token ในลิงก์ — ไปคัดลอกลิงก์ใหม่จากหน้า "จัดการ Station / Tablet" อีกครั้ง</p></div>';
+    return;
+  }
+  let audioCtx=null, unlocked=false, knownIds=new Set(), firstLoad=true, wakeLock=null, pollTimer=null;
+  function beep(){
+    try{
+      if(!audioCtx) return;
+      const o=audioCtx.createOscillator(), g=audioCtx.createGain();
+      o.type='sine'; o.frequency.value=880;
+      g.gain.setValueAtTime(0.0001,audioCtx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.3,audioCtx.currentTime+0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001,audioCtx.currentTime+0.5);
+      o.connect(g); g.connect(audioCtx.destination);
+      o.start(); o.stop(audioCtx.currentTime+0.55);
+      setTimeout(()=>{ if(!audioCtx) return; const o2=audioCtx.createOscillator(),g2=audioCtx.createGain(); o2.type='sine'; o2.frequency.value=1100; g2.gain.setValueAtTime(0.0001,audioCtx.currentTime); g2.gain.exponentialRampToValueAtTime(0.3,audioCtx.currentTime+0.02); g2.gain.exponentialRampToValueAtTime(0.0001,audioCtx.currentTime+0.5); o2.connect(g2); g2.connect(audioCtx.destination); o2.start(); o2.stop(audioCtx.currentTime+0.55); },250);
+    }catch(e){ console.error('beep failed',e); }
+  }
+  async function requestWakeLock(){
+    try{ if('wakeLock' in navigator){ wakeLock = await navigator.wakeLock.request('screen'); } }
+    catch(e){ console.error('wake lock failed (ไม่ร้ายแรง จอแค่อาจดับได้ถ้าไม่ตั้ง Screen timeout ที่ตัว Tablet เอง)', e); }
+  }
+  document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible' && unlocked) requestWakeLock(); });
+  function renderQueue(jobs){
+    const openJobs=(jobs||[]).filter(j=>j.status!=='Completed'&&j.status!=='Cancelled');
+    const newOnes=openJobs.filter(j=>!knownIds.has(j.po));
+    if(!firstLoad && newOnes.length) beep();
+    firstLoad=false;
+    knownIds=new Set(openJobs.map(j=>j.po));
+    const body=$('kioskBody');
+    if(!body) return;
+    if(!openJobs.length){
+      body.innerHTML='<div style="margin:auto;text-align:center;opacity:.7"><div style="font-size:80px">✅</div><div style="font-size:28px;font-weight:800">ไม่มีงานรอผลิตตอนนี้</div></div>';
+      return;
+    }
+    body.innerHTML=openJobs.map(j=>`<div style="background:#262a3c;border-radius:24px;padding:28px 32px;margin:14px 24px;display:flex;align-items:center;gap:24px;border-left:10px solid ${j.status==='In Progress'?'#df6518':'#059669'}">
+      ${j.imageUrl?`<img src="${j.imageUrl}" style="width:110px;height:110px;object-fit:cover;border-radius:16px;flex:0 0 auto">`:'<div style="width:110px;height:110px;border-radius:16px;background:#3a3f57;display:flex;align-items:center;justify-content:center;font-size:44px;flex:0 0 auto">📦</div>'}
+      <div style="flex:1;min-width:0">
+        <div style="font-size:34px;font-weight:800">${escHTML(j.productName||j.sku)}</div>
+        <div style="font-size:20px;opacity:.75;margin-top:4px">${escHTML(j.sku)} ${j.remark?' · '+escHTML(j.remark):''}</div>
+        <div style="font-size:16px;opacity:.55;margin-top:8px">${j.status==='In Progress'?'🟠 กำลังทำ':'⚪ รอเริ่มทำ'}</div>
+      </div>
+      <div style="font-size:56px;font-weight:900;color:#df6518;flex:0 0 auto">${roundDisplay(j.qty)}</div>
+    </div>`).join('');
+  }
+  async function poll(){
+    try{
+      const res=await apiGetOnce('stationqueue',{station:stationId,token:stationToken});
+      renderQueue(res.jobs||[]);
+      const status=$('kioskStatus'); if(status){ status.textContent='อัปเดตล่าสุด '+new Date().toLocaleTimeString('th-TH'); status.style.color='#8b755d'; }
+    }catch(e){
+      console.error(e);
+      const status=$('kioskStatus'); if(status){ status.textContent='เชื่อมต่อไม่ได้ (จะลองใหม่อัตโนมัติ): '+(e.message||e); status.style.color='#dc2626'; }
+    }
+  }
+  function startPolling(){
+    poll();
+    if(pollTimer) clearInterval(pollTimer);
+    pollTimer=setInterval(poll, 15000);
+  }
+  function unlockAndStart(){
+    if(unlocked) return; unlocked=true;
+    try{ audioCtx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ console.error('AudioContext ไม่รองรับ',e); }
+    requestWakeLock();
+    root.innerHTML=`<div style="padding:20px 28px;background:#15182280;display:flex;align-items:center;gap:16px;border-bottom:1px solid #2c2f42"><div style="font-size:22px;font-weight:800">📟 คิวงานผลิต — Station</div><div id="kioskStatus" style="margin-left:auto;font-size:14px;color:#8b755d">กำลังโหลด...</div></div><div id="kioskBody" style="flex:1;display:flex;flex-direction:column;padding:8px 0"></div>`;
+    startPolling();
+  }
+  root.innerHTML='<div style="margin:auto;text-align:center;padding:24px"><div style="font-size:70px">📟</div><h1 style="font-size:30px">พร้อมใช้งาน Kiosk</h1><p style="opacity:.75;max-width:420px;margin:8px auto 24px">กดปุ่มด้านล่างครั้งเดียวเพื่อเปิดเสียงแจ้งเตือนงานใหม่ จากนั้นจะทำงานเองตลอด ไม่ต้องแตะจออีก</p><button onclick="(function(){window.__kioskStart&&window.__kioskStart()})()" style="border:0;background:#df6518;color:#fff;font-size:22px;font-weight:800;border-radius:16px;padding:20px 40px;cursor:pointer">▶ เริ่มใช้งาน Kiosk</button></div>';
+  window.__kioskStart = unlockAndStart;
+}
+if(KIOSK_MODE){
+  startKiosk();
+}else if(localStorage.getItem('bakery_logged_in')==='1' && sessionToken){
   startApp();
 }else{
   showLoginScreen();
