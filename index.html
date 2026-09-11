@@ -680,6 +680,8 @@ let purchasingTab='po';    // 'po' | 'receive'
 let poDraftLines=[{rmCode:'',qty:'',price:''}];        // draft lines for create-PO form
 let grDraftLines=[{rmCode:'',qty:'',price:''}];        // draft lines for receive-goods form
 let grLinkedPO='';                                     // selected PO for receiving
+let poSupplierId='';                                   // selected supplier (id) in create-PO form — filters RM list
+let supplierRmEditId='';                               // supplier row currently expanded for RM tagging on suppliers page
 let trxHistTab='trx';      // 'trx' | 'history'
 function load(){
   // v9.32 fix: เดิมโหลดข้อมูลจาก localStorage ก่อนเสมอ (ถ้ามี) ทำให้บางครั้งเห็นข้อมูลเก่า/ค้าง
@@ -1567,9 +1569,32 @@ async function confirmImportTiktok(){
 }
 function suppliersPage(m){
   const suppliers=(db.suppliers||[]).slice().sort((a,b)=>a.name.localeCompare(b.name));
-  m.innerHTML=head('ซัพพลายเออร์','จัดการรายชื่อผู้ขายวัตถุดิบ — ใช้เลือกตอนรับเข้า Lot วัตถุดิบ')+
+  m.innerHTML=head('ซัพพลายเออร์','จัดการรายชื่อผู้ขายวัตถุดิบ — ใช้เลือกตอนรับเข้า Lot วัตถุดิบ และตอนสร้างใบสั่งซื้อ')+
   `<div class="box"><h2>เพิ่มซัพพลายเออร์ใหม่</h2><div class="row2"><input id="newSupName" placeholder="ชื่อซัพพลายเออร์"><input id="newSupContact" placeholder="เบอร์ติดต่อ / Line (ไม่บังคับ)"><span></span><button class="primary" onclick="addSupplierAction()">เพิ่ม</button></div></div>`+
-  `<div class="box"><h2>รายชื่อซัพพลายเออร์ (${suppliers.length})</h2>${suppliers.length?`<table><tr><th>ชื่อ</th><th>ติดต่อ</th><th>สถานะ</th><th></th></tr>${suppliers.map(s=>`<tr><td><b>${escHTML(s.name)}</b></td><td>${escHTML(s.contact)}</td><td>${genericStatusPill(s.status)}</td><td>${s.status==='Active'?`<button class="small danger" onclick="setSupplierStatusAction('${s.id}','Disabled')">ปิดใช้งาน</button>`:`<button class="small" onclick="setSupplierStatusAction('${s.id}','Active')">เปิดใช้งาน</button>`}</td></tr>`).join('')}</table>`:'<p class="hint">ยังไม่มีซัพพลายเออร์ เพิ่มก่อนเลยครับ</p>'}</div>`;
+  `<div class="box"><h2>รายชื่อซัพพลายเออร์ (${suppliers.length})</h2>${suppliers.length?`<table><tr><th>ชื่อ</th><th>ติดต่อ</th><th>สถานะ</th><th></th></tr>${suppliers.map(s=>`<tr><td><b>${escHTML(s.name)}</b></td><td>${escHTML(s.contact)}</td><td>${genericStatusPill(s.status)}</td><td><button class="small" onclick="toggleSupplierRmEdit('${s.id}')">${supplierRmEditId===s.id?'ปิด':'จัดการวัตถุดิบ'}</button> ${s.status==='Active'?`<button class="small danger" onclick="setSupplierStatusAction('${s.id}','Disabled')">ปิดใช้งาน</button>`:`<button class="small" onclick="setSupplierStatusAction('${s.id}','Active')">เปิดใช้งาน</button>`}</td></tr>${supplierRmEditId===s.id?`<tr><td colspan="4">${supplierRmEditPanel(s)}</td></tr>`:''}`).join('')}</table>`:'<p class="hint">ยังไม่มีซัพพลายเออร์ เพิ่มก่อนเลยครับ</p>'}</div>`;
+}
+function toggleSupplierRmEdit(supplierId){ supplierRmEditId=(supplierRmEditId===supplierId?'':supplierId); suppliersPage($('main')); }
+function supplierRmEditPanel(s){
+  const mapped=new Set((db.supplierRm||[]).filter(x=>x.supplierId===s.id).map(x=>x.rmCode));
+  const rmList=(db.rm||[]).slice().sort((a,b)=>a.name.localeCompare(b.name));
+  return `<div class="box" style="margin:0;background:var(--panel-2,rgba(0,0,0,.03))">
+    <b>วัตถุดิบที่สั่งจาก ${escHTML(s.name)}</b>
+    <p class="hint">ติ๊กวัตถุดิบที่ร้านนี้ขาย — ตอนสร้างใบสั่งซื้อแล้วเลือกซัพพลายเออร์นี้ จะเห็นเฉพาะรายการที่ติ๊กไว้ (ถ้าไม่ติ๊กเลย ระบบจะโชว์วัตถุดิบทั้งหมดแทน)</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:6px;margin:10px 0">
+      ${rmList.map(r=>`<label class="chip-check"><input type="checkbox" class="supRmChk" value="${r.sku}" ${mapped.has(String(r.sku))?'checked':''}> ${escHTML(r.name)} (${r.sku})</label>`).join('')}
+    </div>
+    <button class="primary" onclick="saveSupplierRmAction('${s.id}')">บันทึก</button>
+  </div>`;
+}
+async function saveSupplierRmAction(supplierId){
+  const rmCodes=[...document.querySelectorAll('.supRmChk:checked')].map(c=>c.value);
+  toast('กำลังบันทึก...');
+  try{
+    await apiPost({action:'savesupplierrm',data:{supplierId,rmCodes}});
+    await loadFromGoogleSheet();
+    page='suppliers'; render();
+    sheetDone('บันทึกวัตถุดิบของซัพพลายเออร์แล้ว ('+rmCodes.length+' รายการ)');
+  }catch(e){console.error(e); alertModal('บันทึกไม่สำเร็จ: '+(e.message||e));}
 }
 async function addSupplierAction(){
   const name=($('newSupName')?.value||'').trim();
@@ -1802,8 +1827,15 @@ function _pcSupplierList(){
   const b=(db.purchaseOrder||[]).map(p=>p.supplier).filter(Boolean);
   return [...new Set([...a,...b])].sort();
 }
-function _pcRmSelect(id,sel){
-  return `<select id="${id}"><option value="">-- เลือกวัตถุดิบ --</option>${rmOptions(sel||'')}</select>`;
+function _pcRmSelect(id,sel,supplierId){
+  let opts;
+  if(supplierId && (db.supplierRm||[]).some(x=>x.supplierId===supplierId)){
+    const allowed=new Set((db.supplierRm||[]).filter(x=>x.supplierId===supplierId).map(x=>x.rmCode));
+    opts=(db.rm||[]).filter(r=>allowed.has(String(r.sku))).map(r=>`<option value="${r.sku}" ${r.sku==sel?'selected':''}>${r.sku} · ${r.name}</option>`).join('');
+  }else{
+    opts=rmOptions(sel||'');
+  }
+  return `<select id="${id}"><option value="">-- เลือกวัตถุดิบ --</option>${opts}</select>`;
 }
 /* ---------- Tab: ใบสั่งซื้อ ---------- */
 function _pcReadPoLines(){
@@ -1815,22 +1847,24 @@ function _pcReadPoLines(){
 }
 function poAddLine(){ _pcReadPoLines(); poDraftLines.push({rmCode:'',qty:'',price:''}); poTabRender(); }
 function poDelLine(i){ _pcReadPoLines(); poDraftLines.splice(i,1); if(!poDraftLines.length) poDraftLines=[{rmCode:'',qty:'',price:''}]; poTabRender(); }
+function poSupplierChanged(){ _pcReadPoLines(); poSupplierId=$('poSupplierId')?.value||''; poTabRender(); }
 function poTabRender(){
   const b=$('purchasingBody'); if(!b) return;
-  const suppliers=_pcSupplierList();
+  const suppliers=(db.suppliers||[]).filter(s=>s.status!=='Disabled').slice().sort((a,b)=>a.name.localeCompare(b.name));
   const linesHTML=poDraftLines.map((ln,i)=>`<tr>
-    <td>${_pcRmSelect('poLine_'+i+'_rm',ln.rmCode)}</td>
+    <td>${_pcRmSelect('poLine_'+i+'_rm',ln.rmCode,poSupplierId)}</td>
     <td><input id="poLine_${i}_qty" type="number" min="0" step="any" value="${escHTML(ln.qty)}" placeholder="จำนวน" style="width:110px"></td>
     <td><input id="poLine_${i}_price" type="number" min="0" step="any" value="${escHTML(ln.price)}" placeholder="ราคา/หน่วย" style="width:120px"></td>
     <td><button class="small" onclick="poDelLine(${i})">ลบ</button></td>
   </tr>`).join('');
   b.innerHTML=`<div class="box"><h2>สร้างใบสั่งซื้อ</h2>
     <div class="row3">
-      <input id="poSupplier" list="poSupplierList" placeholder="ซัพพลายเออร์ / ร้าน (เช่น Makro)">
-      <datalist id="poSupplierList">${suppliers.map(s=>`<option value="${escHTML(s)}">`).join('')}</datalist>
+      <select id="poSupplierId" onchange="poSupplierChanged()"><option value="">-- เลือกซัพพลายเออร์ --</option>${suppliers.map(s=>`<option value="${s.id}" ${s.id===poSupplierId?'selected':''}>${escHTML(s.name)}</option>`).join('')}</select>
       <input id="poOrderDate" type="date" value="${todayISO()}">
       <input id="poRemark" placeholder="หมายเหตุ (ไม่บังคับ)">
     </div>
+    ${suppliers.length?'':'<p class="hint">ยังไม่มีซัพพลายเออร์ ไปเพิ่มที่หน้า "ซัพพลายเออร์" ก่อนครับ</p>'}
+    ${poSupplierId?'<p class="hint">รายการวัตถุดิบด้านล่างกรองตามซัพพลายเออร์นี้แล้ว (ตั้งค่าได้ที่หน้า "ซัพพลายเออร์" → จัดการวัตถุดิบ)</p>':''}
     <table style="margin-top:12px"><tr><th>วัตถุดิบ</th><th>จำนวนสั่ง</th><th>ราคา/หน่วย</th><th></th></tr>${linesHTML}</table>
     <div class="row" style="margin-top:10px"><button class="ghost" onclick="poAddLine()">+ เพิ่มไลน์</button><button class="primary" onclick="submitPurchaseOrder()">บันทึกใบสั่งซื้อ</button></div>
   </div>
@@ -1869,11 +1903,13 @@ function _pcDupWarnings(lines){
 }
 async function submitPurchaseOrder(){
   _pcReadPoLines();
-  const supplier=($('poSupplier')?.value||'').trim();
+  poSupplierId=$('poSupplierId')?.value||'';
+  const supObj=(db.suppliers||[]).find(s=>s.id===poSupplierId);
+  const supplier=supObj?supObj.name:'';
   const orderDate=$('poOrderDate')?.value||todayISO();
   const remark=($('poRemark')?.value||'').trim();
   const items=poDraftLines.map(l=>({rmCode:l.rmCode,qty:+l.qty||0,price:+l.price||0})).filter(l=>l.rmCode&&l.qty>0);
-  if(!supplier) return toast('ใส่ชื่อซัพพลายเออร์ก่อน');
+  if(!poSupplierId||!supplier) return toast('เลือกซัพพลายเออร์ก่อน');
   if(!items.length) return toast('เพิ่มรายการวัตถุดิบอย่างน้อย 1 ไลน์ (พร้อมจำนวน)');
   const dup=_pcDupWarnings(items);
   if(dup.length){
@@ -2729,6 +2765,7 @@ function fromSheetData(data){
   db.purchaseOrder=(data.purchaseOrder||[]).map(p=>({po:p.PO,orderDate:dateISO(p.OrderDate)||String(p.OrderDate||''),supplier:p.Supplier||'',status:p.Status||'Open',remark:p.Remark||''})).filter(x=>x.po);
   db.purchaseOrderItems=(data.purchaseOrderItems||[]).map(i=>({po:i.PO,rmCode:String(i.RMCode||''),orderQty:+i.OrderQty||0,unitPrice:+i.UnitPrice||0,receivedQty:+i.ReceivedQty||0})).filter(x=>x.po);
   db.goodsReceipt=(data.goodsReceipt||[]).map(g=>({id:g.ReceiptID,receiveDate:dateISO(g.ReceiveDate)||String(g.ReceiveDate||''),po:g.PO||'',rmCode:String(g.RMCode||''),qty:+g.Qty||0,unitPrice:+g.UnitPrice||0,supplier:g.Supplier||'',remark:g.Remark||''})).filter(x=>x.id);
+  db.supplierRm=(data.supplierRm||[]).map(x=>({supplierId:x.SupplierID||'',rmCode:String(x.RMCode||'')})).filter(x=>x.supplierId&&x.rmCode);
   db.dashboard=(data.dashboard&&data.dashboard.length)?data.dashboard:(db.dashboard||[]);
   db.remote=db.remote||{}; db.remote.lastApiSync=now();
 }
