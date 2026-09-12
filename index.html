@@ -1847,12 +1847,23 @@ function _pcReadPoLines(){
 }
 function poAddLine(){ _pcReadPoLines(); poDraftLines.push({rmCode:'',qty:'',price:''}); poTabRender(); }
 function poDelLine(i){ _pcReadPoLines(); poDraftLines.splice(i,1); if(!poDraftLines.length) poDraftLines=[{rmCode:'',qty:'',price:''}]; poTabRender(); }
-function poSupplierChanged(){ _pcReadPoLines(); poSupplierId=$('poSupplierId')?.value||''; poTabRender(); }
+function poSupplierChanged(){
+  _pcReadPoLines();
+  poSupplierId=$('poSupplierId')?.value||'';
+  const tagged=(db.supplierRm||[]).filter(x=>x.supplierId===poSupplierId).map(x=>x.rmCode);
+  poDraftLines=tagged.length?tagged.map(rm=>({rmCode:rm,qty:'',price:''})):[{rmCode:'',qty:'',price:''}];
+  poTabRender();
+}
+function _pcRmStock(rmCode){
+  const r=(db.rm||[]).find(x=>String(x.sku)===String(rmCode));
+  return r?roundDisplay(r.stock||0):'-';
+}
 function poTabRender(){
   const b=$('purchasingBody'); if(!b) return;
   const suppliers=(db.suppliers||[]).filter(s=>s.status!=='Disabled').slice().sort((a,b)=>a.name.localeCompare(b.name));
   const linesHTML=poDraftLines.map((ln,i)=>`<tr>
     <td>${_pcRmSelect('poLine_'+i+'_rm',ln.rmCode,poSupplierId)}</td>
+    <td class="mini" style="text-align:center">${_pcRmStock(ln.rmCode)}</td>
     <td><input id="poLine_${i}_qty" type="number" min="0" step="any" value="${escHTML(ln.qty)}" placeholder="จำนวน" style="width:110px"></td>
     <td><input id="poLine_${i}_price" type="number" min="0" step="any" value="${escHTML(ln.price)}" placeholder="ราคา/หน่วย" style="width:120px"></td>
     <td><button class="small" onclick="poDelLine(${i})">ลบ</button></td>
@@ -1864,8 +1875,8 @@ function poTabRender(){
       <input id="poRemark" placeholder="หมายเหตุ (ไม่บังคับ)">
     </div>
     ${suppliers.length?'':'<p class="hint">ยังไม่มีซัพพลายเออร์ ไปเพิ่มที่หน้า "ซัพพลายเออร์" ก่อนครับ</p>'}
-    ${poSupplierId?'<p class="hint">รายการวัตถุดิบด้านล่างกรองตามซัพพลายเออร์นี้แล้ว (ตั้งค่าได้ที่หน้า "ซัพพลายเออร์" → จัดการวัตถุดิบ)</p>':''}
-    <table style="margin-top:12px"><tr><th>วัตถุดิบ</th><th>จำนวนสั่ง</th><th>ราคา/หน่วย</th><th></th></tr>${linesHTML}</table>
+    ${poSupplierId?'<p class="hint">รายการวัตถุดิบที่ตั้งค่าไว้กับซัพพลายเออร์นี้ขึ้นให้อัตโนมัติ พร้อมจำนวนคงเหลือปัจจุบัน — ใส่แค่ "จำนวนสั่ง" กับราคาต่อหน่วย (ตั้งค่ารายการวัตถุดิบได้ที่หน้า "ซัพพลายเออร์" → จัดการวัตถุดิบ)</p>':''}
+    <table style="margin-top:12px"><tr><th>วัตถุดิบ</th><th>คงเหลือ</th><th>จำนวนสั่ง</th><th>ราคา/หน่วย</th><th></th></tr>${linesHTML}</table>
     <div class="row" style="margin-top:10px"><button class="ghost" onclick="poAddLine()">+ เพิ่มไลน์</button><button class="primary" onclick="submitPurchaseOrder()">บันทึกใบสั่งซื้อ</button></div>
   </div>
   <div class="box"><h2>ใบสั่งซื้อทั้งหมด (${(db.purchaseOrder||[]).length})</h2>${poListHTML()}</div>`;
