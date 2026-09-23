@@ -85,13 +85,14 @@ const ERP_QUERY = new URLSearchParams(window.location.search);
 const VIEWER_ONLY = ERP_QUERY.get('view') === '1' || ERP_QUERY.get('role') === 'viewer';
 const MASTER_SKUS = [];
 const DEFAULT_RM = [];
-const pages=[['dashboard','Dashboard','🏠'],['master','Master Data','🗂️'],['items','สินค้า & สูตร','📦'],['rm','วัตถุดิบ','🧺'],['stockops','จัดการสต๊อก','↕️'],['fglog','Production Log FG','📋'],['prodrecord','บันทึกผลผลิต','📝'],['packing','แพ็คสินค้า','📮'],['trxhistory','Transaction / ประวัติ','🏦'],['prodsummary','สรุปผลผลิต','📊'],['shipcheck','เช็ค Stock พอส่ง / ขายออก','🛒'],['importorders','นำเข้า Order TikTok','📥'],['prod','สั่งผลิต','⚙️'],['autoproduction','สั่งผลิตอัตโนมัติ','🤖',true],['orders','Order / ส่งของ','🚚'],['boothship','ส่งของไปบูธ','🏪'],['bom','BOM / สูตร','🧮'],['suppliers','ซัพพลายเออร์','🚚'],['rmlots','รับเข้า Lot วัตถุดิบ','📥'],['purchasing','จัดซื้อ / รับของเข้า','🛒'],['stations','จัดการ Station / Tablet','📟',true],['voidapproval','อนุมัติ Void','✅',true],['users','จัดการ User','👥',true],['settings','ตั้งค่า','⚙️']];
+const pages=[['dashboard','Dashboard','🏠'],['master','Master Data','🗂️'],['items','สินค้า & สูตร','📦'],['rm','วัตถุดิบ','🧺'],['stockops','จัดการสต๊อก','↕️'],['fglog','Production Log FG','📋'],['prodrecord','บันทึกผลผลิต','📝'],['packing','แพ็คสินค้า','📮'],['trxhistory','Transaction / ประวัติ','🏦'],['prodsummary','สรุปผลผลิต','📊'],['shipcheck','เช็ค Stock พอส่ง / ขายออก','🛒'],['importorders','นำเข้า Order TikTok','📥'],['prod','สั่งผลิต','⚙️'],['autoproduction','สั่งผลิตอัตโนมัติ','🤖',true],['orders','Order / ส่งของ','🚚'],['boothship','ส่งของไปบูธ','🏪'],['bom','BOM / สูตร','🧮'],['suppliers','ซัพพลายเออร์','🚚'],['rmlots','รับเข้า Lot วัตถุดิบ','📥'],['purchasing','จัดซื้อ / รับของเข้า','🛒'],['customers','ลูกค้า (CRM)','👥'],['rewards','Point / ของรางวัล','🎁'],['b2borders','อนุมัติออเดอร์ B2B','📥'],['stations','จัดการ Station / Tablet','📟',true],['voidapproval','อนุมัติ Void','✅',true],['users','จัดการ User','👥',true],['settings','ตั้งค่า','⚙️']];
 const pageGroups=[
   {label:'ภาพรวม',ids:['dashboard']},
   {label:'🏭 การผลิต',ids:['prod','autoproduction','prodrecord','packing','fglog','prodsummary','bom']},
   {label:'📦 คลังสินค้า',ids:['items','rm','stockops']},
   {label:'🛍️ จัดซื้อ',ids:['suppliers','rmlots','purchasing']},
   {label:'🛒 การขาย',ids:['shipcheck','importorders','orders','boothship']},
+  {label:'👥 ลูกค้า',ids:['customers','rewards','b2borders']},
   {label:'⚙️ ระบบ/ผู้ดูแล',ids:['master','trxhistory','voidapproval','users','stations','settings']}
 ];
 const now=()=>new Date().toLocaleString('th-TH');
@@ -683,6 +684,8 @@ let grLinkedPO='';                                     // selected PO for receiv
 let poSupplierId='';                                   // selected supplier (id) in create-PO form — filters RM list
 let supplierRmEditId='';                               // supplier row currently expanded for RM tagging on suppliers page
 let trxHistTab='trx';      // 'trx' | 'history'
+let customerDetailId='';                               // customer row currently expanded on customers page
+let b2bLineDraft=[{sku:'',qty:'',remark:''}];          // draft lines for B2B portal order form
 function load(){
   // v9.32 fix: เดิมโหลดข้อมูลจาก localStorage ก่อนเสมอ (ถ้ามี) ทำให้บางครั้งเห็นข้อมูลเก่า/ค้าง
   // ไม่ตรงกับ Google Sheet จริง จนกว่าจะรอโหลดจริงเสร็จ หรือบางบั๊กทำให้ localStorage มีข้อมูลผิดค้างอยู่
@@ -790,7 +793,7 @@ function updateTopbar(){
     if(n>0){ badge.textContent=n>99?'99+':n; badge.style.display='flex'; } else badge.style.display='none';
   }
 }
-function render(){try{nav(); if(isOperator() && !OPERATOR_PAGES_.includes(page)){ page='prodrecord'; nav(); } const m=$('main'); if(page=='dashboard') return dash(m); if(page=='master') return masterData(m); if(page=='items') return items(m); if(page=='rm') return rm(m); if(page=='stockops') return stockOpsPage(m); if(page=='fglog') return fgLogPage(m); if(page=='prodrecord') return productionRecordPage(m); if(page=='trxhistory') return trxHistPage(m); if(page=='prodsummary') return productionSummaryPage(m); if(page=='shipcheck') return shipCheckPage(m); if(page=='prod') return prod(m); if(page=='orders') return ordersPage(m); if(page=='boothship') return boothShipPage(m); if(page=='bom') return bom(m); if(page=='packing') return packingPage(m); if(page=='importorders') return importOrdersPage(m); if(page=='suppliers') return suppliersPage(m); if(page=='rmlots') return rmLotsPage(m); if(page=='purchasing') return purchasingPage(m); if(page=='stations') return stationsPage(m); if(page=='autoproduction') return autoProductionPage(m); if(page=='voidapproval') return voidApprovalPage(m); if(page=='users') return userManagementPage(m); if(page=='settings') return settings(m); return dash(m);}catch(e){console.error(e); $('main').innerHTML='<h1>เกิด Error</h1><div class="box"><b>'+String(e.message||e)+'</b><p class="hint">กด Settings → Reset หรือส่งรูปหน้านี้มาให้ผมดู</p><button class="primary" onclick="localStorage.removeItem(\'bakery_erp_v6_1\');location.reload()">Reset ข้อมูลใน Browser</button></div>';}}
+function render(){try{nav(); if(isOperator() && !OPERATOR_PAGES_.includes(page)){ page='prodrecord'; nav(); } const m=$('main'); if(page=='dashboard') return dash(m); if(page=='master') return masterData(m); if(page=='items') return items(m); if(page=='rm') return rm(m); if(page=='stockops') return stockOpsPage(m); if(page=='fglog') return fgLogPage(m); if(page=='prodrecord') return productionRecordPage(m); if(page=='trxhistory') return trxHistPage(m); if(page=='prodsummary') return productionSummaryPage(m); if(page=='shipcheck') return shipCheckPage(m); if(page=='prod') return prod(m); if(page=='orders') return ordersPage(m); if(page=='boothship') return boothShipPage(m); if(page=='bom') return bom(m); if(page=='packing') return packingPage(m); if(page=='importorders') return importOrdersPage(m); if(page=='suppliers') return suppliersPage(m); if(page=='rmlots') return rmLotsPage(m); if(page=='purchasing') return purchasingPage(m); if(page=='customers') return customersPage(m); if(page=='rewards') return rewardsPage(m); if(page=='b2borders') return b2bOrdersPage(m); if(page=='stations') return stationsPage(m); if(page=='autoproduction') return autoProductionPage(m); if(page=='voidapproval') return voidApprovalPage(m); if(page=='users') return userManagementPage(m); if(page=='settings') return settings(m); return dash(m);}catch(e){console.error(e); $('main').innerHTML='<h1>เกิด Error</h1><div class="box"><b>'+String(e.message||e)+'</b><p class="hint">กด Settings → Reset หรือส่งรูปหน้านี้มาให้ผมดู</p><button class="primary" onclick="localStorage.removeItem(\'bakery_erp_v6_1\');location.reload()">Reset ข้อมูลใน Browser</button></div>';}}
 function head(t,h=''){return `<h1>${t}</h1><div class="hint">${h}</div>`}
 function todayISO(){
   const d=new Date();
@@ -2014,6 +2017,218 @@ async function submitReceiveGoods(){
     sheetDone(res?.message||('รับของเรียบร้อย มูลค่ารวม ฿'+roundNum(total)));
   }catch(e){console.error(e); alertModal('บันทึกรับของไม่สำเร็จ: '+(e.message||e));}
 }
+/* === v9.97: CRM — ลูกค้า + Point/ของรางวัล + อนุมัติออเดอร์ B2B === */
+function customerName(id){ const c=(db.customers||[]).find(x=>x.id===id); return c?c.name:id; }
+function rewardName(id){ const r=(db.rewards||[]).find(x=>x.id===id); return r?r.name:id; }
+function customersPage(m){
+  const customers=(db.customers||[]).slice().sort((a,b)=>a.name.localeCompare(b.name));
+  m.innerHTML=head('ลูกค้า (CRM)','เก็บข้อมูลลูกค้าทั่วไปและลูกค้า B2B พร้อมแต้มสะสม — ลูกค้า B2B จะมีลิงก์ฟอร์มสั่งของส่วนตัวให้คัดลอกไปส่งได้')+
+  `<div class="box"><h2>เพิ่มลูกค้าใหม่</h2>
+    <div class="row3"><input id="newCustName" placeholder="ชื่อลูกค้า"><select id="newCustType" onchange="$('newCustCompanyWrap').style.display=this.value==='B2B'?'block':'none'"><option value="Retail">ลูกค้าทั่วไป</option><option value="B2B">ลูกค้า B2B</option></select><input id="newCustPhone" placeholder="เบอร์โทร (ไม่บังคับ)"></div>
+    <div class="row3" style="margin-top:8px"><input id="newCustLine" placeholder="Line ID (ไม่บังคับ)"><input id="newCustAddress" placeholder="ที่อยู่ (ไม่บังคับ)"><button class="primary" onclick="addCustomerAction()">เพิ่ม</button></div>
+    <div id="newCustCompanyWrap" style="display:none;margin-top:8px"><input id="newCustCompany" placeholder="ชื่อบริษัท (สำหรับลูกค้า B2B)" style="width:100%"></div>
+  </div>`+
+  `<div class="box"><h2>รายชื่อลูกค้า (${customers.length})</h2>${customers.length?`<table><tr><th>ชื่อ</th><th>ประเภท</th><th>ติดต่อ</th><th>แต้มสะสม</th><th>สถานะ</th><th></th></tr>${customers.map(c=>`<tr><td><b>${escHTML(c.name)}</b>${c.company?`<br><span class="mini">${escHTML(c.company)}</span>`:''}</td><td>${c.type==='B2B'?'<span class="pill">B2B</span>':'ทั่วไป'}</td><td>${escHTML(c.phone||c.lineId||'-')}</td><td><b>${roundDisplay(c.points)}</b></td><td>${genericStatusPill(c.status)}</td><td class="actions">`+
+    `<button class="small" onclick="toggleCustomerDetail('${c.id}')">${customerDetailId===c.id?'ปิด':'รายละเอียด'}</button> `+
+    (c.type==='B2B'?`<button class="small" onclick="copyB2BLink('${c.id}')">📋 ลิงก์สั่งของ</button> `:'')+
+    (c.status==='Active'?`<button class="small danger" onclick="setCustomerStatusAction('${c.id}','Disabled')">ปิดใช้งาน</button>`:`<button class="small" onclick="setCustomerStatusAction('${c.id}','Active')">เปิดใช้งาน</button>`)+
+    `</td></tr>${customerDetailId===c.id?`<tr><td colspan="6">${customerDetailPanel(c)}</td></tr>`:''}`).join('')}</table>`:'<p class="hint">ยังไม่มีลูกค้า เพิ่มก่อนเลยครับ</p>'}</div>`;
+}
+function toggleCustomerDetail(customerId){ customerDetailId=(customerDetailId===customerId?'':customerId); customersPage($('main')); }
+function customerDetailPanel(c){
+  const ledger=(db.pointsLedger||[]).filter(l=>l.customerId===c.id).sort((a,b)=>trxSortKey(b.createdAt)-trxSortKey(a.createdAt)).slice(0,20);
+  const activeRewards=(db.rewards||[]).filter(r=>r.status==='Active');
+  const myOrders=c.type==='B2B'?(db.b2bOrders||[]).filter(o=>o.customerId===c.id).sort((a,b)=>trxSortKey(b.neededDate)-trxSortKey(a.neededDate)):[];
+  return `<div class="box" style="margin:0;background:var(--panel-2,rgba(0,0,0,.03))">
+    <div class="row3">
+      <input id="custEditPhone_${c.id}" value="${escHTML(c.phone||'')}" placeholder="เบอร์โทร">
+      <input id="custEditLine_${c.id}" value="${escHTML(c.lineId||'')}" placeholder="Line ID">
+      <input id="custEditAddress_${c.id}" value="${escHTML(c.address||'')}" placeholder="ที่อยู่">
+    </div>
+    <div style="margin-top:8px"><button class="small" onclick="updateCustomerAction('${c.id}')">บันทึกข้อมูลติดต่อ</button></div>
+    <div class="row3" style="margin-top:12px">
+      <input id="custAdjPoints_${c.id}" type="number" placeholder="แต้ม +/-"><input id="custAdjReason_${c.id}" placeholder="เหตุผล"><button class="primary" onclick="adjustCustomerPointsAction('${c.id}')">ปรับแต้ม</button>
+    </div>
+    ${activeRewards.length?`<div class="row3" style="margin-top:8px"><select id="custRedeemReward_${c.id}">${activeRewards.map(r=>`<option value="${r.id}">${escHTML(r.name)} (${r.pointsCost} แต้ม)</option>`).join('')}</select><button class="ghost" onclick="redeemRewardAction('${c.id}')">แลกของรางวัล</button><span></span></div>`:''}
+    <h3 style="margin-top:14px">ประวัติแต้ม</h3>
+    ${ledger.length?`<table><tr><th>วันที่</th><th>ประเภท</th><th>แต้ม</th><th>คงเหลือ</th><th>หมายเหตุ</th></tr>${ledger.map(l=>`<tr><td>${escHTML(l.createdAt)}</td><td>${escHTML(l.type)}</td><td class="${l.points<0?'danger':''}">${l.points>0?'+':''}${roundDisplay(l.points)}</td><td>${roundDisplay(l.balance)}</td><td>${escHTML(l.remark||l.ref||'-')}</td></tr>`).join('')}</table>`:'<p class="hint">ยังไม่มีประวัติแต้ม</p>'}
+    ${c.type==='B2B'?`<h3 style="margin-top:14px">ออเดอร์ B2B ที่เคยส่งมา</h3>${myOrders.length?`<table><tr><th>วันที่ต้องการของ</th><th>สถานะ</th><th>คำสั่งผลิต</th></tr>${myOrders.map(o=>`<tr><td>${escHTML(o.neededDate)}</td><td>${genericStatusPill(o.status)}</td><td>${escHTML(o.linkedPO||'-')}</td></tr>`).join('')}</table>`:'<p class="hint">ลูกค้ายังไม่เคยส่งออเดอร์เข้ามา</p>'}`:''}
+  </div>`;
+}
+async function addCustomerAction(){
+  const name=($('newCustName')?.value||'').trim();
+  const type=$('newCustType')?.value||'Retail';
+  const phone=($('newCustPhone')?.value||'').trim();
+  const lineId=($('newCustLine')?.value||'').trim();
+  const address=($('newCustAddress')?.value||'').trim();
+  const company=($('newCustCompany')?.value||'').trim();
+  if(!name) return toast('กรอกชื่อลูกค้าก่อน');
+  toast('กำลังเพิ่มลูกค้า...');
+  try{
+    await apiPost({action:'addcustomer',data:{name,type,phone,lineId,address,company}});
+    await loadFromGoogleSheet();
+    page='customers'; render();
+    sheetDone('เพิ่มลูกค้า '+name+' แล้ว');
+  }catch(e){console.error(e); alertModal('เพิ่มไม่สำเร็จ: '+(e.message||e));}
+}
+async function updateCustomerAction(customerId){
+  const phone=($('custEditPhone_'+customerId)?.value||'').trim();
+  const lineId=($('custEditLine_'+customerId)?.value||'').trim();
+  const address=($('custEditAddress_'+customerId)?.value||'').trim();
+  toast('กำลังบันทึก...');
+  try{
+    await apiPost({action:'updatecustomer',customerId,data:{phone,lineId,address}});
+    await loadFromGoogleSheet();
+    page='customers'; render();
+    sheetDone('บันทึกข้อมูลติดต่อแล้ว');
+  }catch(e){console.error(e); alertModal('บันทึกไม่สำเร็จ: '+(e.message||e));}
+}
+async function setCustomerStatusAction(customerId,status){
+  if(!await confirmModal((status==='Active'?'เปิด':'ปิด')+'ใช้งานลูกค้ารายนี้?'))return;
+  toast('กำลังอัปเดต...');
+  try{
+    await apiPost({action:'setcustomerstatus',customerId,status});
+    await loadFromGoogleSheet();
+    page='customers'; render();
+    sheetDone('อัปเดตแล้ว');
+  }catch(e){console.error(e); alertModal('อัปเดตไม่สำเร็จ: '+(e.message||e));}
+}
+async function copyB2BLink(customerId){
+  toast('กำลังขอลิงก์...');
+  try{
+    const res=await apiPost({action:'getcustomertoken',customerId});
+    const url=new URL(location.href);
+    url.search='';
+    url.searchParams.set('b2b','1');
+    url.searchParams.set('customer',customerId);
+    url.searchParams.set('token',res.token);
+    if(apiKey) url.searchParams.set('key',apiKey);
+    const link=url.toString();
+    try{
+      await navigator.clipboard.writeText(link);
+      sheetDone('คัดลอกลิงก์แล้ว ส่งให้ลูกค้าได้เลย');
+    }catch(copyErr){
+      await promptModal('คัดลอกอัตโนมัติไม่ได้ (เบราว์เซอร์นี้ไม่อนุญาต) คัดลอกด้วยมือจากช่องนี้แทน:',link);
+    }
+  }catch(e){console.error(e); alertModal('ขอลิงก์ไม่สำเร็จ: '+(e.message||e));}
+}
+async function adjustCustomerPointsAction(customerId){
+  const points=+($('custAdjPoints_'+customerId)?.value||0);
+  const reason=($('custAdjReason_'+customerId)?.value||'').trim();
+  if(!points) return toast('ใส่จำนวนแต้มที่จะปรับก่อน (ใส่ติดลบถ้าจะหัก)');
+  toast('กำลังปรับแต้ม...');
+  try{
+    await apiPost({action:'adjustcustomerpoints',customerId,points,reason});
+    await loadFromGoogleSheet();
+    page='customers'; render();
+    sheetDone('ปรับแต้มแล้ว');
+  }catch(e){console.error(e); alertModal('ปรับแต้มไม่สำเร็จ: '+(e.message||e));}
+}
+async function redeemRewardAction(customerId){
+  const rewardId=$('custRedeemReward_'+customerId)?.value||'';
+  if(!rewardId) return toast('เลือกของรางวัลก่อน');
+  const reward=(db.rewards||[]).find(r=>r.id===rewardId);
+  const customer=(db.customers||[]).find(c=>c.id===customerId);
+  if(reward && customer && (+customer.points||0)<reward.pointsCost) return toast('แต้มไม่พอแลกของรางวัลนี้');
+  if(!await confirmModal('แลก "'+(reward?reward.name:'')+'" ใช้ '+(reward?reward.pointsCost:0)+' แต้ม ยืนยัน?'))return;
+  toast('กำลังแลกของรางวัล...');
+  try{
+    await apiPost({action:'redeemreward',customerId,rewardId});
+    await loadFromGoogleSheet();
+    page='customers'; render();
+    sheetDone('แลกของรางวัลแล้ว รอส่งมอบ');
+  }catch(e){console.error(e); alertModal('แลกไม่สำเร็จ: '+(e.message||e));}
+}
+function rewardsPage(m){
+  const rewards=(db.rewards||[]).slice().sort((a,b)=>a.name.localeCompare(b.name));
+  const pending=(db.rewardRedemptions||[]).filter(r=>r.status==='Pending').sort((a,b)=>trxSortKey(a.createdAt)-trxSortKey(b.createdAt));
+  m.innerHTML=head('Point / ของรางวัล','จัดการรายการของรางวัลที่แลกได้ด้วยแต้มสะสม และติดตามการส่งมอบ')+
+  `<div class="box"><h2>เพิ่มของรางวัลใหม่</h2><div class="row3"><input id="newRewardName" placeholder="ชื่อของรางวัล"><input id="newRewardPoints" type="number" min="1" placeholder="แต้มที่ใช้แลก"><input id="newRewardStock" type="number" min="0" placeholder="จำนวนคงเหลือ (ไม่บังคับ)"></div><div style="margin-top:8px"><button class="primary" onclick="addRewardAction()">เพิ่ม</button></div></div>`+
+  `<div class="box"><h2>รายการของรางวัล (${rewards.length})</h2>${rewards.length?`<table><tr><th>ชื่อ</th><th>แต้มที่ใช้แลก</th><th>คงเหลือ</th><th>สถานะ</th><th></th></tr>${rewards.map(r=>`<tr><td><b>${escHTML(r.name)}</b></td><td>${roundDisplay(r.pointsCost)}</td><td>${r.stock===''?'-':roundDisplay(r.stock)}</td><td>${genericStatusPill(r.status)}</td><td>${r.status==='Active'?`<button class="small danger" onclick="setRewardStatusAction('${r.id}','Disabled')">ปิดใช้งาน</button>`:`<button class="small" onclick="setRewardStatusAction('${r.id}','Active')">เปิดใช้งาน</button>`}</td></tr>`).join('')}</table>`:'<p class="hint">ยังไม่มีของรางวัล เพิ่มก่อนเลยครับ</p>'}</div>`+
+  `<div class="box"><h2>รอส่งมอบ (${pending.length})</h2>${pending.length?`<table><tr><th>วันที่แลก</th><th>ลูกค้า</th><th>ของรางวัล</th><th>แต้มที่ใช้</th><th></th></tr>${pending.map(r=>`<tr><td>${escHTML(r.createdAt)}</td><td>${escHTML(customerName(r.customerId))}</td><td>${escHTML(rewardName(r.rewardId))}</td><td>${roundDisplay(r.pointsSpent)}</td><td><button class="small primary" onclick="fulfillRedemptionAction('${r.id}')">ส่งมอบแล้ว</button></td></tr>`).join('')}</table>`:'<p class="hint">ไม่มีรายการรอส่งมอบ</p>'}</div>`;
+}
+async function addRewardAction(){
+  const name=($('newRewardName')?.value||'').trim();
+  const pointsCost=+($('newRewardPoints')?.value||0);
+  const stockVal=$('newRewardStock')?.value||'';
+  if(!name) return toast('กรอกชื่อของรางวัลก่อน');
+  if(!pointsCost||pointsCost<=0) return toast('ใส่จำนวนแต้มที่ใช้แลกก่อน');
+  toast('กำลังเพิ่มของรางวัล...');
+  try{
+    await apiPost({action:'addreward',data:{name,pointsCost,stock:stockVal===''?'':+stockVal}});
+    await loadFromGoogleSheet();
+    page='rewards'; render();
+    sheetDone('เพิ่มของรางวัล '+name+' แล้ว');
+  }catch(e){console.error(e); alertModal('เพิ่มไม่สำเร็จ: '+(e.message||e));}
+}
+async function setRewardStatusAction(rewardId,status){
+  if(!await confirmModal((status==='Active'?'เปิด':'ปิด')+'ใช้งานของรางวัลนี้?'))return;
+  toast('กำลังอัปเดต...');
+  try{
+    await apiPost({action:'setrewardstatus',rewardId,status});
+    await loadFromGoogleSheet();
+    page='rewards'; render();
+    sheetDone('อัปเดตแล้ว');
+  }catch(e){console.error(e); alertModal('อัปเดตไม่สำเร็จ: '+(e.message||e));}
+}
+async function fulfillRedemptionAction(redemptionId){
+  if(!await confirmModal('ยืนยันว่าส่งมอบของรางวัลนี้ให้ลูกค้าแล้ว?'))return;
+  toast('กำลังอัปเดต...');
+  try{
+    await apiPost({action:'fulfillredemption',redemptionId});
+    await loadFromGoogleSheet();
+    page='rewards'; render();
+    sheetDone('บันทึกการส่งมอบแล้ว');
+  }catch(e){console.error(e); alertModal('อัปเดตไม่สำเร็จ: '+(e.message||e));}
+}
+function b2bOrdersPage(m){
+  const orders=(db.b2bOrders||[]).slice().sort((a,b)=>{
+    if(a.status==='Pending'&&b.status!=='Pending') return -1;
+    if(a.status!=='Pending'&&b.status==='Pending') return 1;
+    return trxSortKey(b.neededDate)-trxSortKey(a.neededDate);
+  });
+  m.innerHTML=head('อนุมัติออเดอร์ B2B','ลูกค้า B2B ส่งออเดอร์เข้ามาจากฟอร์มส่วนตัวของแต่ละคน — ตรวจสอบแล้วกดอนุมัติ ระบบจะสร้างคำสั่งผลิตให้ทันที')+
+  `<div class="box"><h2>รายการออเดอร์ (${orders.length})</h2>${orders.length?orders.map(o=>b2bOrderCard(o)).join(''):'<p class="hint">ยังไม่มีออเดอร์ B2B เข้ามา</p>'}</div>`;
+}
+function b2bOrderCard(o){
+  const items=(db.b2bOrderItems||[]).filter(i=>i.orderId===o.id);
+  const editable=o.status==='Pending';
+  return `<div class="box" style="margin:0 0 12px">
+    <div class="row" style="justify-content:space-between;align-items:center">
+      <div><b>${escHTML(customerName(o.customerId))}</b> <span class="mini">ต้องการของวันที่ ${escHTML(o.neededDate)}</span></div>
+      ${genericStatusPill(o.status)}
+    </div>
+    ${o.remark?`<p class="hint">หมายเหตุลูกค้า: ${escHTML(o.remark)}</p>`:''}
+    <table><tr><th>SKU</th><th>ชื่อสินค้า</th><th>จำนวน</th><th>หมายเหตุ</th></tr>${items.map((i,idx)=>`<tr><td><b>${escHTML(i.sku)}</b></td><td>${escHTML(itemName(i.sku))}</td><td>${editable?`<input id="b2bQty_${o.id}_${idx}" type="number" min="0" value="${i.qty}" style="max-width:90px">`:roundDisplay(i.qty)}</td><td>${escHTML(i.remark||'-')}</td></tr>`).join('')}</table>
+    ${editable?`<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button class="primary" onclick="approveB2BOrderAction('${o.id}')">✅ อนุมัติ → สร้างคำสั่งผลิต</button><button class="ghost danger" onclick="rejectB2BOrderAction('${o.id}')">ปฏิเสธ</button></div>`
+    :o.status==='Approved'?`<p class="hint">คำสั่งผลิตที่สร้าง: <b>${escHTML(o.linkedPO||'-')}</b></p>`
+    :`<p class="hint">เหตุผลที่ปฏิเสธ: ${escHTML(o.rejectReason||'-')}</p>`}
+  </div>`;
+}
+async function approveB2BOrderAction(orderId){
+  const items=(db.b2bOrderItems||[]).filter(i=>i.orderId===orderId);
+  const adjustedItems=items.map((i,idx)=>({sku:i.sku,qty:+($('b2bQty_'+orderId+'_'+idx)?.value||i.qty)||0,remark:i.remark||''})).filter(i=>i.qty>0);
+  if(!adjustedItems.length) return toast('ไม่มีรายการที่จำนวนมากกว่า 0');
+  if(!await confirmModal('อนุมัติออเดอร์นี้และสร้างคำสั่งผลิต '+adjustedItems.length+' รายการทันที?'))return;
+  toast('กำลังอนุมัติ...');
+  try{
+    const res=await apiPost({action:'approveb2border',orderId,data:{items:adjustedItems}});
+    await loadFromGoogleSheet();
+    page='b2borders'; render();
+    sheetDone(res?.message||'อนุมัติแล้ว สร้างคำสั่งผลิตเรียบร้อย');
+  }catch(e){console.error(e); alertModal('อนุมัติไม่สำเร็จ: '+(e.message||e));}
+}
+async function rejectB2BOrderAction(orderId){
+  const reason=await promptModal('เหตุผลที่ปฏิเสธออเดอร์นี้:','');
+  if(reason===null||reason===undefined) return;
+  toast('กำลังปฏิเสธ...');
+  try{
+    await apiPost({action:'rejectb2border',orderId,reason});
+    await loadFromGoogleSheet();
+    page='b2borders'; render();
+    sheetDone('ปฏิเสธออเดอร์แล้ว');
+  }catch(e){console.error(e); alertModal('ดำเนินการไม่สำเร็จ: '+(e.message||e));}
+}
 function packingPage(m){
   const q=($('packQ')?.value||'').toLowerCase();
   let list=(db.items||[]).filter(x=>x.batchYield>1 && matchesProdFilter('packing',x.product));
@@ -2776,6 +2991,13 @@ function fromSheetData(data){
   db.purchaseOrder=(data.purchaseOrder||[]).map(p=>({po:p.PO,orderDate:dateISO(p.OrderDate)||String(p.OrderDate||''),supplier:p.Supplier||'',status:p.Status||'Open',remark:p.Remark||''})).filter(x=>x.po);
   db.purchaseOrderItems=(data.purchaseOrderItems||[]).map(i=>({po:i.PO,rmCode:String(i.RMCode||''),orderQty:+i.OrderQty||0,unitPrice:+i.UnitPrice||0,receivedQty:+i.ReceivedQty||0})).filter(x=>x.po);
   db.goodsReceipt=(data.goodsReceipt||[]).map(g=>({id:g.ReceiptID,receiveDate:dateISO(g.ReceiveDate)||String(g.ReceiveDate||''),po:g.PO||'',rmCode:String(g.RMCode||''),qty:+g.Qty||0,unitPrice:+g.UnitPrice||0,supplier:g.Supplier||'',remark:g.Remark||''})).filter(x=>x.id);
+  // v9.97: CRM — ลูกค้า + แต้ม/ของรางวัล + ออเดอร์ B2B
+  db.customers=(data.customers||[]).map(c=>({id:c.CustomerID||'',name:c.Name||'',type:c.Type||'Retail',phone:c.Phone||'',lineId:c.LineId||'',company:c.Company||'',address:c.Address||'',status:c.Status||'Active',points:+c.Points||0})).filter(x=>x.id);
+  db.pointsLedger=(data.pointsLedger||[]).map(l=>({id:l.LedgerID||'',customerId:l.CustomerID||'',type:l.Type||'',points:+l.Points||0,ref:l.Ref||'',remark:l.Remark||'',balance:+l.Balance||0,createdBy:l.CreatedBy||'',createdAt:l.CreatedAt||''})).filter(x=>x.id);
+  db.rewards=(data.rewards||[]).map(r=>({id:r.RewardID||'',name:r.Name||'',pointsCost:+r.PointsCost||0,stock:(r.Stock!==undefined&&r.Stock!=='')?+r.Stock:'',status:r.Status||'Active'})).filter(x=>x.id);
+  db.rewardRedemptions=(data.rewardRedemptions||[]).map(r=>({id:r.RedemptionID||'',customerId:r.CustomerID||'',rewardId:r.RewardID||'',pointsSpent:+r.PointsSpent||0,status:r.Status||'Pending',createdAt:r.CreatedAt||'',fulfilledAt:r.FulfilledAt||''})).filter(x=>x.id);
+  db.b2bOrders=(data.b2bOrders||[]).map(o=>({id:o.OrderID||'',customerId:o.CustomerID||'',requestedDate:o.RequestedDate||'',neededDate:dateISO(o.NeededDate)||String(o.NeededDate||''),status:o.Status||'Pending',remark:o.Remark||'',linkedPO:o.LinkedPO||'',rejectReason:o.RejectReason||''})).filter(x=>x.id);
+  db.b2bOrderItems=(data.b2bOrderItems||[]).map(i=>({orderId:i.OrderID||'',sku:String(i.SKU||''),qty:+i.Qty||0,remark:i.Remark||''})).filter(x=>x.orderId);
   db.supplierRm=(data.supplierRm||[]).map(x=>({supplierId:x.SupplierID||'',rmCode:String(x.RMCode||'')})).filter(x=>x.supplierId&&x.rmCode);
   db.dashboard=(data.dashboard&&data.dashboard.length)?data.dashboard:(db.dashboard||[]);
   db.remote=db.remote||{}; db.remote.lastApiSync=now();
@@ -2995,8 +3217,107 @@ function startKiosk(){
   root.innerHTML='<div style="margin:auto;text-align:center;padding:24px"><div style="font-size:70px">📟</div><h1 style="font-size:30px">พร้อมใช้งาน Kiosk</h1><p style="opacity:.75;max-width:420px;margin:8px auto 24px">กดปุ่มด้านล่างครั้งเดียวเพื่อเปิดเสียงแจ้งเตือนงานใหม่ จากนั้นจะทำงานเองตลอด ไม่ต้องแตะจออีก</p><button onclick="(function(){window.__kioskStart&&window.__kioskStart()})()" style="border:0;background:#df6518;color:#fff;font-size:22px;font-weight:800;border-radius:16px;padding:20px 40px;cursor:pointer">▶ เริ่มใช้งาน Kiosk</button></div>';
   window.__kioskStart = unlockAndStart;
 }
+/* === v9.97: B2B Customer Order Portal ===
+ * เปิดผ่านลิงก์ ?b2b=1&customer=...&token=...&key=... (จากปุ่ม "คัดลอกลิงก์สั่งของ B2B" ในหน้า "ลูกค้า (CRM)")
+ * ลูกค้าไม่ต้อง login เลย เพราะ Token ผูกกับตัวลูกค้าคนนั้นโดยตรง ไม่ใช่ user บัญชีพนักงาน — แยกจากแอปหลัก
+ * เหมือน Kiosk mode ทุกจุด
+ */
+const B2B_MODE = ERP_QUERY.get('b2b') === '1';
+function startB2BPortal(){
+  const customerId = ERP_QUERY.get('customer') || '';
+  const custToken = ERP_QUERY.get('token') || '';
+  const urlKey = ERP_QUERY.get('key') || '';
+  if(urlKey){ apiKey = urlKey; localStorage.setItem('bakery_api_key', urlKey); }
+  document.body.classList.add('login-locked');
+  const root=document.createElement('div');
+  root.id='b2bRoot';
+  root.style.cssText='position:fixed;inset:0;background:#f7f3ee;color:#2b2620;z-index:100;overflow:auto;font-family:Inter,Segoe UI,Tahoma,sans-serif;padding:20px';
+  document.body.appendChild(root);
+  if(!customerId || !custToken){
+    root.innerHTML='<div style="max-width:480px;margin:60px auto;text-align:center"><div style="font-size:60px">⚠️</div><h1>ลิงก์ไม่ถูกต้อง</h1><p>ขาดข้อมูลลูกค้าหรือ Token ในลิงก์ — กรุณาขอลิงก์ใหม่จากร้าน</p></div>';
+    return;
+  }
+  let portalData=null, lines=[{sku:'',qty:'',remark:''}];
+  function fmtStatus(s){
+    const map={Pending:['รอตรวจสอบ','#7a5b00','#fff3cd'],Approved:['อนุมัติแล้ว','#065f46','#d1fae5'],Rejected:['ปฏิเสธ','#991b1b','#fee2e2']};
+    const v=map[s]||[s,'#444','#eee'];
+    return `<span style="background:${v[2]};color:${v[1]};padding:3px 10px;border-radius:20px;font-size:13px;font-weight:700">${v[0]}</span>`;
+  }
+  function syncLines(){
+    lines=lines.map((_,i)=>({
+      sku: root.querySelector('.b2bLineSku[data-i="'+i+'"]')?.value||'',
+      qty: root.querySelector('.b2bLineQty[data-i="'+i+'"]')?.value||'',
+      remark: root.querySelector('.b2bLineRemark[data-i="'+i+'"]')?.value||''
+    }));
+  }
+  function renderForm(){
+    const products=(portalData?.products||[]).slice().sort((a,b)=>a.name.localeCompare(b.name));
+    return `<div style="background:#fff;border-radius:16px;padding:20px;margin-bottom:16px">
+      <h2 style="margin:0 0 12px">สั่งสินค้าใหม่</h2>
+      <label style="font-size:13px;opacity:.7">วันที่ต้องการรับของ</label><br>
+      <input id="b2bNeededDate" type="date" value="${todayISO()}" style="margin-bottom:12px;padding:8px;border-radius:8px;border:1px solid #ddd">
+      <div id="b2bLines">${lines.map((l,i)=>`<div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+        <select data-i="${i}" class="b2bLineSku" style="flex:2;min-width:160px;padding:8px;border-radius:8px;border:1px solid #ddd"><option value="">-- เลือกสินค้า --</option>${products.map(p=>`<option value="${p.sku}" ${l.sku===p.sku?'selected':''}>${escHTML(p.name)}</option>`).join('')}</select>
+        <input data-i="${i}" class="b2bLineQty" type="number" min="1" placeholder="จำนวน" value="${l.qty}" style="width:100px;padding:8px;border-radius:8px;border:1px solid #ddd">
+        <input data-i="${i}" class="b2bLineRemark" placeholder="หมายเหตุ" value="${escHTML(l.remark||'')}" style="flex:1;min-width:120px;padding:8px;border-radius:8px;border:1px solid #ddd">
+        <button onclick="window.__b2bDelLine(${i})" style="border:0;background:#fee2e2;color:#991b1b;border-radius:8px;padding:8px 12px;cursor:pointer">ลบ</button>
+      </div>`).join('')}</div>
+      <button onclick="window.__b2bAddLine()" style="border:1px dashed #999;background:none;border-radius:8px;padding:8px 14px;cursor:pointer;margin-bottom:14px">+ เพิ่มรายการ</button><br>
+      <textarea id="b2bRemark" placeholder="หมายเหตุรวม (ไม่บังคับ)" style="width:100%;padding:8px;border-radius:8px;border:1px solid #ddd;min-height:60px"></textarea>
+      <div style="margin-top:14px"><button onclick="window.__b2bSubmit()" style="border:0;background:#df6518;color:#fff;font-weight:800;font-size:16px;border-radius:10px;padding:12px 24px;cursor:pointer">ส่งออเดอร์</button></div>
+    </div>`;
+  }
+  function renderHistory(){
+    const orders=(portalData?.orders||[]).slice().sort((a,b)=>trxSortKey(b.neededDate)-trxSortKey(a.neededDate));
+    if(!orders.length) return '<div style="background:#fff;border-radius:16px;padding:20px"><p style="opacity:.6">ยังไม่เคยส่งออเดอร์เข้ามา</p></div>';
+    return `<div style="background:#fff;border-radius:16px;padding:20px">
+      <h2 style="margin:0 0 12px">ประวัติออเดอร์</h2>
+      ${orders.map(o=>`<div style="border-bottom:1px solid #eee;padding:10px 0">
+        <div style="display:flex;justify-content:space-between;align-items:center"><b>ต้องการวันที่ ${escHTML(o.neededDate)}</b>${fmtStatus(o.status)}</div>
+        <div style="font-size:14px;opacity:.75;margin-top:4px">${(o.items||[]).map(i=>escHTML(i.sku)+' x'+i.qty).join(', ')}</div>
+        ${o.status==='Rejected'&&o.rejectReason?`<div style="font-size:13px;color:#991b1b;margin-top:4px">เหตุผล: ${escHTML(o.rejectReason)}</div>`:''}
+      </div>`).join('')}
+    </div>`;
+  }
+  function renderAll(){
+    root.innerHTML=`<div style="max-width:640px;margin:0 auto">
+      <div style="text-align:center;margin-bottom:16px"><h1 style="margin:0">🧁 ฟอร์มสั่งของ B2B</h1><p style="opacity:.7">${escHTML(portalData?.customerName||'')} — แต้มสะสม <b>${roundDisplay(portalData?.points||0)}</b></p></div>
+      ${renderForm()}
+      ${renderHistory()}
+    </div>`;
+  }
+  window.__b2bAddLine=()=>{ syncLines(); lines.push({sku:'',qty:'',remark:''}); renderAll(); };
+  window.__b2bDelLine=(i)=>{ syncLines(); lines.splice(i,1); if(!lines.length) lines=[{sku:'',qty:'',remark:''}]; renderAll(); };
+  window.__b2bSubmit=async()=>{
+    syncLines();
+    const neededDate=$('b2bNeededDate')?.value||todayISO();
+    const remark=($('b2bRemark')?.value||'').trim();
+    const items=lines.map(l=>({sku:l.sku,qty:+l.qty||0,remark:l.remark||''})).filter(l=>l.sku&&l.qty>0);
+    if(!items.length){ alert('เลือกสินค้าและใส่จำนวนอย่างน้อย 1 รายการ'); return; }
+    try{
+      const requestId=Date.now()+'-'+Math.random().toString(36).slice(2);
+      await apiGetOnce('submitb2border',{customer:customerId,token:custToken,payload:JSON.stringify({neededDate,remark,items,requestId})});
+      lines=[{sku:'',qty:'',remark:''}];
+      await load();
+      alert('ส่งออเดอร์เรียบร้อย ทางร้านจะตรวจสอบและติดต่อกลับ');
+    }catch(e){ console.error(e); alert('ส่งออเดอร์ไม่สำเร็จ: '+(e.message||e)); }
+  };
+  async function load(){
+    try{
+      const res=await apiGetOnce('b2bportaldata',{customer:customerId,token:custToken});
+      portalData=res;
+      renderAll();
+    }catch(e){
+      console.error(e);
+      root.innerHTML='<div style="max-width:480px;margin:60px auto;text-align:center"><div style="font-size:60px">⚠️</div><h1>โหลดข้อมูลไม่สำเร็จ</h1><p>'+escHTML(e.message||String(e))+'</p></div>';
+    }
+  }
+  load();
+}
 if(KIOSK_MODE){
   startKiosk();
+}else if(B2B_MODE){
+  startB2BPortal();
 }else if(localStorage.getItem('bakery_logged_in')==='1' && sessionToken){
   startApp();
 }else{
