@@ -119,6 +119,7 @@ let userRole = localStorage.getItem('bakery_user_role') || '';
 let userDisplayName = localStorage.getItem('bakery_user_display_name') || '';
 let userUsername = localStorage.getItem('bakery_user_username') || '';
 let apiBusy = false;
+let lastFullSyncAt = 0; // v9.99: เวลาที่ข้อมูลล่าสุดถูก sync มาแล้ว (จาก apiPost ที่ฝาก data มาด้วย) กัน loadFromGoogleSheet ยิงซ้ำ
 let autoPushTimer = null;
 const AUTO_PUSH_DELAY_MS = 900;
 function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
@@ -237,6 +238,13 @@ async function apiPost(body,_retriesLeft){
         throw e;
       }
     }
+    // v9.99: เดิมบันทึกเสร็จแล้วต้องยิง action=all แยกอีกรอบเพื่อโหลดข้อมูลใหม่ (รอบละ 2-10 วิ x 2 รอบ)
+    // ตอนนี้ฝาก getAllData() ล่าสุดมากับผลบันทึกเลยในคำขอเดียว ไม่ต้องเรียกซ้ำ (ดู loadFromGoogleSheet)
+    if(result && result.data){
+      fromSheetData(result.data);
+      saveLocalOnly();
+      lastFullSyncAt=Date.now();
+    }
     hideSyncOverlaySuccess('บันทึกเข้า Google Sheet แล้ว');
     return result;
   }catch(e){
@@ -336,8 +344,11 @@ function dashboardValue(key, fallback=0){
 }
 function useTodayCache(selDate){return selDate===todayISO() && (db.dashboard||[]).length>0;}
 async function loadFromGoogleSheet(){
+  // v9.99: ถ้าเพิ่ง sync ข้อมูลมาสดๆ จาก apiPost (ฝาก data มากับผลบันทึกแล้ว) ภายใน 4 วินาทีที่ผ่านมา
+  // ข้อมูลใน db ก็ใหม่อยู่แล้ว ไม่ต้องยิง action=all ซ้ำอีกรอบ (ประหยัด 1 round-trip ที่ช้า 2-10 วิ ทุกครั้ง)
+  if(Date.now()-lastFullSyncAt<4000){ render(); return; }
   if(apiBusy)return; apiBusy=true; showSyncOverlay('กำลังโหลดข้อมูลจาก Google Sheet...');
-  try{const res=await apiGet('all'); fromSheetData(res.data||{}); saveLocalOnly(); render(); hideSyncOverlaySuccess('โหลดข้อมูลจาก Google Sheet แล้ว');}
+  try{const res=await apiGet('all'); fromSheetData(res.data||{}); saveLocalOnly(); lastFullSyncAt=Date.now(); render(); hideSyncOverlaySuccess('โหลดข้อมูลจาก Google Sheet แล้ว');}
   catch(e){console.error(e); hideSyncOverlayError('โหลดไม่สำเร็จ: '+(e.message||e));}
   finally{apiBusy=false;}
 }
