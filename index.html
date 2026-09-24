@@ -2043,9 +2043,45 @@ async function submitReceiveGoods(){
 /* === v9.97: CRM — ลูกค้า + Point/ของรางวัล + อนุมัติออเดอร์ B2B === */
 function customerName(id){ const c=(db.customers||[]).find(x=>x.id===id); return c?c.name:id; }
 function rewardName(id){ const r=(db.rewards||[]).find(x=>x.id===id); return r?r.name:id; }
+const POINTS_EARN_RATE_BAHT=200, POINTS_EARN_RATE_POINTS=5; // ทุก 200 บาท ได้ 5 แต้ม
+function calcEarnPoints(amount){ return Math.floor((+amount||0)/POINTS_EARN_RATE_BAHT)*POINTS_EARN_RATE_POINTS; }
+function normPhoneClient_(p){ p=String(p||'').replace(/\D/g,''); if(p.length===9) return '0'+p; return p; }
+function findCustomerByPhone_(phone){ const n=normPhoneClient_(phone); if(!n) return null; return (db.customers||[]).find(c=>normPhoneClient_(c.phone)===n)||null; }
+function quickPointsLookup(){
+  const phone=($('qpPhone')?.value||'').trim();
+  const amount=+($('qpAmount')?.value||0);
+  const resEl=$('qpResult'); if(!resEl) return;
+  if(!phone){ resEl.className='hint'; resEl.textContent='พิมพ์เบอร์โทร + ยอดซื้อ ระบบคำนวณแต้มให้อัตโนมัติ (ทุก '+POINTS_EARN_RATE_BAHT+' บาท ได้ '+POINTS_EARN_RATE_POINTS+' แต้ม)'; return; }
+  const cust=findCustomerByPhone_(phone);
+  if(!cust){ resEl.className='hint danger'; resEl.textContent='ไม่พบลูกค้าเบอร์นี้ — ให้ลูกค้าสมัครสมาชิกก่อน (ใช้ลิงก์สมัครสมาชิกด้านล่าง)'; return; }
+  const pts=calcEarnPoints(amount);
+  resEl.className='hint';
+  resEl.innerHTML='ลูกค้า: <b>'+escHTML(cust.name)+'</b> (แต้มปัจจุบัน '+roundDisplay(cust.points)+') — ยอดซื้อนี้จะได้รับ <b>'+pts+' แต้ม</b>';
+}
+async function giveQuickPointsAction(){
+  const phone=($('qpPhone')?.value||'').trim();
+  const amount=+($('qpAmount')?.value||0);
+  if(!phone) return toast('กรอกเบอร์โทรลูกค้าก่อน');
+  if(!amount||amount<=0) return toast('กรอกยอดซื้อก่อน');
+  const cust=findCustomerByPhone_(phone);
+  if(!cust) return toast('ไม่พบลูกค้าเบอร์นี้ในระบบ');
+  const pts=calcEarnPoints(amount);
+  if(!pts) return toast('ยอดซื้อยังไม่ถึง '+POINTS_EARN_RATE_BAHT+' บาท ยังไม่ได้แต้ม');
+  toast('กำลังให้แต้ม...');
+  try{
+    await apiPost({action:'adjustcustomerpoints',customerId:cust.id,points:pts,reason:'ซื้อของ '+roundNum(amount)+' บาท'});
+    await loadFromGoogleSheet();
+    page='customers'; render();
+    sheetDone('ให้ '+pts+' แต้มแก่ '+cust.name+' แล้ว');
+  }catch(e){console.error(e); alertModal('ให้แต้มไม่สำเร็จ: '+(e.message||e));}
+}
 function customersPage(m){
   const customers=(db.customers||[]).slice().sort((a,b)=>a.name.localeCompare(b.name));
   m.innerHTML=head('ลูกค้า (CRM)','เก็บข้อมูลลูกค้าทั่วไปและลูกค้า B2B พร้อมแต้มสะสม — ลูกค้า B2B จะมีลิงก์ฟอร์มสั่งของส่วนตัวให้คัดลอกไปส่งได้')+
+  `<div class="box"><h2>⚡ ให้แต้มลูกค้า (เร็ว สำหรับหน้าร้าน)</h2>
+    <div class="row3"><input id="qpPhone" placeholder="เบอร์โทรลูกค้า" oninput="quickPointsLookup()"><input id="qpAmount" type="number" min="0" placeholder="ยอดซื้อ (บาท)" oninput="quickPointsLookup()"><button class="primary" onclick="giveQuickPointsAction()">ให้แต้ม</button></div>
+    <p id="qpResult" class="hint">พิมพ์เบอร์โทร + ยอดซื้อ ระบบคำนวณแต้มให้อัตโนมัติ (ทุก ${POINTS_EARN_RATE_BAHT} บาท ได้ ${POINTS_EARN_RATE_POINTS} แต้ม)</p>
+  </div>`+
   `<div class="box"><h2>🔗 ลิงก์สมัครสมาชิกลูกค้าใหม่</h2><p class="hint">ลิงก์เดียวใช้ร่วมกันได้ทุกคน (แปะที่บูธ ใส่ในกล่องพัสดุ TikTok/Shopee ฯลฯ) — ลูกค้ากรอกเอง ชื่อ/เบอร์/วันเกิด/อาชีพ ระบบสร้างเป็นสมาชิกสะสมแต้มให้อัตโนมัติ ไม่ต้องให้พนักงานกรอกให้</p><button class="primary" onclick="copyJoinLink()">📋 คัดลอกลิงก์สมัครสมาชิก</button></div>`+
   `<div class="box"><h2>เพิ่มลูกค้าใหม่ (พนักงานกรอกเอง)</h2>
     <div class="row3"><input id="newCustName" placeholder="ชื่อลูกค้า"><select id="newCustType" onchange="$('newCustCompanyWrap').style.display=this.value==='B2B'?'block':'none'"><option value="Retail">ลูกค้าทั่วไป</option><option value="B2B">ลูกค้า B2B</option></select><input id="newCustPhone" placeholder="เบอร์โทร (ไม่บังคับ)"></div>
