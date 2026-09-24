@@ -2023,7 +2023,8 @@ function rewardName(id){ const r=(db.rewards||[]).find(x=>x.id===id); return r?r
 function customersPage(m){
   const customers=(db.customers||[]).slice().sort((a,b)=>a.name.localeCompare(b.name));
   m.innerHTML=head('ลูกค้า (CRM)','เก็บข้อมูลลูกค้าทั่วไปและลูกค้า B2B พร้อมแต้มสะสม — ลูกค้า B2B จะมีลิงก์ฟอร์มสั่งของส่วนตัวให้คัดลอกไปส่งได้')+
-  `<div class="box"><h2>เพิ่มลูกค้าใหม่</h2>
+  `<div class="box"><h2>🔗 ลิงก์สมัครสมาชิกลูกค้าใหม่</h2><p class="hint">ลิงก์เดียวใช้ร่วมกันได้ทุกคน (แปะที่บูธ ใส่ในกล่องพัสดุ TikTok/Shopee ฯลฯ) — ลูกค้ากรอกเอง ชื่อ/เบอร์/วันเกิด/อาชีพ ระบบสร้างเป็นสมาชิกสะสมแต้มให้อัตโนมัติ ไม่ต้องให้พนักงานกรอกให้</p><button class="primary" onclick="copyJoinLink()">📋 คัดลอกลิงก์สมัครสมาชิก</button></div>`+
+  `<div class="box"><h2>เพิ่มลูกค้าใหม่ (พนักงานกรอกเอง)</h2>
     <div class="row3"><input id="newCustName" placeholder="ชื่อลูกค้า"><select id="newCustType" onchange="$('newCustCompanyWrap').style.display=this.value==='B2B'?'block':'none'"><option value="Retail">ลูกค้าทั่วไป</option><option value="B2B">ลูกค้า B2B</option></select><input id="newCustPhone" placeholder="เบอร์โทร (ไม่บังคับ)"></div>
     <div class="row3" style="margin-top:8px"><input id="newCustLine" placeholder="Line ID (ไม่บังคับ)"><input id="newCustAddress" placeholder="ที่อยู่ (ไม่บังคับ)"><button class="primary" onclick="addCustomerAction()">เพิ่ม</button></div>
     <div id="newCustCompanyWrap" style="display:none;margin-top:8px"><input id="newCustCompany" placeholder="ชื่อบริษัท (สำหรับลูกค้า B2B)" style="width:100%"></div>
@@ -2046,6 +2047,7 @@ function customerDetailPanel(c){
       <input id="custEditAddress_${c.id}" value="${escHTML(c.address||'')}" placeholder="ที่อยู่">
     </div>
     <div style="margin-top:8px"><button class="small" onclick="updateCustomerAction('${c.id}')">บันทึกข้อมูลติดต่อ</button></div>
+    ${(c.birthday||c.occupation)?`<div class="row3" style="margin-top:10px"><div><b>วันเกิด:</b> ${escHTML(c.birthday||'-')}</div><div><b>อาชีพ:</b> ${escHTML(c.occupation||'-')}</div><span></span></div>`:''}
     <div class="row3" style="margin-top:12px">
       <input id="custAdjPoints_${c.id}" type="number" placeholder="แต้ม +/-"><input id="custAdjReason_${c.id}" placeholder="เหตุผล"><button class="primary" onclick="adjustCustomerPointsAction('${c.id}')">ปรับแต้ม</button>
     </div>
@@ -2111,6 +2113,19 @@ async function copyB2BLink(customerId){
       await promptModal('คัดลอกอัตโนมัติไม่ได้ (เบราว์เซอร์นี้ไม่อนุญาต) คัดลอกด้วยมือจากช่องนี้แทน:',link);
     }
   }catch(e){console.error(e); alertModal('ขอลิงก์ไม่สำเร็จ: '+(e.message||e));}
+}
+async function copyJoinLink(){
+  const url=new URL(location.href);
+  url.search='';
+  url.searchParams.set('join','1');
+  if(apiKey) url.searchParams.set('key',apiKey);
+  const link=url.toString();
+  try{
+    await navigator.clipboard.writeText(link);
+    sheetDone('คัดลอกลิงก์สมัครสมาชิกแล้ว');
+  }catch(copyErr){
+    await promptModal('คัดลอกอัตโนมัติไม่ได้ (เบราว์เซอร์นี้ไม่อนุญาต) คัดลอกด้วยมือจากช่องนี้แทน:',link);
+  }
 }
 async function adjustCustomerPointsAction(customerId){
   const points=+($('custAdjPoints_'+customerId)?.value||0);
@@ -2992,7 +3007,7 @@ function fromSheetData(data){
   db.purchaseOrderItems=(data.purchaseOrderItems||[]).map(i=>({po:i.PO,rmCode:String(i.RMCode||''),orderQty:+i.OrderQty||0,unitPrice:+i.UnitPrice||0,receivedQty:+i.ReceivedQty||0})).filter(x=>x.po);
   db.goodsReceipt=(data.goodsReceipt||[]).map(g=>({id:g.ReceiptID,receiveDate:dateISO(g.ReceiveDate)||String(g.ReceiveDate||''),po:g.PO||'',rmCode:String(g.RMCode||''),qty:+g.Qty||0,unitPrice:+g.UnitPrice||0,supplier:g.Supplier||'',remark:g.Remark||''})).filter(x=>x.id);
   // v9.97: CRM — ลูกค้า + แต้ม/ของรางวัล + ออเดอร์ B2B
-  db.customers=(data.customers||[]).map(c=>({id:c.CustomerID||'',name:c.Name||'',type:c.Type||'Retail',phone:c.Phone||'',lineId:c.LineId||'',company:c.Company||'',address:c.Address||'',status:c.Status||'Active',points:+c.Points||0})).filter(x=>x.id);
+  db.customers=(data.customers||[]).map(c=>({id:c.CustomerID||'',name:c.Name||'',type:c.Type||'Retail',phone:c.Phone||'',lineId:c.LineId||'',company:c.Company||'',address:c.Address||'',status:c.Status||'Active',points:+c.Points||0,birthday:c.Birthday||'',occupation:c.Occupation||''})).filter(x=>x.id);
   db.pointsLedger=(data.pointsLedger||[]).map(l=>({id:l.LedgerID||'',customerId:l.CustomerID||'',type:l.Type||'',points:+l.Points||0,ref:l.Ref||'',remark:l.Remark||'',balance:+l.Balance||0,createdBy:l.CreatedBy||'',createdAt:l.CreatedAt||''})).filter(x=>x.id);
   db.rewards=(data.rewards||[]).map(r=>({id:r.RewardID||'',name:r.Name||'',pointsCost:+r.PointsCost||0,stock:(r.Stock!==undefined&&r.Stock!=='')?+r.Stock:'',status:r.Status||'Active'})).filter(x=>x.id);
   db.rewardRedemptions=(data.rewardRedemptions||[]).map(r=>({id:r.RedemptionID||'',customerId:r.CustomerID||'',rewardId:r.RewardID||'',pointsSpent:+r.PointsSpent||0,status:r.Status||'Pending',createdAt:r.CreatedAt||'',fulfilledAt:r.FulfilledAt||''})).filter(x=>x.id);
@@ -3314,10 +3329,71 @@ function startB2BPortal(){
   }
   load();
 }
+/* === v9.98: สมัครสมาชิกลูกค้าใหม่ด้วยตัวเอง (ไม่ต้อง login) ===
+ * ลิงก์เดียวใช้ร่วมกันได้ทุกคน (แปะบูธ/แนบพัสดุ TikTok-Shopee) ต่างจาก B2B portal ที่ผูก token ต่อคน
+ * เพราะตอนนี้ยังไม่มีตัวตนลูกค้าเลย — สมัครเสร็จฝั่ง Server กันสมัครซ้ำด้วยเบอร์โทร (ไม่ใช่ token)
+ */
+const JOIN_MODE = ERP_QUERY.get('join') === '1';
+function startJoinPortal(){
+  const urlKey = ERP_QUERY.get('key') || '';
+  if(urlKey){ apiKey = urlKey; localStorage.setItem('bakery_api_key', urlKey); }
+  document.body.classList.add('login-locked');
+  const root=document.createElement('div');
+  root.id='joinRoot';
+  root.style.cssText='position:fixed;inset:0;background:#f7f3ee;color:#2b2620;z-index:100;overflow:auto;font-family:Inter,Segoe UI,Tahoma,sans-serif;padding:20px';
+  document.body.appendChild(root);
+  const OCCUPATIONS=['นักเรียน/นักศึกษา','พนักงานบริษัท','ข้าราชการ/รัฐวิสาหกิจ','เจ้าของธุรกิจ/ค้าขาย','ฟรีแลนซ์','แม่บ้าน/พ่อบ้าน','เกษียณอายุ','อื่นๆ'];
+  function renderForm(){
+    root.innerHTML=`<div style="max-width:480px;margin:40px auto">
+      <div style="text-align:center;margin-bottom:16px"><h1 style="margin:0">🧁 สมัครสมาชิก</h1><p style="opacity:.7">กรอกข้อมูลด้านล่าง สมัครฟรี สะสมแต้มแลกของรางวัลได้ทันที</p></div>
+      <div style="background:#fff;border-radius:16px;padding:24px">
+        <label style="font-size:13px;opacity:.7">ชื่อ-นามสกุล</label><br>
+        <input id="joinName" placeholder="ชื่อ-นามสกุล" style="width:100%;padding:10px;border-radius:8px;border:1px solid #ddd;margin:6px 0 14px;box-sizing:border-box">
+        <label style="font-size:13px;opacity:.7">เบอร์โทร</label><br>
+        <input id="joinPhone" type="tel" placeholder="0812345678" style="width:100%;padding:10px;border-radius:8px;border:1px solid #ddd;margin:6px 0 14px;box-sizing:border-box">
+        <label style="font-size:13px;opacity:.7">วันเกิด</label><br>
+        <input id="joinBirthday" type="date" style="width:100%;padding:10px;border-radius:8px;border:1px solid #ddd;margin:6px 0 14px;box-sizing:border-box">
+        <label style="font-size:13px;opacity:.7">อาชีพ</label><br>
+        <select id="joinOccupation" onchange="$('joinOccupationOther').style.display=this.value==='อื่นๆ'?'block':'none'" style="width:100%;padding:10px;border-radius:8px;border:1px solid #ddd;margin:6px 0 8px;box-sizing:border-box"><option value="">-- เลือกอาชีพ --</option>${OCCUPATIONS.map(o=>`<option value="${o}">${o}</option>`).join('')}</select>
+        <input id="joinOccupationOther" placeholder="ระบุอาชีพ" style="display:none;width:100%;padding:10px;border-radius:8px;border:1px solid #ddd;margin:0 0 14px;box-sizing:border-box">
+        <p style="font-size:12px;opacity:.55;margin:0 0 16px">ข้อมูลนี้ใช้เพื่อมอบสิทธิพิเศษ/ของรางวัลวันเกิด และปรับปรุงสินค้าให้ตรงใจลูกค้ามากขึ้นเท่านั้น</p>
+        <button onclick="window.__joinSubmit()" style="width:100%;border:0;background:#df6518;color:#fff;font-weight:800;font-size:16px;border-radius:10px;padding:14px;cursor:pointer">สมัครสมาชิก</button>
+      </div>
+    </div>`;
+  }
+  function renderResult(msg,isError){
+    root.innerHTML=`<div style="max-width:480px;margin:80px auto;text-align:center">
+      <div style="font-size:70px">${isError?'⚠️':'🎉'}</div>
+      <h1>${isError?'สมัครไม่สำเร็จ':'สมัครสมาชิกสำเร็จ'}</h1>
+      <p style="opacity:.75">${escHTML(msg)}</p>
+      ${isError?'<button onclick="window.__joinRetry()" style="margin-top:12px;border:0;background:#df6518;color:#fff;font-weight:700;border-radius:10px;padding:10px 22px;cursor:pointer">ลองใหม่</button>':''}
+    </div>`;
+  }
+  window.__joinRetry=renderForm;
+  window.__joinSubmit=async()=>{
+    const name=($('joinName')?.value||'').trim();
+    const phone=($('joinPhone')?.value||'').trim();
+    const birthday=$('joinBirthday')?.value||'';
+    const occSel=$('joinOccupation')?.value||'';
+    const occupation=occSel==='อื่นๆ'?($('joinOccupationOther')?.value||'').trim():occSel;
+    if(!name||!phone||!birthday||!occupation){ alert('กรุณากรอกข้อมูลให้ครบทุกช่อง'); return; }
+    try{
+      const res=await apiGetOnce('selfregistercustomer',{payload:JSON.stringify({name,phone,birthday,occupation})});
+      if(res.alreadyMember){
+        renderResult('เบอร์ '+phone+' เป็นสมาชิกอยู่แล้ว มีแต้มสะสม '+roundDisplay(res.points||0)+' แต้ม แจ้งเบอร์นี้กับพนักงานทุกครั้งที่ซื้อของเพื่อสะสมแต้มเพิ่มได้เลยครับ',false);
+      }else{
+        renderResult('ยินดีต้อนรับคุณ '+name+'! แจ้งเบอร์ '+phone+' กับพนักงานทุกครั้งที่ซื้อของ เพื่อสะสมแต้มและแลกของรางวัลได้เลยครับ',false);
+      }
+    }catch(e){ console.error(e); renderResult(e.message||String(e),true); }
+  };
+  renderForm();
+}
 if(KIOSK_MODE){
   startKiosk();
 }else if(B2B_MODE){
   startB2BPortal();
+}else if(JOIN_MODE){
+  startJoinPortal();
 }else if(localStorage.getItem('bakery_logged_in')==='1' && sessionToken){
   startApp();
 }else{
