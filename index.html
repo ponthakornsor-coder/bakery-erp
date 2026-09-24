@@ -139,6 +139,23 @@ async function apiGet(action='all', params={}, _retriesLeft){
     throw e;
   }
 }
+let sessionExpiredHandled_=false;
+function handleSessionExpired_(msg){
+  // v9.98: เดิม Session หมดอายุแล้วต้องกดปุ่ม "ออกจากระบบ" เองก่อนถึงจะเข้าหน้า login ได้ (ทั้งที่ error
+  // ก็บอกชัดอยู่แล้วว่า session หมดอายุ) ตอนนี้ตรวจจับ error นี้จากทุก API call แล้วพาเข้าหน้า login ทันที
+  // พร้อมใส่ username เดิมให้เลย เหลือแค่พิมพ์รหัสผ่านซ้ำ ไม่ต้องไปหาปุ่ม Logout เอง
+  if(sessionExpiredHandled_) return;
+  sessionExpiredHandled_=true;
+  const lastUsername=userUsername;
+  sessionToken=''; userRole=''; userDisplayName=''; userUsername='';
+  localStorage.removeItem('bakery_session_token');
+  localStorage.removeItem('bakery_user_role');
+  localStorage.removeItem('bakery_user_display_name');
+  localStorage.removeItem('bakery_user_username');
+  localStorage.removeItem('bakery_logged_in');
+  showLoginScreen('Session หมดอายุ กรุณาเข้าสู่ระบบใหม่');
+  setTimeout(()=>{ const uEl=$('loginUser'); if(uEl && lastUsername){ uEl.value=lastUsername; const pwEl=$('loginPw'); if(pwEl) pwEl.focus(); } },60);
+}
 function apiGetOnce(action='all', params={}){
   if(!apiUrl) return Promise.reject(new Error('ยังไม่ได้ใส่ API URL'));
   const cb='jsonp_'+Date.now()+'_'+Math.floor(Math.random()*9999);
@@ -153,7 +170,13 @@ function apiGetOnce(action='all', params={}){
     // และงานส่วนใหญ่ (Sync, Cycle Count, ฯลฯ) ยังทำสำเร็จฝั่ง Server แม้ browser จะ timeout ก่อนก็ตาม
     const timer=setTimeout(()=>{cleanup();reject(new Error('รอผลนานเกินไป (150 วินาที) แต่งานอาจจะสำเร็จฝั่ง Server แล้ว ลองกด Refresh/Sync อีกครั้งเพื่อเช็คผลจริง'))},150000);
     function cleanup(){clearTimeout(timer); delete window[cb]; s.remove();}
-    window[cb]=data=>{cleanup(); data&&data.ok?resolve(data):reject(new Error(data?.error||'API error'))};
+    window[cb]=data=>{
+      cleanup();
+      if(data&&data.ok) return resolve(data);
+      const errMsg=data?.error||'API error';
+      if(String(errMsg).includes('หมดอายุหรือไม่ถูกต้อง')) handleSessionExpired_(errMsg);
+      reject(new Error(errMsg));
+    };
     s.onerror=()=>{cleanup();reject(new Error('เชื่อมต่อ API ไม่ได้ งานอาจจะสำเร็จฝั่ง Server แล้วก็ได้ ลองกด Refresh/Sync อีกครั้งเพื่อเช็คผลจริง'))};
     s.src=url.toString(); document.body.appendChild(s);
   });
@@ -3114,6 +3137,7 @@ async function doLogin(){
     localStorage.setItem('bakery_user_display_name',userDisplayName);
     localStorage.setItem('bakery_user_username',userUsername);
     localStorage.setItem('bakery_logged_in','1');
+    sessionExpiredHandled_=false;
     hideLoginScreen();
     startApp();
   }catch(e){
