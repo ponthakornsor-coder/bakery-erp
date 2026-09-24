@@ -2278,13 +2278,20 @@ function b2bOrdersPage(m){
 function b2bOrderCard(o){
   const items=(db.b2bOrderItems||[]).filter(i=>i.orderId===o.id);
   const editable=o.status==='Pending';
+  const activeStations=(db.stations||[]).filter(s=>s.status==='Active').sort((a,b)=>a.name.localeCompare(b.name));
   return `<div class="box" style="margin:0 0 12px">
     <div class="row" style="justify-content:space-between;align-items:center">
       <div><b>${escHTML(customerName(o.customerId))}</b> <span class="mini">ต้องการของวันที่ ${escHTML(o.neededDate)}</span></div>
       ${genericStatusPill(o.status)}
     </div>
     ${o.remark?`<p class="hint">หมายเหตุลูกค้า: ${escHTML(o.remark)}</p>`:''}
-    <table><tr><th>SKU</th><th>ชื่อสินค้า</th><th>จำนวน</th><th>หมายเหตุ</th></tr>${items.map((i,idx)=>`<tr><td><b>${escHTML(i.sku)}</b></td><td>${escHTML(itemName(i.sku))}</td><td>${editable?`<input id="b2bQty_${o.id}_${idx}" type="number" min="0" value="${i.qty}" style="max-width:90px">`:roundDisplay(i.qty)}</td><td>${escHTML(i.remark||'-')}</td></tr>`).join('')}</table>
+    ${editable&&!activeStations.length?'<p class="hint">⚠️ ยังไม่มี Station ที่เปิดใช้งานอยู่ ต้องไปเพิ่มที่หน้า "จัดการ Station / Tablet" ก่อน ถึงจะอนุมัติได้</p>':''}
+    <table><tr><th>SKU</th><th>ชื่อสินค้า</th><th>สั่ง</th>${editable?'<th>Stock คงเหลือ</th><th>จะผลิต</th><th>Station</th>':'<th>จำนวน</th>'}<th>หมายเหตุ</th></tr>${items.map((i,idx)=>{
+      if(!editable) return `<tr><td><b>${escHTML(i.sku)}</b></td><td>${escHTML(itemName(i.sku))}</td><td>${roundDisplay(i.qty)}</td><td>${roundDisplay(i.qty)}</td><td>${escHTML(i.remark||'-')}</td></tr>`;
+      const stock=shipStock(i.sku);
+      const need=Math.max(0,(+i.qty||0)-stock);
+      return `<tr><td><b>${escHTML(i.sku)}</b></td><td>${escHTML(itemName(i.sku))}</td><td>${roundDisplay(i.qty)}</td><td>${roundDisplay(stock)}</td><td><input id="b2bQty_${o.id}_${idx}" type="number" min="0" value="${need}" style="max-width:90px"></td><td><select id="b2bStation_${o.id}_${idx}"><option value="">-- เลือก Station --</option>${activeStations.map(s=>`<option value="${s.id}">${escHTML(s.name)}</option>`).join('')}</select></td><td>${escHTML(i.remark||'-')}</td></tr>`;
+    }).join('')}</table>
     ${editable?`<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button class="primary" onclick="approveB2BOrderAction('${o.id}')">✅ อนุมัติ → สร้างคำสั่งผลิต</button><button class="ghost danger" onclick="rejectB2BOrderAction('${o.id}')">ปฏิเสธ</button></div>`
     :o.status==='Approved'?`<p class="hint">คำสั่งผลิตที่สร้าง: <b>${escHTML(o.linkedPO||'-')}</b></p>`
     :`<p class="hint">เหตุผลที่ปฏิเสธ: ${escHTML(o.rejectReason||'-')}</p>`}
@@ -2292,9 +2299,16 @@ function b2bOrderCard(o){
 }
 async function approveB2BOrderAction(orderId){
   const items=(db.b2bOrderItems||[]).filter(i=>i.orderId===orderId);
-  const adjustedItems=items.map((i,idx)=>({sku:i.sku,qty:+($('b2bQty_'+orderId+'_'+idx)?.value||i.qty)||0,remark:i.remark||''})).filter(i=>i.qty>0);
-  if(!adjustedItems.length) return toast('ไม่มีรายการที่จำนวนมากกว่า 0');
-  if(!await confirmModal('อนุมัติออเดอร์นี้และสร้างคำสั่งผลิต '+adjustedItems.length+' รายการทันที?'))return;
+  const adjustedItems=[];
+  for(const [idx,i] of items.entries()){
+    const qty=+($('b2bQty_'+orderId+'_'+idx)?.value||0)||0;
+    if(qty<=0) continue;
+    const stationId=$('b2bStation_'+orderId+'_'+idx)?.value||'';
+    if(!stationId) return toast('เลือก Station ให้ '+i.sku+' ก่อน (หรือใส่จำนวน 0 ถ้าไม่ต้องผลิตเพิ่ม)');
+    adjustedItems.push({sku:i.sku,qty,stationId,remark:i.remark||''});
+  }
+  const confirmMsg=adjustedItems.length?('อนุมัติออเดอร์นี้และสร้างคำสั่งผลิต '+adjustedItems.length+' รายการทันที?'):'Stock ที่มีอยู่พอกับออเดอร์นี้แล้วทุกรายการ ยืนยันอนุมัติโดยไม่ต้องสร้างคำสั่งผลิตเพิ่ม?';
+  if(!await confirmModal(confirmMsg))return;
   toast('กำลังอนุมัติ...');
   try{
     const res=await apiPost({action:'approveb2border',orderId,data:{items:adjustedItems}});
