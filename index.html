@@ -827,7 +827,7 @@ function updateTopbar(){
     if(n>0){ badge.textContent=n>99?'99+':n; badge.style.display='flex'; } else badge.style.display='none';
   }
 }
-function render(){try{nav(); if(isOperator() && !OPERATOR_PAGES_.includes(page)){ page='prodrecord'; nav(); } const m=$('main'); if(page=='dashboard') return dash(m); if(page=='master') return masterData(m); if(page=='items') return items(m); if(page=='rm') return rm(m); if(page=='stockops') return stockOpsPage(m); if(page=='fglog') return fgLogPage(m); if(page=='prodrecord') return productionRecordPage(m); if(page=='trxhistory') return trxHistPage(m); if(page=='prodsummary') return productionSummaryPage(m); if(page=='manufacturing') return manufacturingPage(m); if(page=='shipcheck') return shipCheckPage(m); if(page=='prod') return prod(m); if(page=='orders') return ordersPage(m); if(page=='boothship') return boothShipPage(m); if(page=='bom') return bom(m); if(page=='packing') return packingPage(m); if(page=='importorders') return importOrdersPage(m); if(page=='suppliers') return suppliersPage(m); if(page=='rmlots') return rmLotsPage(m); if(page=='purchasing') return purchasingPage(m); if(page=='customers') return customersPage(m); if(page=='rewards') return rewardsPage(m); if(page=='b2borders') return b2bOrdersPage(m); if(page=='stations') return stationsPage(m); if(page=='autoproduction') return autoProductionPage(m); if(page=='voidapproval') return voidApprovalPage(m); if(page=='users') return userManagementPage(m); if(page=='settings') return settings(m); return dash(m);}catch(e){console.error(e); $('main').innerHTML='<h1>เกิด Error</h1><div class="box"><b>'+String(e.message||e)+'</b><p class="hint">กด Settings → Reset หรือส่งรูปหน้านี้มาให้ผมดู</p><button class="primary" onclick="localStorage.removeItem(\'bakery_erp_v6_1\');location.reload()">Reset ข้อมูลใน Browser</button></div>';}}
+function render(){try{nav(); manageManufacturingPoll_(); if(isOperator() && !OPERATOR_PAGES_.includes(page)){ page='prodrecord'; nav(); } const m=$('main'); if(page=='dashboard') return dash(m); if(page=='master') return masterData(m); if(page=='items') return items(m); if(page=='rm') return rm(m); if(page=='stockops') return stockOpsPage(m); if(page=='fglog') return fgLogPage(m); if(page=='prodrecord') return productionRecordPage(m); if(page=='trxhistory') return trxHistPage(m); if(page=='prodsummary') return productionSummaryPage(m); if(page=='manufacturing') return manufacturingPage(m); if(page=='shipcheck') return shipCheckPage(m); if(page=='prod') return prod(m); if(page=='orders') return ordersPage(m); if(page=='boothship') return boothShipPage(m); if(page=='bom') return bom(m); if(page=='packing') return packingPage(m); if(page=='importorders') return importOrdersPage(m); if(page=='suppliers') return suppliersPage(m); if(page=='rmlots') return rmLotsPage(m); if(page=='purchasing') return purchasingPage(m); if(page=='customers') return customersPage(m); if(page=='rewards') return rewardsPage(m); if(page=='b2borders') return b2bOrdersPage(m); if(page=='stations') return stationsPage(m); if(page=='autoproduction') return autoProductionPage(m); if(page=='voidapproval') return voidApprovalPage(m); if(page=='users') return userManagementPage(m); if(page=='settings') return settings(m); return dash(m);}catch(e){console.error(e); $('main').innerHTML='<h1>เกิด Error</h1><div class="box"><b>'+String(e.message||e)+'</b><p class="hint">กด Settings → Reset หรือส่งรูปหน้านี้มาให้ผมดู</p><button class="primary" onclick="localStorage.removeItem(\'bakery_erp_v6_1\');location.reload()">Reset ข้อมูลใน Browser</button></div>';}}
 function head(t,h=''){return `<h1>${t}</h1><div class="hint">${h}</div>`}
 function todayISO(){
   const d=new Date();
@@ -1811,7 +1811,34 @@ function manufacturingPage(m){
     <div class="kpi">เสร็จวันนี้<b>${doneToday}</b></div>
   </div>`;
   const body=stations.length?stations.map(s=>manufacturingStationBlock_(s,allPo.filter(p=>String(p.stationId)===String(s.id)),today)).join(''):'<div class="box"><p class="hint">ยังไม่มี Station เลย ไปเพิ่มที่หน้า "จัดการ Station / Tablet" ก่อนครับ</p></div>';
-  m.innerHTML=head('ภาพรวมการผลิต','ดูสถานะทุก Station พร้อมกัน: กำลังทำอะไร รอคิวอะไรบ้าง และทำไปแล้วเท่าไรวันนี้')+summary+body;
+  m.innerHTML=head('ภาพรวมการผลิต','ดูสถานะทุก Station พร้อมกัน: กำลังทำอะไร รอคิวอะไรบ้าง และทำไปแล้วเท่าไรวันนี้')+`<div id="mfgLiveStatus" class="mini" style="margin:-6px 0 10px;opacity:.65">🔄 อัปเดตอัตโนมัติทุก 8 วินาที...</div>`+summary+body;
+}
+// v9.102: อัปเดตหน้า "ภาพรวมการผลิต" อัตโนมัติแบบเบาๆ (ไม่ต้องกด Refresh) โดยดึงแค่ชีต ProductionOrder
+// สดใหม่ทุก 8 วิ (เบากว่า action=all/getAllData มาก เพราะอ่านชีตเดียว) เฉพาะตอนเปิดหน้านี้ค้างอยู่เท่านั้น
+// ไม่ทำ background polling ตลอดทั้งแอป กันซ้ำปัญหา "เข้าแอพช้า" ที่เจอมาก่อน
+let manufacturingPollTimer=null;
+function manageManufacturingPoll_(){
+  if(page==='manufacturing'){
+    if(!manufacturingPollTimer) manufacturingPollTimer=setInterval(pollManufacturingData_, 8000);
+  }else if(manufacturingPollTimer){
+    clearInterval(manufacturingPollTimer);
+    manufacturingPollTimer=null;
+  }
+}
+async function pollManufacturingData_(){
+  if(page!=='manufacturing'||!apiUrl) return;
+  try{
+    const res=await apiGetOnce('sheet',{name:'ProductionOrder'});
+    db.po=erpMergeByKey(db.po||[], mapRemotePO_(res.data), ['id','PO']);
+    saveLocalOnly();
+    if(page==='manufacturing'){
+      manufacturingPage($('main'));
+      const st=$('mfgLiveStatus'); if(st) st.textContent='🔄 อัปเดตล่าสุด '+new Date().toLocaleTimeString('th-TH');
+    }
+  }catch(e){
+    console.error('manufacturing poll failed',e);
+    const st=$('mfgLiveStatus'); if(st) st.textContent='⚠️ อัปเดตอัตโนมัติไม่สำเร็จ (จะลองใหม่รอบถัดไป)';
+  }
 }
 
 /* === v9.95: สั่งผลิตอัตโนมัติ — เทียบ Stock กับ Min Stock (คำนวณฝั่ง browser จาก db.items ที่โหลดมาแล้ว
@@ -3146,6 +3173,9 @@ function erpMergeByFn(localArr, remoteArr, keyFn){
   return Array.from(map.values());
 }
 function erpActive(o){return !['voided','cancelled','deleted'].includes(String(o?.status||o?.Status||'Active').toLowerCase());}
+function mapRemotePO_(rows){
+  return (rows||[]).map(p=>({id:p.PO||'',sku:p.SKU||'',qty:+p.Qty||0,status:p.Status||'Open',time:p.CreatedAt||'',start:p.StartAt||'',finish:p.FinishAt||'',remark:p.Remark||'',actualQty:(p.ActualQty!==undefined&&p.ActualQty!=='')?+p.ActualQty:'',assignedTo:p.AssignedTo||'',lineNotifiedAt:p.LineNotifiedAt||'',batches:(p.Batches!==undefined&&p.Batches!=='')?+p.Batches:'',actualBatches:(p.ActualBatches!==undefined&&p.ActualBatches!=='')?+p.ActualBatches:'',stationId:p.StationId||''})).filter(p=>p.id);
+}
 function fromSheetData(data){
   data=data||{};
   const items=(data.products||[]).map(p=>({sku:String(p.SKU||''),name:p.Name||'',product:p.Product||'',variant:p.Variant||'',weight:p.Weight||'',unit:p.Unit||'pcs',stock:+p.Stock||0,min:+p.Min||0,price:+p.Price||0,cost:+p.Cost||0,type:'FG',imageUrl:p.ImageURL||'',batchYield:+p.BatchYield||1,wipStock:+p.WipStock||0})).filter(x=>x.sku);
@@ -3158,7 +3188,7 @@ function fromSheetData(data){
     const date=dateISO(o.OrderDate)||String(o.OrderDate||'');
     return {date,total:+o.TotalOrders||0,shipped:+o.CompletedOrders||0,note:o.Remark||'',shortages:orderItems.filter(i=>String(i.orderNo||'').startsWith('DAY-'+date+'-')).map(i=>({sku:i.sku,qty:i.shortQty||i.qty,reason:i.reason}))};
   }).filter(x=>x.date);
-  const remotePO=(data.productionOrder||[]).map(p=>({id:p.PO||'',sku:p.SKU||'',qty:+p.Qty||0,status:p.Status||'Open',time:p.CreatedAt||'',start:p.StartAt||'',finish:p.FinishAt||'',remark:p.Remark||'',actualQty:(p.ActualQty!==undefined&&p.ActualQty!=='')?+p.ActualQty:'',assignedTo:p.AssignedTo||'',lineNotifiedAt:p.LineNotifiedAt||'',batches:(p.Batches!==undefined&&p.Batches!=='')?+p.Batches:'',actualBatches:(p.ActualBatches!==undefined&&p.ActualBatches!=='')?+p.ActualBatches:'',stationId:p.StationId||''})).filter(p=>p.id);
+  const remotePO=mapRemotePO_(data.productionOrder);
   const remoteShippingPlan=(data.shippingPlan||[]).map(r=>({date:dateISO(r.Date)||String(r.Date||''),sku:String(r.SKU||''),baimiang:+r.BaiMiang||0,b2b:+r.B2B||0,b2c:+r.B2C||0,remark:r.Remark||'',updatedAt:r.UpdatedAt||''})).filter(x=>x.sku);
   const remoteSalesOut=(data.salesOut||[]).map(r=>({date:dateISO(r.Date)||String(r.Date||''),sku:String(r.SKU||''),baimiang:+r.BaiMiang||0,b2b:+r.B2B||0,tiktok:+r.TikTok||0,shopee:+r.Shopee||0,lazada:+r.Lazada||0,line:+r.Line||0,grab:+r.Grab||0,remark:r.Remark||'',updatedAt:r.UpdatedAt||''})).filter(x=>x.sku);
   const remoteVoidRequests=(data.voidRequests||[]).map(r=>({requestId:r.RequestID||'',kind:r.Kind||'',refId:r.RefId||'',sku:r.Sku||'',qty:+r.Qty||0,reason:r.Reason||'',requestedBy:r.RequestedBy||'',requestedAt:r.RequestedAt||'',status:r.Status||'Pending',approvedBy:r.ApprovedBy||'',approvedAt:r.ApprovedAt||'',rejectReason:r.RejectReason||''})).filter(x=>x.requestId);
