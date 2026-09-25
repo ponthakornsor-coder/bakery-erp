@@ -321,7 +321,7 @@ function toastSaveOK(name){toast(name+' เข้า Google Sheet แล้ว')
 function toastSaveFail(name,e){console.error(e); alertModal(name+' ไม่เข้า Google Sheet: '+(e.message||e));}
 function fgPayload(x){return {SKU:x.sku,Name:x.name,Product:x.product||'',Variant:x.variant||'',Weight:x.weight||'',Unit:x.unit||'pcs',Stock:+x.stock||0,Min:+x.min||0,Price:+x.price||0,Cost:+x.cost||0,Status:'Active',ImageURL:x.imageUrl||'',BatchYield:+x.batchYield||1};}
 function rmPayload(r){return {RMCode:r.sku,Name:r.name,Category:r.product||'Raw Material',Variant:r.variant||'',Unit:r.unit||'g',Stock:+r.stock||0,Min:+r.min||0,Cost:+r.cost||0,Status:'Active'};}
-function poPayload(p){return {PO:p.id,SKU:p.sku,Qty:+p.qty||0,Status:p.status||'Open',CreatedAt:p.time||'',StartAt:p.start||'',FinishAt:p.finish||'',Remark:p.remark||'',UpdatedAt:now(),ActualQty:(p.actualQty!==undefined&&p.actualQty!==''&&p.actualQty!==null)?+p.actualQty:'',Batches:(p.batches!==undefined&&p.batches!==''&&p.batches!==null)?+p.batches:'',ActualBatches:(p.actualBatches!==undefined&&p.actualBatches!==''&&p.actualBatches!==null)?+p.actualBatches:''};}
+function poPayload(p){return {PO:p.id,SKU:p.sku,Qty:+p.qty||0,Status:p.status||'Open',CreatedAt:p.time||'',StartAt:p.start||'',FinishAt:p.finish||'',Remark:p.remark||'',UpdatedAt:now(),ActualQty:(p.actualQty!==undefined&&p.actualQty!==''&&p.actualQty!==null)?+p.actualQty:'',Batches:(p.batches!==undefined&&p.batches!==''&&p.batches!==null)?+p.batches:'',ActualBatches:(p.actualBatches!==undefined&&p.actualBatches!==''&&p.actualBatches!==null)?+p.actualBatches:'',StationId:p.stationId||''};}
 function orderPayload(o){return {OrderNo:'DAY-'+o.date,OrderDate:o.date,TotalOrders:+o.total||0,CompletedOrders:+o.shipped||0,Status:(+o.shipped>=+o.total?'Completed':'Pending'),Remark:o.note||''};}
 function orderItemPayload(date,s){return {OrderNo:'DAY-'+date+'-'+s.sku,SKU:s.sku,Qty:+s.qty||0,CompletedQty:0,ShortQty:+s.qty||0,Reason:s.reason||'',UpdatedAt:now()};}
 function upsertSheet(sheet,key,data,label){return apiPost({action:'upsert',sheet,key,data}).then(()=>toastSaveOK(label)).catch(e=>toastSaveFail(label,e));}
@@ -2486,9 +2486,11 @@ function prod(m){
   let body=selected?`<div class="box"><div class="row3"><input id="bulkQty" type="number" placeholder="ใส่จำนวนเดียวกันทุก SKU ที่ติ๊ก"><input id="bulkRemark" placeholder="หมายเหตุรวม"><button class="ghost" onclick="fillCheckedQty()">เติมจำนวนให้รายการที่ติ๊ก</button></div><br>${bulkPoTable(list)}<br><button class="primary" onclick="createBulkPO()">สร้างงานผลิตตามรายการที่ติ๊ก</button></div>`:`<div class="box"><p class="hint">เลือก Product ก่อน ระบบจะแสดง SKU ทั้งหมดของ Product นั้นให้ติ๊กและใส่จำนวน</p></div>`;
   m.innerHTML=head('สั่งผลิต','เลือก Product แล้วติ๊ก SKU หลายรายการเพื่อสร้างงานผลิตครั้งเดียว')+`<div class="toolbar"><select id="pprod" onchange="prod($('main'))" style="max-width:360px">${productOptions(selected)}</select></div>${body}<div class="box"><h2>รายการงานผลิต</h2>${poTable(db.po.slice().reverse())}</div>`
 }
-function bulkPoTable(list){return `<table><tr><th style="width:110px"><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="poSelectAll" onchange="toggleAllPO(this.checked)" style="width:22px;height:22px"> เลือกทั้งหมด</label></th><th>SKU</th><th>ชื่อสินค้า</th><th>คงคลัง</th><th>จำนวนผลิต (pcs)</th><th>จำนวน Batch</th><th>RM ที่ต้องใช้</th></tr>${list.map(x=>{
+function bulkPoTable(list){
+  const activeStations=(db.stations||[]).filter(s=>s.status==='Active').sort((a,b)=>a.name.localeCompare(b.name));
+  return `<table><tr><th style="width:110px"><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="poSelectAll" onchange="toggleAllPO(this.checked)" style="width:22px;height:22px"> เลือกทั้งหมด</label></th><th>SKU</th><th>ชื่อสินค้า</th><th>คงคลัง</th><th>จำนวนผลิต (pcs)</th><th>จำนวน Batch</th><th>RM ที่ต้องใช้</th><th>Station (ไม่บังคับ)</th></tr>${list.map(x=>{
   const batchYield=getBatchYield(x.sku);
-  return `<tr><td><input type="checkbox" class="poChk" data-sku="${x.sku}" onchange="togglePoQty('${x.sku}')" style="width:22px;height:22px"></td><td><b>${x.sku}</b></td><td>${x.name}</td><td>${roundDisplay(x.stock||0)}</td><td><input id="poqty_${x.sku}" class="poQty" type="number" min="0" placeholder="จำนวน" oninput="onPoQtyInput('${x.sku}')" onkeydown="gridKeyNav(event,this)"></td><td><input id="pobatch_${x.sku}" type="number" min="0" step="0.01" placeholder="Batch" oninput="updateBulkReq('${x.sku}')" style="${batchYield>1?'':'opacity:.4'}"></td><td id="poreq_${x.sku}">${reqText(x.sku,0)}</td></tr>`;
+  return `<tr><td><input type="checkbox" class="poChk" data-sku="${x.sku}" onchange="togglePoQty('${x.sku}')" style="width:22px;height:22px"></td><td><b>${x.sku}</b></td><td>${x.name}</td><td>${roundDisplay(x.stock||0)}</td><td><input id="poqty_${x.sku}" class="poQty" type="number" min="0" placeholder="จำนวน" oninput="onPoQtyInput('${x.sku}')" onkeydown="gridKeyNav(event,this)"></td><td><input id="pobatch_${x.sku}" type="number" min="0" step="0.01" placeholder="Batch" oninput="updateBulkReq('${x.sku}')" style="${batchYield>1?'':'opacity:.4'}"></td><td id="poreq_${x.sku}">${reqText(x.sku,0)}</td><td><select id="postation_${x.sku}"><option value="">-- ไม่ระบุ --</option>${activeStations.map(s=>`<option value="${s.id}">${escHTML(s.name)}</option>`).join('')}</select></td></tr>`;
 }).join('')}</table>`}
 function onPoQtyInput(sku){
   // v9.88: พิมพ์จำนวน pcs แล้วเดาจำนวน Batch ให้อัตโนมัติ (ปัดขึ้น) แต่ยังแก้เป็นทศนิยมเองได้ (เช่น 0.5, 0.25)
@@ -2515,11 +2517,11 @@ function nextPoSeq(){
   return max+1;
 }
 async function createBulkPO(){
-  let rows=[...document.querySelectorAll('.poChk:checked')].map(c=>({sku:c.dataset.sku,qty:+$('poqty_'+c.dataset.sku).value||0,batches:$('pobatch_'+c.dataset.sku)?.value||''})).filter(x=>x.qty>0);
+  let rows=[...document.querySelectorAll('.poChk:checked')].map(c=>({sku:c.dataset.sku,qty:+$('poqty_'+c.dataset.sku).value||0,batches:$('pobatch_'+c.dataset.sku)?.value||'',stationId:$('postation_'+c.dataset.sku)?.value||''})).filter(x=>x.qty>0);
   if(!rows.length)return toast('ติ๊ก SKU และใส่จำนวนก่อน');
   let remark=$('bulkRemark')?.value||'';
   const baseSeq=nextPoSeq();
-  const created=rows.map((r,i)=>({id:'PO-'+String(baseSeq+i).padStart(5,'0'),sku:r.sku,qty:r.qty,batches:r.batches,status:'Open',time:now(),start:'',finish:'',remark}));
+  const created=rows.map((r,i)=>({id:'PO-'+String(baseSeq+i).padStart(5,'0'),sku:r.sku,qty:r.qty,batches:r.batches,stationId:r.stationId,status:'Open',time:now(),start:'',finish:'',remark}));
   toast('กำลังบันทึกสั่งผลิต '+created.length+' รายการเข้า Google Sheet...');
   try{
     await savePOBatchDirect(created);
@@ -3062,7 +3064,7 @@ function fromSheetData(data){
     const date=dateISO(o.OrderDate)||String(o.OrderDate||'');
     return {date,total:+o.TotalOrders||0,shipped:+o.CompletedOrders||0,note:o.Remark||'',shortages:orderItems.filter(i=>String(i.orderNo||'').startsWith('DAY-'+date+'-')).map(i=>({sku:i.sku,qty:i.shortQty||i.qty,reason:i.reason}))};
   }).filter(x=>x.date);
-  const remotePO=(data.productionOrder||[]).map(p=>({id:p.PO||'',sku:p.SKU||'',qty:+p.Qty||0,status:p.Status||'Open',time:p.CreatedAt||'',start:p.StartAt||'',finish:p.FinishAt||'',remark:p.Remark||'',actualQty:(p.ActualQty!==undefined&&p.ActualQty!=='')?+p.ActualQty:'',assignedTo:p.AssignedTo||'',lineNotifiedAt:p.LineNotifiedAt||'',batches:(p.Batches!==undefined&&p.Batches!=='')?+p.Batches:'',actualBatches:(p.ActualBatches!==undefined&&p.ActualBatches!=='')?+p.ActualBatches:''})).filter(p=>p.id);
+  const remotePO=(data.productionOrder||[]).map(p=>({id:p.PO||'',sku:p.SKU||'',qty:+p.Qty||0,status:p.Status||'Open',time:p.CreatedAt||'',start:p.StartAt||'',finish:p.FinishAt||'',remark:p.Remark||'',actualQty:(p.ActualQty!==undefined&&p.ActualQty!=='')?+p.ActualQty:'',assignedTo:p.AssignedTo||'',lineNotifiedAt:p.LineNotifiedAt||'',batches:(p.Batches!==undefined&&p.Batches!=='')?+p.Batches:'',actualBatches:(p.ActualBatches!==undefined&&p.ActualBatches!=='')?+p.ActualBatches:'',stationId:p.StationId||''})).filter(p=>p.id);
   const remoteShippingPlan=(data.shippingPlan||[]).map(r=>({date:dateISO(r.Date)||String(r.Date||''),sku:String(r.SKU||''),baimiang:+r.BaiMiang||0,b2b:+r.B2B||0,b2c:+r.B2C||0,remark:r.Remark||'',updatedAt:r.UpdatedAt||''})).filter(x=>x.sku);
   const remoteSalesOut=(data.salesOut||[]).map(r=>({date:dateISO(r.Date)||String(r.Date||''),sku:String(r.SKU||''),baimiang:+r.BaiMiang||0,b2b:+r.B2B||0,tiktok:+r.TikTok||0,shopee:+r.Shopee||0,lazada:+r.Lazada||0,line:+r.Line||0,grab:+r.Grab||0,remark:r.Remark||'',updatedAt:r.UpdatedAt||''})).filter(x=>x.sku);
   const remoteVoidRequests=(data.voidRequests||[]).map(r=>({requestId:r.RequestID||'',kind:r.Kind||'',refId:r.RefId||'',sku:r.Sku||'',qty:+r.Qty||0,reason:r.Reason||'',requestedBy:r.RequestedBy||'',requestedAt:r.RequestedAt||'',status:r.Status||'Pending',approvedBy:r.ApprovedBy||'',approvedAt:r.ApprovedAt||'',rejectReason:r.RejectReason||''})).filter(x=>x.requestId);
