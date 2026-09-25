@@ -1745,6 +1745,36 @@ function manufacturingColumn_(title,list,emptyMsg){
     ${list.length?list.map(manufacturingJobCard_).join(''):`<p class="hint">${emptyMsg}</p>`}
   </div>`;
 }
+function manufacturingPerPieceLabel_(ms,qty){
+  if(!(qty>0)) return null;
+  const perMin=ms/60000/qty;
+  return perMin<1?Math.round(perMin*60)+' วิ/ชิ้น':perMin.toFixed(1)+' นาที/ชิ้น';
+}
+function manufacturingTimeCard_(p){
+  const ms=manufacturingDurationMs_(p);
+  const label=ms>0?manufacturingFormatDuration_(ms):'-';
+  const perPiece=ms>0?manufacturingPerPieceLabel_(ms,+manufacturingQty_(p)||0):null;
+  return `<div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+      <div style="min-width:0"><b>${escHTML(itemName(p.sku))}</b><br><span class="mini">${escHTML(p.sku)}</span></div>
+      <div style="font-weight:800;white-space:nowrap">${label}</div>
+    </div>
+    ${perPiece?`<div class="mini" style="margin-top:4px">${perPiece}</div>`:''}
+  </div>`;
+}
+function manufacturingTimeColumn_(doneToday){
+  const totalMs=doneToday.reduce((a,p)=>a+manufacturingDurationMs_(p),0);
+  const totalQty=doneToday.reduce((a,p)=>a+(+manufacturingQty_(p)||0),0);
+  const totalRow=`<div style="background:var(--panel);border:1px solid var(--brand);border-radius:12px;padding:10px 12px;margin-top:4px">
+    <div style="display:flex;justify-content:space-between;gap:8px"><b>รวม</b><b>${totalMs>0?manufacturingFormatDuration_(totalMs):'-'}</b></div>
+    <div class="mini" style="margin-top:4px">ผลิตได้ ${roundDisplay(totalQty)} ชิ้น</div>
+  </div>`;
+  return `<div style="flex:1;min-width:200px">
+    <div class="hint" style="font-weight:700;margin-bottom:8px">⏱ เวลาที่ใช้</div>
+    ${doneToday.length?doneToday.map(manufacturingTimeCard_).join(''):'<p class="hint">ยังไม่มีงานเสร็จวันนี้</p>'}
+    ${totalRow}
+  </div>`;
+}
 function manufacturingStationBlock_(s,jobs,today){
   const queued=jobs.filter(p=>p.status==='Open');
   const working=jobs.filter(p=>p.status==='In Progress');
@@ -1753,21 +1783,16 @@ function manufacturingStationBlock_(s,jobs,today){
   const totalMs=doneToday.reduce((a,p)=>a+manufacturingDurationMs_(p),0);
   const durLabel=totalMs>0?manufacturingFormatDuration_(totalMs):'-';
   return `<div class="box" style="margin-bottom:16px">
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px">
       <h2 style="margin:0">${escHTML(s.name)}</h2>
       ${genericStatusPill(s.status)}
     </div>
+    <div class="hint" style="margin-bottom:12px">สรุปวันนี้: ผลิตได้ <b>${roundDisplay(doneQty)}</b> ชิ้น (${doneToday.length} งาน) · ใช้เวลารวม <b>${durLabel}</b></div>
     <div style="display:flex;gap:16px;flex-wrap:wrap">
       ${manufacturingColumn_('⚪ รอคิว',queued,'ไม่มีงานรอคิว')}
       ${manufacturingColumn_('🟠 กำลังผลิต',working,'ไม่มีงานกำลังผลิตตอนนี้')}
       ${manufacturingColumn_('✅ เสร็จวันนี้',doneToday,'ยังไม่มีงานเสร็จวันนี้')}
-      <div style="flex:1;min-width:160px">
-        <div class="hint" style="font-weight:700;margin-bottom:8px">⏱ เวลาที่ใช้</div>
-        <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px">
-          <div>${durLabel}</div>
-          <div class="mini" style="margin-top:4px">ผลิตได้ ${roundDisplay(doneQty)} ชิ้นวันนี้</div>
-        </div>
-      </div>
+      ${manufacturingTimeColumn_(doneToday)}
     </div>
   </div>`;
 }
