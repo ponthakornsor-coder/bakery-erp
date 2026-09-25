@@ -85,13 +85,13 @@ const ERP_QUERY = new URLSearchParams(window.location.search);
 const VIEWER_ONLY = ERP_QUERY.get('view') === '1' || ERP_QUERY.get('role') === 'viewer';
 const MASTER_SKUS = [];
 const DEFAULT_RM = [];
-const pages=[['dashboard','Dashboard','🏠'],['master','Master Data','🗂️'],['items','สินค้า & สูตร','📦'],['rm','วัตถุดิบ','🧺'],['stockops','จัดการสต๊อก','↕️'],['fglog','Production Log FG','📋'],['prodrecord','บันทึกผลผลิต','📝'],['packing','แพ็คสินค้า','📮'],['trxhistory','Transaction / ประวัติ','🏦'],['prodsummary','สรุปผลผลิต','📊'],['manufacturing','ภาพรวมการผลิต','🏭'],['shipcheck','เช็ค Stock พอส่ง / ขายออก','🛒'],['importorders','นำเข้า Order TikTok','📥'],['prod','สั่งผลิต','⚙️'],['autoproduction','สั่งผลิตอัตโนมัติ','🤖',true],['orders','Order / ส่งของ','🚚'],['boothship','ส่งของไปบูธ','🏪'],['bom','BOM / สูตร','🧮'],['suppliers','ซัพพลายเออร์','🚚'],['rmlots','รับเข้า Lot วัตถุดิบ','📥'],['purchasing','จัดซื้อ / รับของเข้า','🛒'],['customers','ลูกค้า (CRM)','👥'],['rewards','Point / ของรางวัล','🎁'],['b2borders','อนุมัติออเดอร์ B2B','📥'],['stations','จัดการ Station / Tablet','📟',true],['voidapproval','อนุมัติ Void','✅',true],['users','จัดการ User','👥',true],['settings','ตั้งค่า','⚙️']];
+const pages=[['dashboard','Dashboard','🏠'],['master','Master Data','🗂️'],['items','สินค้า & สูตร','📦'],['rm','วัตถุดิบ','🧺'],['stockops','จัดการสต๊อก','↕️'],['fglog','Production Log FG','📋'],['prodrecord','บันทึกผลผลิต','📝'],['packing','แพ็คสินค้า','📮'],['trxhistory','Transaction / ประวัติ','🏦'],['prodsummary','สรุปผลผลิต','📊'],['manufacturing','ภาพรวมการผลิต','🏭'],['shipcheck','เช็ค Stock พอส่ง / ขายออก','🛒'],['importorders','นำเข้า Order TikTok','📥'],['prod','สั่งผลิต','⚙️'],['autoproduction','สั่งผลิตอัตโนมัติ','🤖',true],['orders','Order / ส่งของ','🚚'],['boothship','ส่งของไปบูธ','🏪'],['booths','จัดการบูธ (POS)','🛍️',true],['bom','BOM / สูตร','🧮'],['suppliers','ซัพพลายเออร์','🚚'],['rmlots','รับเข้า Lot วัตถุดิบ','📥'],['purchasing','จัดซื้อ / รับของเข้า','🛒'],['customers','ลูกค้า (CRM)','👥'],['rewards','Point / ของรางวัล','🎁'],['b2borders','อนุมัติออเดอร์ B2B','📥'],['stations','จัดการ Station / Tablet','📟',true],['voidapproval','อนุมัติ Void','✅',true],['users','จัดการ User','👥',true],['settings','ตั้งค่า','⚙️']];
 const pageGroups=[
   {label:'ภาพรวม',ids:['dashboard']},
   {label:'🏭 การผลิต',ids:['manufacturing','prod','autoproduction','prodrecord','packing','fglog','prodsummary','bom']},
   {label:'📦 คลังสินค้า',ids:['items','rm','stockops']},
   {label:'🛍️ จัดซื้อ',ids:['suppliers','rmlots','purchasing']},
-  {label:'🛒 การขาย',ids:['shipcheck','importorders','orders','boothship']},
+  {label:'🛒 การขาย',ids:['shipcheck','importorders','orders','boothship','booths']},
   {label:'👥 ลูกค้า',ids:['customers','rewards','b2borders']},
   {label:'⚙️ ระบบ/ผู้ดูแล',ids:['master','trxhistory','voidapproval','users','stations','settings']}
 ];
@@ -827,7 +827,7 @@ function updateTopbar(){
     if(n>0){ badge.textContent=n>99?'99+':n; badge.style.display='flex'; } else badge.style.display='none';
   }
 }
-function render(){try{nav(); manageManufacturingPoll_(); if(isOperator() && !OPERATOR_PAGES_.includes(page)){ page='prodrecord'; nav(); } const m=$('main'); if(page=='dashboard') return dash(m); if(page=='master') return masterData(m); if(page=='items') return items(m); if(page=='rm') return rm(m); if(page=='stockops') return stockOpsPage(m); if(page=='fglog') return fgLogPage(m); if(page=='prodrecord') return productionRecordPage(m); if(page=='trxhistory') return trxHistPage(m); if(page=='prodsummary') return productionSummaryPage(m); if(page=='manufacturing') return manufacturingPage(m); if(page=='shipcheck') return shipCheckPage(m); if(page=='prod') return prod(m); if(page=='orders') return ordersPage(m); if(page=='boothship') return boothShipPage(m); if(page=='bom') return bom(m); if(page=='packing') return packingPage(m); if(page=='importorders') return importOrdersPage(m); if(page=='suppliers') return suppliersPage(m); if(page=='rmlots') return rmLotsPage(m); if(page=='purchasing') return purchasingPage(m); if(page=='customers') return customersPage(m); if(page=='rewards') return rewardsPage(m); if(page=='b2borders') return b2bOrdersPage(m); if(page=='stations') return stationsPage(m); if(page=='autoproduction') return autoProductionPage(m); if(page=='voidapproval') return voidApprovalPage(m); if(page=='users') return userManagementPage(m); if(page=='settings') return settings(m); return dash(m);}catch(e){console.error(e); $('main').innerHTML='<h1>เกิด Error</h1><div class="box"><b>'+String(e.message||e)+'</b><p class="hint">กด Settings → Reset หรือส่งรูปหน้านี้มาให้ผมดู</p><button class="primary" onclick="localStorage.removeItem(\'bakery_erp_v6_1\');location.reload()">Reset ข้อมูลใน Browser</button></div>';}}
+function render(){try{nav(); manageManufacturingPoll_(); if(isOperator() && !OPERATOR_PAGES_.includes(page)){ page='prodrecord'; nav(); } const m=$('main'); if(page=='dashboard') return dash(m); if(page=='master') return masterData(m); if(page=='items') return items(m); if(page=='rm') return rm(m); if(page=='stockops') return stockOpsPage(m); if(page=='fglog') return fgLogPage(m); if(page=='prodrecord') return productionRecordPage(m); if(page=='trxhistory') return trxHistPage(m); if(page=='prodsummary') return productionSummaryPage(m); if(page=='manufacturing') return manufacturingPage(m); if(page=='shipcheck') return shipCheckPage(m); if(page=='prod') return prod(m); if(page=='orders') return ordersPage(m); if(page=='boothship') return boothShipPage(m); if(page=='booths') return boothsPage(m); if(page=='bom') return bom(m); if(page=='packing') return packingPage(m); if(page=='importorders') return importOrdersPage(m); if(page=='suppliers') return suppliersPage(m); if(page=='rmlots') return rmLotsPage(m); if(page=='purchasing') return purchasingPage(m); if(page=='customers') return customersPage(m); if(page=='rewards') return rewardsPage(m); if(page=='b2borders') return b2bOrdersPage(m); if(page=='stations') return stationsPage(m); if(page=='autoproduction') return autoProductionPage(m); if(page=='voidapproval') return voidApprovalPage(m); if(page=='users') return userManagementPage(m); if(page=='settings') return settings(m); return dash(m);}catch(e){console.error(e); $('main').innerHTML='<h1>เกิด Error</h1><div class="box"><b>'+String(e.message||e)+'</b><p class="hint">กด Settings → Reset หรือส่งรูปหน้านี้มาให้ผมดู</p><button class="primary" onclick="localStorage.removeItem(\'bakery_erp_v6_1\');location.reload()">Reset ข้อมูลใน Browser</button></div>';}}
 function head(t,h=''){return `<h1>${t}</h1><div class="hint">${h}</div>`}
 function todayISO(){
   const d=new Date();
@@ -1982,6 +1982,58 @@ function boothShipHistoryTable(){
   const rows=(db.boothShipment||[]).slice().sort((a,b)=>trxSortKey(b.Date||b.UpdatedAt)-trxSortKey(a.Date||a.UpdatedAt)).slice(0,50);
   if(!rows.length) return '<p class="hint">ยังไม่มีประวัติส่งของไปบูธ</p>';
   return `<table><tr><th>วันที่</th><th>บูธ</th><th>SKU</th><th>ชื่อ</th><th>จำนวน</th><th>ราคา/หน่วย</th><th>มูลค่า</th><th>หมายเหตุ</th></tr>${rows.map(r=>`<tr><td>${r.Date||''}</td><td>${escHTML(r.Booth||'')}</td><td><b>${r.SKU||''}</b></td><td>${escHTML(itemName(r.SKU))}</td><td>${roundDisplay(r.Qty||0)}</td><td>฿${roundNum(r.UnitPrice||0)}</td><td>฿${roundNum(r.Value||0)}</td><td>${escHTML(r.Remark||'')}</td></tr>`).join('')}</table>`;
+}
+
+/* === v9.102: จัดการบูธ (POS) — Stock ของบูธแยกจากโรงงานโดยสิ้นเชิง (BoothStock คนละก้อนกับ ProductMaster.Stock)
+ * "ส่งของไปบูธ" (boothShipment) เป็นตัวเติม Stock ให้บูธ, POS ที่บูธเป็นตัวตัด Stock ออกตอนขายจริง
+ * ลิงก์ POS ไม่ผ่านหน้า Login เหมือน Kiosk เพราะ Token ผูกกับตัวบูธ ไม่ใช่ user
+ */
+function boothsPage(m){
+  const booths=(db.booths||[]).slice().sort((a,b)=>a.name.localeCompare(b.name));
+  m.innerHTML=head('จัดการบูธ (POS)','ตั้งบูธแต่ละจุด แล้วคัดลอกลิงก์ POS ไปเปิดที่ Tablet/มือถือประจำบูธ — Stock ของบูธแยกจากโรงงานโดยอัตโนมัติ')+
+  `<div class="box"><h2>เพิ่มบูธใหม่</h2><div class="row2"><input id="newBoothName" placeholder="ชื่อบูธ เช่น บูธตลาดนัดสวนจตุจักร"><span></span><span></span><button class="primary" onclick="addBoothAction()">เพิ่ม</button></div></div>`+
+  `<div class="box"><h2>รายชื่อบูธ (${booths.length})</h2>${booths.length?`<table><tr><th>ชื่อ</th><th>สถานะ</th><th></th></tr>${booths.map(b=>`<tr><td><b>${escHTML(b.name)}</b></td><td>${genericStatusPill(b.status)}</td><td class="actions"><button class="small" onclick="copyBoothPosLink('${b.id}')">📋 คัดลอกลิงก์ POS</button> ${b.status==='Active'?`<button class="small danger" onclick="setBoothStatusAction('${b.id}','Disabled')">ปิดใช้งาน</button>`:`<button class="small" onclick="setBoothStatusAction('${b.id}','Active')">เปิดใช้งาน</button>`}</td></tr>`).join('')}</table>`:'<p class="hint">ยังไม่มีบูธ เพิ่มก่อนเลยครับ</p>'}</div>`+
+  `<div class="box"><h2>วิธีตั้งค่า POS ที่บูธ</h2><p class="hint">1. กด "คัดลอกลิงก์ POS" ของบูธที่ต้องการ<br>2. เปิดลิงก์นั้นในเบราว์เซอร์ของ Tablet/มือถือที่บูธ (Chrome แนะนำ)<br>3. ส่งของไปบูธก่อนที่หน้า "ส่งของไปบูธ" เพื่อให้บูธมี Stock ให้ขาย (ชื่อบูธต้องพิมพ์ให้ตรงกับที่ตั้งไว้ที่นี่)<br>4. เริ่มขายที่หน้า POS ได้เลย ระบบตัด Stock ของบูธเองอัตโนมัติทุกครั้งที่ขาย ไม่กระทบ Stock โรงงาน</p></div>`;
+}
+async function addBoothAction(){
+  const name=($('newBoothName')?.value||'').trim();
+  if(!name) return toast('กรอกชื่อบูธก่อน');
+  toast('กำลังเพิ่มบูธ...');
+  try{
+    await apiPost({action:'addbooth',data:{name}});
+    await loadFromGoogleSheet();
+    page='booths'; render();
+    sheetDone('เพิ่มบูธ '+name+' แล้ว');
+  }catch(e){console.error(e); alertModal('เพิ่มไม่สำเร็จ: '+(e.message||e));}
+}
+async function setBoothStatusAction(boothId,status){
+  if(!await confirmModal((status==='Active'?'เปิด':'ปิด')+'ใช้งานบูธนี้? (ปิดแล้ว POS ของบูธนี้จะใช้งานไม่ได้จนกว่าจะเปิดใหม่)'))return;
+  toast('กำลังอัปเดต...');
+  try{
+    await apiPost({action:'setboothstatus',boothId,status});
+    await loadFromGoogleSheet();
+    page='booths'; render();
+    sheetDone('อัปเดตแล้ว');
+  }catch(e){console.error(e); alertModal('อัปเดตไม่สำเร็จ: '+(e.message||e));}
+}
+async function copyBoothPosLink(boothId){
+  toast('กำลังขอลิงก์...');
+  try{
+    const res=await apiGetOnce('getboothtoken',{boothId});
+    const url=new URL(location.href);
+    url.search='';
+    url.searchParams.set('pos','1');
+    url.searchParams.set('booth',boothId);
+    url.searchParams.set('token',res.token);
+    if(apiKey) url.searchParams.set('key',apiKey);
+    const link=url.toString();
+    try{
+      await navigator.clipboard.writeText(link);
+      sheetDone('คัดลอกลิงก์แล้ว เอาไปเปิดที่ Tablet ของบูธนี้ได้เลย');
+    }catch(copyErr){
+      await promptModal('คัดลอกอัตโนมัติไม่ได้ (เบราว์เซอร์นี้ไม่อนุญาต) คัดลอกด้วยมือจากช่องนี้แทน:',link);
+    }
+  }catch(e){console.error(e); alertModal('ขอลิงก์ไม่สำเร็จ: '+(e.message||e));}
 }
 /* === จัดซื้อ / รับของเข้า วัตถุดิบ (Purchase Order + Goods Receipt) === */
 function purchasingPage(m){
@@ -3198,6 +3250,8 @@ function fromSheetData(data){
   // v9.95: Station master (สำหรับสั่งผลิตอัตโนมัติ -> ส่งเข้าคิว Kiosk ของแต่ละ Tablet) — Token ไม่ถูกส่งมาด้วย
   // (เก็บเฉพาะฝั่ง Server) เพราะหน้า Admin ทั่วไปไม่จำเป็นต้องเห็น ใช้ copyKioskLink() ที่เรียก API แยกตอนต้องการ
   const remoteStations=(data.stations||[]).map(s=>({id:s.StationID||'',name:s.StationName||'',status:s.Status||'Active'})).filter(x=>x.id);
+  // v9.102: Booth master (สำหรับ POS ขายที่บูธ) — Token ไม่ถูกส่งมาด้วย เหมือน Stations
+  const remoteBooths=(data.booths||[]).map(b=>({id:b.BoothID||'',name:b.BoothName||'',status:b.Status||'Active'})).filter(x=>x.id);
   if(items.length) db.items=items;
   if(rm.length) db.rm=rm;
   if((data.bom||[]).length) db.bom=bom;
@@ -3213,6 +3267,7 @@ function fromSheetData(data){
   db.channelSkuMap=remoteChannelSkuMap;
   db.rmLots=remoteRMLots;
   db.stations=remoteStations;
+  db.booths=remoteBooths;
   db.purchaseOrder=(data.purchaseOrder||[]).map(p=>({po:p.PO,orderDate:dateISO(p.OrderDate)||String(p.OrderDate||''),supplier:p.Supplier||'',status:p.Status||'Open',remark:p.Remark||''})).filter(x=>x.po);
   db.purchaseOrderItems=(data.purchaseOrderItems||[]).map(i=>({po:i.PO,rmCode:String(i.RMCode||''),orderQty:+i.OrderQty||0,unitPrice:+i.UnitPrice||0,receivedQty:+i.ReceivedQty||0})).filter(x=>x.po);
   db.goodsReceipt=(data.goodsReceipt||[]).map(g=>({id:g.ReceiptID,receiveDate:dateISO(g.ReceiveDate)||String(g.ReceiveDate||''),po:g.PO||'',rmCode:String(g.RMCode||''),qty:+g.Qty||0,unitPrice:+g.UnitPrice||0,supplier:g.Supplier||'',remark:g.Remark||''})).filter(x=>x.id);
@@ -3522,6 +3577,217 @@ function startKiosk(){
   root.innerHTML=`<div style="margin:auto;text-align:center;padding:24px"><div style="font-size:70px">📟</div><h1 style="font-size:30px">พร้อมใช้งาน Kiosk${stationName?'<br><span style=\"font-size:20px;opacity:.75\">'+escHTML(stationName)+'</span>':''}</h1><p style="opacity:.75;max-width:420px;margin:8px auto 24px">กดปุ่มด้านล่างครั้งเดียวเพื่อเปิดเสียงแจ้งเตือนงานใหม่ จากนั้นจะทำงานเองตลอด ไม่ต้องแตะจออีก</p><button onclick="(function(){window.__kioskStart&&window.__kioskStart()})()" style="border:0;background:#df6518;color:#fff;font-size:22px;font-weight:800;border-radius:16px;padding:20px 40px;cursor:pointer">▶ เริ่มใช้งาน Kiosk</button></div>`;
   window.__kioskStart = unlockAndStart;
 }
+/* === v9.102: Booth POS — ขายที่บูธ Stock แยกจากโรงงานโดยสิ้นเชิง (BoothStock คนละก้อนกับ ProductMaster.Stock)
+ * เปิดผ่านลิงก์ ?pos=1&booth=...&token=...&key=... (จากปุ่ม "คัดลอกลิงก์ POS" ในหน้า "จัดการบูธ (POS)")
+ * ไม่ผ่านหน้า Login เหมือน Kiosk เพราะ Token ผูกกับตัวบูธ ไม่ใช่ user
+ */
+const POS_MODE = ERP_QUERY.get('pos') === '1';
+function startBoothPos(){
+  const boothId = ERP_QUERY.get('booth') || '';
+  const boothToken = ERP_QUERY.get('token') || '';
+  const urlKey = ERP_QUERY.get('key') || '';
+  if(urlKey){ apiKey = urlKey; localStorage.setItem('bakery_api_key', urlKey); }
+  document.body.classList.add('login-locked');
+  const root=document.createElement('div');
+  root.id='posRoot';
+  root.style.cssText='position:fixed;inset:0;background:#f5f6fa;color:#321800;z-index:100;display:flex;flex-direction:column;font-family:Inter,Segoe UI,Tahoma,sans-serif;overflow:hidden';
+  document.body.appendChild(root);
+  if(!boothId || !boothToken){
+    root.innerHTML='<div style="margin:auto;text-align:center;padding:24px"><div style="font-size:60px">⚠️</div><h1>ลิงก์ POS ไม่ถูกต้อง</h1><p>ขาด booth หรือ token ในลิงก์ — ไปคัดลอกลิงก์ใหม่จากหน้า "จัดการบูธ (POS)" อีกครั้ง</p></div>';
+    return;
+  }
+  let items=[], cart={}, busy=false;
+  function money(n){ return (+n||0).toLocaleString('th-TH',{minimumFractionDigits:0,maximumFractionDigits:2}); }
+  function posModal(html){
+    let ov=document.getElementById('posModalOverlay');
+    if(!ov){
+      ov=document.createElement('div');
+      ov.id='posModalOverlay';
+      ov.style.cssText='position:fixed;inset:0;background:#000000cc;z-index:200;display:flex;align-items:center;justify-content:center;padding:20px';
+      root.appendChild(ov);
+    }
+    ov.innerHTML=html;
+    ov.style.display='flex';
+  }
+  function posCloseModal(){ const ov=document.getElementById('posModalOverlay'); if(ov) ov.style.display='none'; }
+  function posErrorModal(title,e){
+    posModal('<div style="background:#fff;border-radius:20px;padding:32px;max-width:420px;text-align:center"><div style="font-size:44px">⚠️</div><div style="font-size:20px;font-weight:800;margin:12px 0">'+escHTML(title)+'</div><div style="opacity:.8;margin-bottom:20px;color:#8b755d">'+escHTML((e&&e.message)||String(e))+'</div><button id="posErrClose" style="border:0;background:#df6518;color:#fff;font-size:18px;font-weight:700;border-radius:12px;padding:14px 28px;cursor:pointer">ปิด</button></div>');
+    document.getElementById('posErrClose').onclick=posCloseModal;
+  }
+  function cartTotal(){ return Object.values(cart).reduce((a,c)=>a+c.qty*c.price,0); }
+  function addToCart(sku){
+    const it=items.find(x=>x.sku===sku); if(!it) return;
+    if(!cart[sku]) cart[sku]={sku:it.sku,name:it.name,price:it.price,qty:0};
+    cart[sku].qty++;
+    renderCart();
+  }
+  function changeQty(sku,delta){
+    if(!cart[sku]) return;
+    cart[sku].qty+=delta;
+    if(cart[sku].qty<=0) delete cart[sku];
+    renderCart();
+  }
+  function clearCart(){ cart={}; renderCart(); }
+  function renderProducts(filter){
+    const q=(filter||'').toLowerCase();
+    const list=items.filter(it=>!q||(it.sku+' '+it.name).toLowerCase().includes(q));
+    const grid=document.getElementById('posProductGrid');
+    if(!grid) return;
+    grid.innerHTML=list.length?list.map(it=>`<button class="posItemBtn" data-sku="${escHTML(it.sku)}" style="text-align:left;border:1px solid #ead8bf;background:#fff;border-radius:14px;padding:12px;cursor:pointer;display:flex;flex-direction:column;gap:4px">
+      ${it.imageUrl?`<img src="${it.imageUrl}" style="width:100%;height:80px;object-fit:cover;border-radius:10px">`:'<div style="width:100%;height:80px;border-radius:10px;background:#f5f6fa;display:flex;align-items:center;justify-content:center;font-size:28px">📦</div>'}
+      <b style="font-size:14px">${escHTML(it.name)}</b>
+      <span style="font-size:12px;color:#8b755d">${escHTML(it.sku)} · เหลือ ${roundDisplay(it.stock)}</span>
+      <span style="font-size:16px;font-weight:800;color:#df6518">฿${money(it.price)}</span>
+    </button>`).join(''):'<p style="opacity:.6;padding:20px">ไม่พบสินค้า</p>';
+    grid.querySelectorAll('.posItemBtn').forEach(btn=>{ btn.onclick=()=>addToCart(btn.dataset.sku); });
+  }
+  function renderCart(){
+    const box=document.getElementById('posCartBody');
+    if(!box) return;
+    const lines=Object.values(cart);
+    box.innerHTML=lines.length?lines.map(c=>`<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #ead8bf">
+      <div style="flex:1;min-width:0"><b style="font-size:14px">${escHTML(c.name)}</b><br><span style="font-size:12px;color:#8b755d">฿${money(c.price)} x ${c.qty}</span></div>
+      <button class="posQtyBtn" data-sku="${escHTML(c.sku)}" data-delta="-1" style="width:30px;height:30px;border-radius:8px;border:1px solid #ead8bf;background:#fff;font-weight:800;cursor:pointer">-</button>
+      <span style="min-width:22px;text-align:center;font-weight:700">${c.qty}</span>
+      <button class="posQtyBtn" data-sku="${escHTML(c.sku)}" data-delta="1" style="width:30px;height:30px;border-radius:8px;border:1px solid #ead8bf;background:#fff;font-weight:800;cursor:pointer">+</button>
+      <b style="min-width:70px;text-align:right">฿${money(c.qty*c.price)}</b>
+    </div>`).join(''):'<p style="opacity:.6;padding:20px;text-align:center">ยังไม่มีสินค้าในตะกร้า<br>แตะสินค้าด้านซ้ายเพื่อเพิ่ม</p>';
+    box.querySelectorAll('.posQtyBtn').forEach(btn=>{ btn.onclick=()=>changeQty(btn.dataset.sku, +btn.dataset.delta); });
+    const totalEl=document.getElementById('posCartTotal'); if(totalEl) totalEl.textContent='฿'+money(cartTotal());
+    const payBtn=document.getElementById('posPayBtn'); if(payBtn) payBtn.disabled=!lines.length;
+  }
+  function openCheckout(){
+    const total=cartTotal();
+    if(!total) return;
+    posModal(`<div style="background:#fff;border-radius:20px;padding:28px;max-width:420px;width:100%">
+      <div style="font-size:20px;font-weight:800;margin-bottom:4px">ชำระเงิน</div>
+      <div style="font-size:32px;font-weight:900;color:#df6518;margin-bottom:16px">฿${money(total)}</div>
+      <div style="display:flex;gap:8px;margin-bottom:16px">
+        <button class="posPayMethod" data-method="Cash" style="flex:1;padding:14px;border-radius:12px;border:2px solid #df6518;background:#fff3e1;font-weight:800;cursor:pointer">💵 เงินสด</button>
+        <button class="posPayMethod" data-method="Transfer" style="flex:1;padding:14px;border-radius:12px;border:2px solid #ead8bf;background:#fff;font-weight:800;cursor:pointer">📱 โอน/QR</button>
+        <button class="posPayMethod" data-method="Card" style="flex:1;padding:14px;border-radius:12px;border:2px solid #ead8bf;background:#fff;font-weight:800;cursor:pointer">💳 บัตร</button>
+      </div>
+      <div id="posCashRow" style="margin-bottom:16px">
+        <label style="font-size:13px;color:#8b755d">รับเงินมา (บาท)</label>
+        <input id="posAmountReceived" type="number" min="0" value="${total}" style="width:100%;font-size:24px;text-align:center;padding:12px;border-radius:12px;border:1px solid #ead8bf;margin-top:4px">
+        <div id="posChangeDisplay" style="text-align:center;font-size:18px;font-weight:800;margin-top:8px;color:#059669">เงินทอน ฿0</div>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button id="posConfirmPay" style="flex:1;border:0;background:#059669;color:#fff;font-size:18px;font-weight:800;border-radius:12px;padding:16px;cursor:pointer">✅ ยืนยันรับเงิน</button>
+        <button id="posCancelPay" style="flex:1;border:0;background:#eee;color:#333;font-size:16px;font-weight:700;border-radius:12px;padding:16px;cursor:pointer">ยกเลิก</button>
+      </div>
+    </div>`);
+    let method='Cash';
+    function selectMethod(mth){
+      method=mth;
+      document.querySelectorAll('.posPayMethod').forEach(b=>{
+        const active=b.dataset.method===mth;
+        b.style.border=active?'2px solid #df6518':'2px solid #ead8bf';
+        b.style.background=active?'#fff3e1':'#fff';
+      });
+      const cashRow=document.getElementById('posCashRow');
+      if(cashRow) cashRow.style.display=mth==='Cash'?'block':'none';
+    }
+    document.querySelectorAll('.posPayMethod').forEach(b=>{ b.onclick=()=>selectMethod(b.dataset.method); });
+    const amtInput=document.getElementById('posAmountReceived');
+    function updateChange(){
+      const received=+((amtInput&&amtInput.value)||0);
+      const change=Math.max(0, received-total);
+      const el=document.getElementById('posChangeDisplay');
+      if(el) el.textContent='เงินทอน ฿'+money(change);
+    }
+    if(amtInput){ amtInput.oninput=updateChange; updateChange(); }
+    document.getElementById('posCancelPay').onclick=posCloseModal;
+    document.getElementById('posConfirmPay').onclick=()=>submitSale(method,+((amtInput&&amtInput.value)||total));
+  }
+  async function submitSale(method, amountReceived){
+    if(busy) return; busy=true;
+    posModal('<div style="background:#fff;border-radius:20px;padding:40px;text-align:center"><div style="font-size:20px;font-weight:700">กำลังบันทึกการขาย...</div></div>');
+    const saleItems=Object.values(cart).map(c=>({sku:c.sku,qty:c.qty,unitPrice:c.price}));
+    const payload={items:saleItems,paymentMethod:method,amountReceived,requestId:Date.now()+'-'+Math.random().toString(36).slice(2)};
+    try{
+      const res=await apiGetOnce('boothsale',{booth:boothId,token:boothToken,payload:JSON.stringify(payload)});
+      busy=false;
+      posModal(`<div style="background:#fff;border-radius:20px;padding:32px;max-width:380px;text-align:center">
+        <div style="font-size:56px">✅</div>
+        <div style="font-size:22px;font-weight:800;margin:8px 0">ขายสำเร็จ</div>
+        <div style="font-size:15px;color:#8b755d;margin-bottom:4px">ยอดรวม ฿${money(res.total)}</div>
+        ${method==='Cash'?`<div style="font-size:18px;font-weight:800;color:#059669;margin-bottom:16px">เงินทอน ฿${money(res.change)}</div>`:''}
+        <button id="posDoneBtn" style="border:0;background:#df6518;color:#fff;font-size:18px;font-weight:800;border-radius:12px;padding:14px 36px;cursor:pointer">เสร็จสิ้น</button>
+      </div>`);
+      document.getElementById('posDoneBtn').onclick=()=>{ posCloseModal(); clearCart(); loadItems(); };
+    }catch(e){
+      busy=false;
+      posErrorModal('บันทึกการขายไม่สำเร็จ (ตะกร้ายังอยู่ ลองใหม่ได้)',e);
+    }
+  }
+  async function openHistory(){
+    posModal('<div style="background:#fff;border-radius:20px;padding:24px;max-width:420px;width:100%;max-height:80vh;overflow:auto"><div style="font-size:18px;font-weight:800;margin-bottom:12px">ประวัติการขายวันนี้</div><div id="posHistoryBody">กำลังโหลด...</div><button id="posHistoryClose" style="margin-top:14px;width:100%;border:0;background:#eee;border-radius:12px;padding:12px;font-weight:700;cursor:pointer">ปิด</button></div>');
+    document.getElementById('posHistoryClose').onclick=posCloseModal;
+    try{
+      const res=await apiGetOnce('boothsalestoday',{booth:boothId,token:boothToken});
+      const body=document.getElementById('posHistoryBody');
+      if(!body) return;
+      const sales=res.sales||[];
+      body.innerHTML=sales.length?sales.map(s=>`<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #ead8bf;${s.status==='Cancelled'?'opacity:.5':''}">
+        <div style="flex:1"><b>฿${money(s.total)}</b> <span style="font-size:12px;color:#8b755d">${escHTML(s.paymentMethod)} · ${escHTML(String(s.timestamp).slice(11,16))}</span>${s.status==='Cancelled'?' <span style="color:#dc2626;font-size:12px">(ยกเลิกแล้ว)</span>':''}</div>
+        ${s.status!=='Cancelled'?`<button class="posVoidBtn" data-saleid="${escHTML(s.saleId)}" style="border:0;background:#fee2e2;color:#991b1b;font-size:12px;font-weight:700;border-radius:8px;padding:6px 10px;cursor:pointer">ยกเลิก</button>`:''}
+      </div>`).join(''):'<p style="opacity:.6">ยังไม่มีรายการขายวันนี้</p>';
+      body.querySelectorAll('.posVoidBtn').forEach(btn=>{ btn.onclick=()=>voidSale(btn.dataset.saleid); });
+    }catch(e){
+      const body=document.getElementById('posHistoryBody');
+      if(body) body.textContent='โหลดไม่สำเร็จ: '+((e&&e.message)||String(e));
+    }
+  }
+  async function voidSale(saleId){
+    if(!confirm('ยกเลิกรายการขายนี้? สต๊อกจะถูกคืนกลับให้บูธ')) return;
+    try{
+      await apiGetOnce('voidboothsale',{booth:boothId,token:boothToken,saleid:saleId});
+      loadItems();
+      openHistory();
+    }catch(e){ alert('ยกเลิกไม่สำเร็จ: '+((e&&e.message)||String(e))); }
+  }
+  async function loadItems(){
+    try{
+      const res=await apiGetOnce('boothposdata',{booth:boothId,token:boothToken});
+      items=res.items||[];
+      const nameEl=document.getElementById('posBoothName'); if(nameEl) nameEl.textContent=res.boothName||'';
+      renderProducts(document.getElementById('posSearch')?.value||'');
+      renderCart();
+      const status=document.getElementById('posStatus'); if(status){ status.textContent=''; }
+    }catch(e){
+      console.error(e);
+      const status=document.getElementById('posStatus');
+      if(status){ status.textContent='โหลดสินค้าไม่สำเร็จ: '+((e&&e.message)||String(e)); status.style.color='#dc2626'; }
+    }
+  }
+  root.innerHTML=`
+    <div style="padding:16px 20px;background:#fff;border-bottom:1px solid #ead8bf;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <div style="font-size:20px;font-weight:800">🛍️ POS — <span id="posBoothName">...</span></div>
+      <button id="posHistoryBtn" style="border:0;background:#fff3e1;color:#6d3000;font-weight:700;border-radius:10px;padding:8px 14px;cursor:pointer">📜 ประวัติวันนี้</button>
+      <input id="posSearch" placeholder="ค้นหาสินค้า..." style="margin-left:auto;padding:10px 14px;border-radius:999px;border:1px solid #ead8bf;width:220px">
+      <span id="posStatus" style="font-size:12px;color:#dc2626"></span>
+    </div>
+    <div style="flex:1;display:flex;overflow:hidden">
+      <div id="posProductGrid" style="flex:1;overflow:auto;padding:16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;align-content:start"></div>
+      <div style="width:340px;border-left:1px solid #ead8bf;background:#fff;display:flex;flex-direction:column">
+        <div style="padding:14px 16px;border-bottom:1px solid #ead8bf;font-weight:800;display:flex;justify-content:space-between;align-items:center">
+          <span>ตะกร้า</span>
+          <button id="posClearCartBtn" style="border:0;background:none;color:#dc2626;font-size:13px;cursor:pointer">ล้างตะกร้า</button>
+        </div>
+        <div id="posCartBody" style="flex:1;overflow:auto;padding:0 16px"></div>
+        <div style="padding:16px;border-top:1px solid #ead8bf">
+          <div style="display:flex;justify-content:space-between;font-size:20px;font-weight:900;margin-bottom:12px"><span>รวม</span><span id="posCartTotal">฿0</span></div>
+          <button id="posPayBtn" disabled style="width:100%;border:0;background:#df6518;color:#fff;font-size:18px;font-weight:800;border-radius:14px;padding:16px;cursor:pointer">💰 ชำระเงิน</button>
+        </div>
+      </div>
+    </div>`;
+  document.getElementById('posSearch').oninput=(e)=>renderProducts(e.target.value);
+  document.getElementById('posPayBtn').onclick=openCheckout;
+  document.getElementById('posClearCartBtn').onclick=clearCart;
+  document.getElementById('posHistoryBtn').onclick=openHistory;
+  loadItems();
+}
 /* === v9.97: B2B Customer Order Portal ===
  * เปิดผ่านลิงก์ ?b2b=1&customer=...&token=...&key=... (จากปุ่ม "คัดลอกลิงก์สั่งของ B2B" ในหน้า "ลูกค้า (CRM)")
  * ลูกค้าไม่ต้อง login เลย เพราะ Token ผูกกับตัวลูกค้าคนนั้นโดยตรง ไม่ใช่ user บัญชีพนักงาน — แยกจากแอปหลัก
@@ -3680,6 +3946,8 @@ function startJoinPortal(){
 }
 if(KIOSK_MODE){
   startKiosk();
+}else if(POS_MODE){
+  startBoothPos();
 }else if(B2B_MODE){
   startB2BPortal();
 }else if(JOIN_MODE){
