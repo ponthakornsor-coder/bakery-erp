@@ -85,10 +85,10 @@ const ERP_QUERY = new URLSearchParams(window.location.search);
 const VIEWER_ONLY = ERP_QUERY.get('view') === '1' || ERP_QUERY.get('role') === 'viewer';
 const MASTER_SKUS = [];
 const DEFAULT_RM = [];
-const pages=[['dashboard','Dashboard','🏠'],['master','Master Data','🗂️'],['items','สินค้า & สูตร','📦'],['rm','วัตถุดิบ','🧺'],['stockops','จัดการสต๊อก','↕️'],['fglog','Production Log FG','📋'],['prodrecord','บันทึกผลผลิต','📝'],['packing','แพ็คสินค้า','📮'],['trxhistory','Transaction / ประวัติ','🏦'],['prodsummary','สรุปผลผลิต','📊'],['shipcheck','เช็ค Stock พอส่ง / ขายออก','🛒'],['importorders','นำเข้า Order TikTok','📥'],['prod','สั่งผลิต','⚙️'],['autoproduction','สั่งผลิตอัตโนมัติ','🤖',true],['orders','Order / ส่งของ','🚚'],['boothship','ส่งของไปบูธ','🏪'],['bom','BOM / สูตร','🧮'],['suppliers','ซัพพลายเออร์','🚚'],['rmlots','รับเข้า Lot วัตถุดิบ','📥'],['purchasing','จัดซื้อ / รับของเข้า','🛒'],['customers','ลูกค้า (CRM)','👥'],['rewards','Point / ของรางวัล','🎁'],['b2borders','อนุมัติออเดอร์ B2B','📥'],['stations','จัดการ Station / Tablet','📟',true],['voidapproval','อนุมัติ Void','✅',true],['users','จัดการ User','👥',true],['settings','ตั้งค่า','⚙️']];
+const pages=[['dashboard','Dashboard','🏠'],['master','Master Data','🗂️'],['items','สินค้า & สูตร','📦'],['rm','วัตถุดิบ','🧺'],['stockops','จัดการสต๊อก','↕️'],['fglog','Production Log FG','📋'],['prodrecord','บันทึกผลผลิต','📝'],['packing','แพ็คสินค้า','📮'],['trxhistory','Transaction / ประวัติ','🏦'],['prodsummary','สรุปผลผลิต','📊'],['manufacturing','ภาพรวมการผลิต','🏭'],['shipcheck','เช็ค Stock พอส่ง / ขายออก','🛒'],['importorders','นำเข้า Order TikTok','📥'],['prod','สั่งผลิต','⚙️'],['autoproduction','สั่งผลิตอัตโนมัติ','🤖',true],['orders','Order / ส่งของ','🚚'],['boothship','ส่งของไปบูธ','🏪'],['bom','BOM / สูตร','🧮'],['suppliers','ซัพพลายเออร์','🚚'],['rmlots','รับเข้า Lot วัตถุดิบ','📥'],['purchasing','จัดซื้อ / รับของเข้า','🛒'],['customers','ลูกค้า (CRM)','👥'],['rewards','Point / ของรางวัล','🎁'],['b2borders','อนุมัติออเดอร์ B2B','📥'],['stations','จัดการ Station / Tablet','📟',true],['voidapproval','อนุมัติ Void','✅',true],['users','จัดการ User','👥',true],['settings','ตั้งค่า','⚙️']];
 const pageGroups=[
   {label:'ภาพรวม',ids:['dashboard']},
-  {label:'🏭 การผลิต',ids:['prod','autoproduction','prodrecord','packing','fglog','prodsummary','bom']},
+  {label:'🏭 การผลิต',ids:['manufacturing','prod','autoproduction','prodrecord','packing','fglog','prodsummary','bom']},
   {label:'📦 คลังสินค้า',ids:['items','rm','stockops']},
   {label:'🛍️ จัดซื้อ',ids:['suppliers','rmlots','purchasing']},
   {label:'🛒 การขาย',ids:['shipcheck','importorders','orders','boothship']},
@@ -184,7 +184,7 @@ function apiGetOnce(action='all', params={}){
 }
 let syncOverlayActive=0;
 function syncActionLabel(action){
-  const map={movement:'กำลังบันทึกรายการ Stock...',movementbatch:'กำลังบันทึกรายการ Stock...',producebatch:'กำลังบันทึกผลผลิต...',transaction:'กำลังบันทึกรายการ...',flushpending:'กำลังส่งข้อมูลค้างส่ง...',cycletransaction:'กำลังบันทึก Cycle Count...',voidproductionfast:'กำลัง Void รายการ...',voidproduction:'กำลัง Void รายการ...',upsert:'กำลังบันทึกข้อมูล...',upsertbatch:'กำลังบันทึกข้อมูล...',savebom:'กำลังบันทึก BOM...',syncprod:'กำลัง Sync ข้อมูลผลิตเข้า Database...',shippingplanbatch:'กำลังบันทึก ShippingPlan...',salesoutbatch:'กำลังบันทึกขายออก + ตัด Stock...',createpofromshipping:'กำลังสร้างคำสั่งผลิต...',listusers:'กำลังโหลดรายชื่อพนักงาน...',assignpo:'กำลังบันทึกการมอบหมาย...',sendlinepo:'กำลังส่ง LINE...',assignandsendline:'กำลังมอบหมาย + ส่ง LINE...',cancelpo:'กำลังยกเลิกคำสั่งผลิต...'};
+  const map={movement:'กำลังบันทึกรายการ Stock...',movementbatch:'กำลังบันทึกรายการ Stock...',producebatch:'กำลังบันทึกผลผลิต...',transaction:'กำลังบันทึกรายการ...',flushpending:'กำลังส่งข้อมูลค้างส่ง...',cycletransaction:'กำลังบันทึก Cycle Count...',voidproductionfast:'กำลัง Void รายการ...',voidproduction:'กำลัง Void รายการ...',upsert:'กำลังบันทึกข้อมูล...',upsertbatch:'กำลังบันทึกข้อมูล...',savebom:'กำลังบันทึก BOM...',syncprod:'กำลัง Sync ข้อมูลผลิตเข้า Database...',shippingplanbatch:'กำลังบันทึก ShippingPlan...',salesoutbatch:'กำลังบันทึกขายออก + ตัด Stock...',createpofromshipping:'กำลังสร้างคำสั่งผลิต...',listusers:'กำลังโหลดรายชื่อพนักงาน...',assignpo:'กำลังบันทึกการมอบหมาย...',cancelpo:'กำลังยกเลิกคำสั่งผลิต...'};
   return map[String(action||'').toLowerCase()]||'กำลังบันทึกเข้า Google Sheet...';
 }
 function showSyncOverlay(msg){
@@ -827,7 +827,7 @@ function updateTopbar(){
     if(n>0){ badge.textContent=n>99?'99+':n; badge.style.display='flex'; } else badge.style.display='none';
   }
 }
-function render(){try{nav(); if(isOperator() && !OPERATOR_PAGES_.includes(page)){ page='prodrecord'; nav(); } const m=$('main'); if(page=='dashboard') return dash(m); if(page=='master') return masterData(m); if(page=='items') return items(m); if(page=='rm') return rm(m); if(page=='stockops') return stockOpsPage(m); if(page=='fglog') return fgLogPage(m); if(page=='prodrecord') return productionRecordPage(m); if(page=='trxhistory') return trxHistPage(m); if(page=='prodsummary') return productionSummaryPage(m); if(page=='shipcheck') return shipCheckPage(m); if(page=='prod') return prod(m); if(page=='orders') return ordersPage(m); if(page=='boothship') return boothShipPage(m); if(page=='bom') return bom(m); if(page=='packing') return packingPage(m); if(page=='importorders') return importOrdersPage(m); if(page=='suppliers') return suppliersPage(m); if(page=='rmlots') return rmLotsPage(m); if(page=='purchasing') return purchasingPage(m); if(page=='customers') return customersPage(m); if(page=='rewards') return rewardsPage(m); if(page=='b2borders') return b2bOrdersPage(m); if(page=='stations') return stationsPage(m); if(page=='autoproduction') return autoProductionPage(m); if(page=='voidapproval') return voidApprovalPage(m); if(page=='users') return userManagementPage(m); if(page=='settings') return settings(m); return dash(m);}catch(e){console.error(e); $('main').innerHTML='<h1>เกิด Error</h1><div class="box"><b>'+String(e.message||e)+'</b><p class="hint">กด Settings → Reset หรือส่งรูปหน้านี้มาให้ผมดู</p><button class="primary" onclick="localStorage.removeItem(\'bakery_erp_v6_1\');location.reload()">Reset ข้อมูลใน Browser</button></div>';}}
+function render(){try{nav(); if(isOperator() && !OPERATOR_PAGES_.includes(page)){ page='prodrecord'; nav(); } const m=$('main'); if(page=='dashboard') return dash(m); if(page=='master') return masterData(m); if(page=='items') return items(m); if(page=='rm') return rm(m); if(page=='stockops') return stockOpsPage(m); if(page=='fglog') return fgLogPage(m); if(page=='prodrecord') return productionRecordPage(m); if(page=='trxhistory') return trxHistPage(m); if(page=='prodsummary') return productionSummaryPage(m); if(page=='manufacturing') return manufacturingPage(m); if(page=='shipcheck') return shipCheckPage(m); if(page=='prod') return prod(m); if(page=='orders') return ordersPage(m); if(page=='boothship') return boothShipPage(m); if(page=='bom') return bom(m); if(page=='packing') return packingPage(m); if(page=='importorders') return importOrdersPage(m); if(page=='suppliers') return suppliersPage(m); if(page=='rmlots') return rmLotsPage(m); if(page=='purchasing') return purchasingPage(m); if(page=='customers') return customersPage(m); if(page=='rewards') return rewardsPage(m); if(page=='b2borders') return b2bOrdersPage(m); if(page=='stations') return stationsPage(m); if(page=='autoproduction') return autoProductionPage(m); if(page=='voidapproval') return voidApprovalPage(m); if(page=='users') return userManagementPage(m); if(page=='settings') return settings(m); return dash(m);}catch(e){console.error(e); $('main').innerHTML='<h1>เกิด Error</h1><div class="box"><b>'+String(e.message||e)+'</b><p class="hint">กด Settings → Reset หรือส่งรูปหน้านี้มาให้ผมดู</p><button class="primary" onclick="localStorage.removeItem(\'bakery_erp_v6_1\');location.reload()">Reset ข้อมูลใน Browser</button></div>';}}
 function head(t,h=''){return `<h1>${t}</h1><div class="hint">${h}</div>`}
 function todayISO(){
   const d=new Date();
@@ -1711,6 +1711,49 @@ async function copyKioskLink(stationId){
   }catch(e){console.error(e); alertModal('ขอลิงก์ไม่สำเร็จ: '+(e.message||e));}
 }
 
+/* === v9.101: ภาพรวมการผลิต — ดูทุก Station พร้อมกันในหน้าเดียว (กำลังทำ/รอคิว/เสร็จวันนี้)
+ * ใช้ db.po (StationId) + db.stations ที่ sync มาแล้ว ไม่ต้องเรียก API เพิ่ม
+ */
+function manufacturingJobRow_(p){
+  return `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)">
+    <div style="min-width:0"><b>${escHTML(itemName(p.sku))}</b> <span class="mini">${escHTML(p.sku)}</span>${p.remark?`<div class="mini">${escHTML(p.remark)}</div>`:''}</div>
+    <div style="margin-left:auto;font-weight:800;white-space:nowrap">${roundDisplay(p.status==='Completed'?(p.actualQty!==''&&p.actualQty!==undefined?p.actualQty:p.qty):p.qty)}</div>
+  </div>`;
+}
+function manufacturingPage(m){
+  const stations=(db.stations||[]).slice().sort((a,b)=>a.name.localeCompare(b.name));
+  const today=todayISO();
+  const allPo=(db.po||[]).filter(p=>p.stationId);
+  const activeStations=stations.filter(s=>s.status==='Active').length;
+  const working=allPo.filter(p=>p.status==='In Progress');
+  const queued=allPo.filter(p=>p.status==='Open');
+  const doneToday=allPo.filter(p=>p.status==='Completed' && dateISO(p.finish||p.time)===today);
+  const summary=`<div class="kpis">
+    <div class="kpi">Station ที่เปิดใช้งาน<b>${activeStations}</b></div>
+    <div class="kpi">รอคิว<b>${queued.length}</b></div>
+    <div class="kpi">กำลังทำอยู่ตอนนี้<b>${working.length}</b></div>
+    <div class="kpi">เสร็จวันนี้<b>${doneToday.length}</b></div>
+  </div>`;
+  const section=(title,list,emptyMsg)=>`<div style="margin-top:12px"><div class="hint" style="font-weight:700;margin-bottom:4px">${title} (${list.length})</div>${list.length?list.map(manufacturingJobRow_).join(''):`<p class="hint" style="margin:4px 0">${emptyMsg}</p>`}</div>`;
+  const cards=stations.length?stations.map(s=>{
+    const jobs=allPo.filter(p=>String(p.stationId)===String(s.id));
+    const sWorking=jobs.filter(p=>p.status==='In Progress');
+    const sQueued=jobs.filter(p=>p.status==='Open');
+    const sDoneToday=jobs.filter(p=>p.status==='Completed' && dateISO(p.finish||p.time)===today);
+    const sDoneQty=sDoneToday.reduce((a,p)=>a+(+(p.actualQty!==''&&p.actualQty!==undefined?p.actualQty:p.qty)||0),0);
+    return `<div class="box" style="margin-bottom:14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <h2 style="margin:0">${escHTML(s.name)}</h2>
+        ${genericStatusPill(s.status)}
+      </div>
+      ${section('🟠 กำลังทำ',sWorking,'ไม่มีงานกำลังทำตอนนี้')}
+      ${section('⚪ รอคิว',sQueued,'ไม่มีงานรอคิว')}
+      ${section('✅ ทำเสร็จวันนี้ · รวม '+roundDisplay(sDoneQty)+' ชิ้น',sDoneToday,'ยังไม่มีงานเสร็จวันนี้')}
+    </div>`;
+  }).join(''):'<div class="box"><p class="hint">ยังไม่มี Station เลย ไปเพิ่มที่หน้า "จัดการ Station / Tablet" ก่อนครับ</p></div>';
+  m.innerHTML=head('ภาพรวมการผลิต','ดูสถานะทุก Station พร้อมกัน: กำลังทำอะไร รอคิวอะไรบ้าง และทำไปแล้วเท่าไรวันนี้')+summary+cards;
+}
+
 /* === v9.95: สั่งผลิตอัตโนมัติ — เทียบ Stock กับ Min Stock (คำนวณฝั่ง browser จาก db.items ที่โหลดมาแล้ว
  * ไม่ต้องเรียก API เพิ่มสำหรับส่วนคำนวณ) แล้วให้ Admin เลือก Station + ปรับจำนวนก่อนยืนยันจริงเสมอ
  * ไม่มีการสร้าง Production Order อัตโนมัติโดยไม่มีคนเห็นก่อน — กดยืนยันเท่านั้นถึงจะเข้าคิว Kiosk จริง
@@ -2547,34 +2590,22 @@ async function ensureUserListLoaded(){
 function assignPOPrompt(poId){
   ensureUserListLoaded().then(users=>{
     const options=users.filter(u=>u.status==='Active').map(u=>`<option value="${escHTML(u.username)}">${escHTML(u.displayName)} (${u.role})</option>`).join('');
-    modal(`<h2>มอบหมายพนักงานผลิต + ส่ง LINE</h2><p class="hint">PO: ${poId} — เลือกพนักงานแล้วกดยืนยันครั้งเดียว ระบบจะมอบหมายและส่ง LINE แจ้งงานให้ทันที</p><select id="assignUserSel"><option value="">-- ไม่มอบหมาย --</option>${options}</select><br><br><button class="primary" onclick="confirmAssignPO('${poId}')">มอบหมาย + ส่ง LINE</button> <button class="ghost" onclick="$('modal').style.display='none'">ปิด</button>`);
+    modal(`<h2>มอบหมายพนักงานผลิต</h2><p class="hint">PO: ${poId} — เลือกพนักงานแล้วกดยืนยัน</p><select id="assignUserSel"><option value="">-- ไม่มอบหมาย --</option>${options}</select><br><br><button class="primary" onclick="confirmAssignPO('${poId}')">มอบหมาย</button> <button class="ghost" onclick="$('modal').style.display='none'">ปิด</button>`);
   });
 }
 async function confirmAssignPO(poId){
   const username=$('assignUserSel')?.value||'';
-  toast(username?'กำลังมอบหมาย + ส่ง LINE...':'กำลังยกเลิกการมอบหมาย...');
+  toast(username?'กำลังมอบหมาย...':'กำลังยกเลิกการมอบหมาย...');
   try{
-    const res=await apiPost({action:'assignandsendline',poId,username});
+    const res=await apiPost({action:'assignpo',poId,username});
     const p=db.po.find(x=>x.id===poId);
-    if(p){ p.assignedTo=username; if(username) p.lineNotifiedAt=now(); }
+    if(p){ p.assignedTo=username; }
     saveLocalOnly(); $('modal').style.display='none'; render();
-    sheetDone(res?.message||(username?('มอบหมาย '+username+' + ส่ง LINE แล้ว'):'ยกเลิกการมอบหมายแล้ว'));
-  }catch(e){console.error(e); alertModal('มอบหมาย/ส่ง LINE ไม่สำเร็จ: '+(e.message||e));}
-}
-async function sendLinePOPrompt(poId){
-  const p=db.po.find(x=>x.id===poId);
-  if(!p?.assignedTo) return toast('มอบหมายพนักงานก่อนถึงจะส่ง LINE ได้');
-  if(!await confirmModal('ส่งแจ้งเตือน LINE ซ้ำหา '+p.assignedTo+' สำหรับ '+poId+' ?'))return;
-  toast('กำลังส่ง LINE...');
-  try{
-    await apiPost({action:'sendlinepo',poId});
-    p.lineNotifiedAt=now();
-    saveLocalOnly(); render();
-    sheetDone('ส่ง LINE แล้ว');
-  }catch(e){console.error(e); alertModal('ส่ง LINE ไม่สำเร็จ: '+(e.message||e));}
+    sheetDone(res?.message||(username?('มอบหมาย '+username+' แล้ว'):'ยกเลิกการมอบหมายแล้ว'));
+  }catch(e){console.error(e); alertModal('มอบหมายไม่สำเร็จ: '+(e.message||e));}
 }
 function poDuration(p){
-  // v9.63: เวลาที่ใช้ผลิตจริง (จบ-เริ่ม) เฉพาะงานที่มี StartAt/FinishAt บันทึกไว้ (ผ่าน LINE)
+  // v9.63: เวลาที่ใช้ผลิตจริง (จบ-เริ่ม) เฉพาะงานที่มี StartAt/FinishAt บันทึกไว้
   if(!p.start||!p.finish) return null;
   const ms=new Date(p.finish)-new Date(p.start);
   if(!(ms>0)) return null;
@@ -2586,7 +2617,7 @@ function poDuration(p){
   return {label, perPieceLabel: perPiece!=null?(perPiece<1?Math.round(perPiece*60)+' วิ/ชิ้น':perPiece.toFixed(1)+' นาที/ชิ้น'):null};
 }
 function poStatusLabel(p){
-  // v9.63: สถานะที่เห็นในเว็บให้ตรงกับ workflow มอบหมาย/เริ่ม/จบ ผ่าน LINE
+  // v9.63: สถานะที่เห็นในเว็บให้ตรงกับ workflow มอบหมาย/เริ่ม/จบ
   if(p.status==='Completed') return {text:'Complete', cls:'good'};
   if(p.status==='Cancelled') return {text:'Cancelled', cls:'bad'};
   if(p.status==='In Progress') return {text:'กำลังผลิต', cls:''};
@@ -2610,7 +2641,7 @@ function yieldInfo(p){
   const pct=(+p.actualQty/expected*100);
   return {pct,expected,actual:+p.actualQty,cls:pct>=98?'good':(pct>=90?'':'danger')};
 }
-function poTable(arr){if(!arr.length)return '<p class="hint">ยังไม่มีงาน</p>'; return `<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px"><label style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" id="poAssignSelectAll" onchange="toggleAllPOAssign(this.checked)" style="width:20px;height:20px"> เลือกทั้งหมด</label><button class="primary" onclick="assignPOPromptBulk()">มอบหมายที่เลือก + ส่ง LINE</button><button class="danger" onclick="cancelPOBulk()">ยกเลิกที่เลือกทั้งหมด</button></div><table><tr><th style="width:36px"></th><th>เวลา</th><th>PO</th><th>SKU</th><th>จำนวน</th><th>Yield</th><th>มอบหมาย</th><th>สถานะ</th><th>เวลาที่ใช้ผลิต</th><th>RM ที่ต้องใช้</th><th></th></tr>${arr.map(p=>{
+function poTable(arr){if(!arr.length)return '<p class="hint">ยังไม่มีงาน</p>'; return `<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px"><label style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" id="poAssignSelectAll" onchange="toggleAllPOAssign(this.checked)" style="width:20px;height:20px"> เลือกทั้งหมด</label><button class="primary" onclick="assignPOPromptBulk()">มอบหมายที่เลือก</button><button class="danger" onclick="cancelPOBulk()">ยกเลิกที่เลือกทั้งหมด</button></div><table><tr><th style="width:36px"></th><th>เวลา</th><th>PO</th><th>SKU</th><th>จำนวน</th><th>Yield</th><th>มอบหมาย</th><th>สถานะ</th><th>เวลาที่ใช้ผลิต</th><th>RM ที่ต้องใช้</th><th></th></tr>${arr.map(p=>{
   const hasActual=p.actualQty!==undefined&&p.actualQty!==''&&p.actualQty!==null;
   const qtyDisplay=hasActual&&+p.actualQty!==+p.qty
     ? `สั่ง ${roundDisplay(p.qty)} / <b class="${+p.actualQty>+p.qty?'good':'danger'}">ผลิตจริง ${roundDisplay(p.actualQty)}</b>`
@@ -2618,7 +2649,7 @@ function poTable(arr){if(!arr.length)return '<p class="hint">ยังไม่�
   const yInfo=yieldInfo(p);
   const yieldCell=yInfo?`<b class="${yInfo.cls}">${yInfo.pct.toFixed(1)}%</b><br><span class="mini">${yInfo.actual}/${yInfo.expected} ชิ้น</span>`:'<span class="mini">-</span>';
   const notDone=!['Completed','Cancelled'].includes(p.status);
-  const assignCell=notDone?`<button class="small" onclick="assignPOPrompt('${p.id}')">${p.assignedTo?escHTML(p.assignedTo):'มอบหมาย'}</button>${p.assignedTo?`<br><button class="small ghost" onclick="sendLinePOPrompt('${p.id}')">${p.lineNotifiedAt?'ส่งซ้ำ LINE':'ส่ง LINE'}</button>`:''}`:(p.assignedTo?escHTML(p.assignedTo):'-');
+  const assignCell=notDone?`<button class="small" onclick="assignPOPrompt('${p.id}')">${p.assignedTo?escHTML(p.assignedTo):'มอบหมาย'}</button>`:(p.assignedTo?escHTML(p.assignedTo):'-');
   const dur=poDuration(p);
   const durCell=dur?(`${dur.label}${dur.perPieceLabel?'<br><span class="mini">'+dur.perPieceLabel+'</span>':''}`):'<span class="mini">-</span>';
   const chkCell=notDone?`<input type="checkbox" class="poAssignChk" value="${p.id}" style="width:20px;height:20px">`:'';
@@ -2632,26 +2663,26 @@ function assignPOPromptBulk(){
   pendingBulkAssignIds=ids;
   ensureUserListLoaded().then(users=>{
     const options=users.filter(u=>u.status==='Active').map(u=>`<option value="${escHTML(u.username)}">${escHTML(u.displayName)} (${u.role})</option>`).join('');
-    modal(`<h2>มอบหมายพนักงานผลิต + ส่ง LINE</h2><p class="hint">เลือก ${ids.length} งาน: ${ids.join(', ')}</p><select id="assignUserSelBulk"><option value="">-- ไม่มอบหมาย --</option>${options}</select><br><br><button class="primary" onclick="confirmAssignPOBulk()">มอบหมาย + ส่ง LINE ทั้งหมด</button> <button class="ghost" onclick="$('modal').style.display='none'">ปิด</button>`);
+    modal(`<h2>มอบหมายพนักงานผลิต</h2><p class="hint">เลือก ${ids.length} งาน: ${ids.join(', ')}</p><select id="assignUserSelBulk"><option value="">-- ไม่มอบหมาย --</option>${options}</select><br><br><button class="primary" onclick="confirmAssignPOBulk()">มอบหมายทั้งหมด</button> <button class="ghost" onclick="$('modal').style.display='none'">ปิด</button>`);
   });
 }
 async function confirmAssignPOBulk(){
   const ids=pendingBulkAssignIds;
   const username=$('assignUserSelBulk')?.value||'';
   $('modal').style.display='none';
-  toast('กำลังมอบหมาย + ส่ง LINE '+ids.length+' งาน...');
+  toast('กำลังมอบหมาย '+ids.length+' งาน...');
   let okCount=0, failList=[];
   for(const poId of ids){
     try{
-      await apiPost({action:'assignandsendline',poId,username});
+      await apiPost({action:'assignpo',poId,username});
       const p=db.po.find(x=>x.id===poId);
-      if(p){ p.assignedTo=username; if(username) p.lineNotifiedAt=now(); }
+      if(p){ p.assignedTo=username; }
       okCount++;
     }catch(e){ console.error(e); failList.push(poId+': '+(e.message||e)); }
   }
   saveLocalOnly(); render();
   if(failList.length) alertModal('มอบหมายสำเร็จ '+okCount+'/'+ids.length+' งาน\n\nที่พลาด:\n'+failList.join('\n'));
-  else sheetDone('มอบหมาย + ส่ง LINE ครบ '+okCount+' งานแล้ว');
+  else sheetDone('มอบหมายครบ '+okCount+' งานแล้ว');
 }
 async function cancelPOBulk(){
   const ids=[...document.querySelectorAll('.poAssignChk:checked')].map(c=>c.value);
@@ -2906,7 +2937,7 @@ function installViewerGuards(){
   saveOrderDay=()=>viewerDeny(); addShortageLine=()=>viewerDeny(); removeShortageLine=()=>viewerDeny(); updateShortageReason=()=>viewerDeny();
   addBomLine=()=>viewerDeny(); openPasteImport=()=>viewerDeny(); commitImport=()=>viewerDeny(); importCSVFile=()=>viewerDeny(); openBulkEdit=()=>viewerDeny(); applyBulkEdit=()=>viewerDeny(); bulkDeleteMaster=()=>viewerDeny();
   addItem=()=>viewerDeny(); editItem=()=>viewerDeny(); addRM=()=>viewerDeny(); editRM=()=>viewerDeny(); saveNewItem=()=>viewerDeny(); saveEditItem=()=>viewerDeny(); saveNewRM=()=>viewerDeny(); saveEditRM=()=>viewerDeny();
-  voidProductionTransaction=()=>viewerDeny(); voidProductionPrompt=()=>viewerDeny(); clearFgLog=()=>viewerDeny(); loadEmbeddedFgLog=()=>viewerDeny(); importFgPaste=()=>viewerDeny(); saveGoogleConfig=()=>viewerDeny(); restore=()=>viewerDeny(); saveShippingPlan=()=>viewerDeny(); openShipPaste=()=>viewerDeny(); importShipPaste=()=>viewerDeny(); importTiktokCSVFile=()=>viewerDeny(); confirmTiktokImport=()=>viewerDeny(); createPOFromShippingShortage=()=>viewerDeny(); saveSalesOut=()=>viewerDeny(); voidRMMovementPrompt=()=>viewerDeny(); voidRMMovement=()=>viewerDeny(); requestVoid=()=>viewerDeny(); respondVoidRequest=()=>viewerDeny(); addUserAction=()=>viewerDeny(); setUserStatusAction=()=>viewerDeny(); assignPOPrompt=()=>viewerDeny(); confirmAssignPO=()=>viewerDeny(); sendLinePOPrompt=()=>viewerDeny();
+  voidProductionTransaction=()=>viewerDeny(); voidProductionPrompt=()=>viewerDeny(); clearFgLog=()=>viewerDeny(); loadEmbeddedFgLog=()=>viewerDeny(); importFgPaste=()=>viewerDeny(); saveGoogleConfig=()=>viewerDeny(); restore=()=>viewerDeny(); saveShippingPlan=()=>viewerDeny(); openShipPaste=()=>viewerDeny(); importShipPaste=()=>viewerDeny(); importTiktokCSVFile=()=>viewerDeny(); confirmTiktokImport=()=>viewerDeny(); createPOFromShippingShortage=()=>viewerDeny(); saveSalesOut=()=>viewerDeny(); voidRMMovementPrompt=()=>viewerDeny(); voidRMMovement=()=>viewerDeny(); requestVoid=()=>viewerDeny(); respondVoidRequest=()=>viewerDeny(); addUserAction=()=>viewerDeny(); setUserStatusAction=()=>viewerDeny(); assignPOPrompt=()=>viewerDeny(); confirmAssignPO=()=>viewerDeny();
   const oldRender=render;
   render=function(){ oldRender(); applyViewerUI(); };
 }
