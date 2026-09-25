@@ -1691,7 +1691,10 @@ async function setStationStatusAction(stationId,status){
 async function copyKioskLink(stationId){
   toast('กำลังขอลิงก์...');
   try{
-    const res=await apiPost({action:'getstationtoken',stationId});
+    // v9.101: เดิมใช้ apiPost (เส้นทาง fastwrite) ซึ่งจะพ่วงโหลดข้อมูลทั้งระบบ (getAllData) กลับมาด้วยเสมอ
+    // ทั้งที่ปุ่มนี้แค่ต้องการ Token สั้นๆ อันเดียว ทำให้กดคัดลอกลิงก์ทีนึงช้าเท่าโหลดทั้งแอปใหม่
+    // เปลี่ยนไปยิง action เบาๆ ตรงๆ (ยังต้อง login/session เหมือนเดิม แค่ไม่พ่วงข้อมูลทั้งชุดกลับมา)
+    const res=await apiGetOnce('getstationtoken',{stationId});
     const url=new URL(location.href);
     url.search='';
     url.searchParams.set('kiosk','1');
