@@ -3291,10 +3291,20 @@ function startKiosk(){
     kioskModal('<div style="background:#262a3c;border-radius:20px;padding:32px;max-width:420px;text-align:center"><div style="font-size:44px">⚠️</div><div style="font-size:20px;font-weight:700;margin:12px 0">'+escHTML(title)+'</div><div style="opacity:.8;margin-bottom:20px">'+escHTML(e&&e.message||String(e))+'</div><button id="kioskErrClose" style="border:0;background:#df6518;color:#fff;font-size:18px;font-weight:700;border-radius:12px;padding:14px 28px;cursor:pointer">ปิด</button></div>');
     const b=document.getElementById('kioskErrClose'); if(b) b.onclick=kioskCloseModal;
   }
-  let actionBusy=false;
+  let actionBusy=false, lastJobs=[];
   function startJob(po){
     if(actionBusy) return; actionBusy=true;
-    apiGetOnce('stationstartjob',{station:stationId,token:stationToken,po}).then(()=>{actionBusy=false; poll();}).catch(e=>{actionBusy=false; kioskErrorModal('เริ่มงานไม่สำเร็จ',e);});
+    // v9.101: เดิมรอผล API ก่อนค่อยอัปเดตจอ (Apps Script บางทีตอบช้า 10-40 วิ) พนักงานกดแล้วจอไม่ขยับ
+    // เลยคิดว่ากดไม่ติด ตอนนี้เปลี่ยนสถานะบนจอทันทีแบบ optimistic (เหมือน cancelPO ที่มีอยู่แล้ว)
+    // แล้วค่อยยิง API เบื้องหลัง ถ้าพลาดค่อยย้อนสถานะกลับ
+    const job=lastJobs.find(j=>String(j.po)===String(po));
+    const prevStatus=job?job.status:null;
+    if(job){ job.status='In Progress'; renderQueue(lastJobs); }
+    apiGetOnce('stationstartjob',{station:stationId,token:stationToken,po}).then(()=>{actionBusy=false; poll();}).catch(e=>{
+      actionBusy=false;
+      if(job){ job.status=prevStatus; renderQueue(lastJobs); }
+      kioskErrorModal('เริ่มงานไม่สำเร็จ (สถานะย้อนกลับแล้ว)',e);
+    });
   }
   function openCompleteModal(po,sku,qty){
     kioskModal('<div style="background:#262a3c;border-radius:20px;padding:32px;max-width:460px;width:100%;text-align:center">'+
@@ -3314,8 +3324,17 @@ function startKiosk(){
     const actualqty=+((input&&input.value)||0);
     if(isNaN(actualqty)||actualqty<0) return;
     actionBusy=true;
-    kioskModal('<div style="background:#262a3c;border-radius:20px;padding:40px;text-align:center"><div style="font-size:20px;font-weight:700">กำลังบันทึก...</div></div>');
-    apiGetOnce('stationcompletejob',{station:stationId,token:stationToken,po,actualqty}).then(()=>{actionBusy=false; kioskCloseModal(); poll();}).catch(e=>{actionBusy=false; kioskErrorModal('บันทึกไม่สำเร็จ',e);});
+    kioskCloseModal();
+    // v9.101: ลบงานออกจากจอทันที (optimistic) แทนที่จะค้างกล่อง "กำลังบันทึก..." รอผล API ซึ่งอาจช้า
+    // หลายสิบวินาที ทำให้รู้สึกเหมือนกดไม่ติด — ถ้า API พลาดจะเอางานกลับเข้าคิวให้เหมือนเดิม
+    const idx=lastJobs.findIndex(j=>String(j.po)===String(po));
+    const removed=idx>=0?lastJobs.splice(idx,1)[0]:null;
+    renderQueue(lastJobs);
+    apiGetOnce('stationcompletejob',{station:stationId,token:stationToken,po,actualqty}).then(()=>{actionBusy=false; poll();}).catch(e=>{
+      actionBusy=false;
+      if(removed){ lastJobs.splice(idx,0,removed); renderQueue(lastJobs); }
+      kioskErrorModal('บันทึกไม่สำเร็จ (งานกลับเข้าคิวแล้ว)',e);
+    });
   }
   function renderQueue(jobs){
     const openJobs=(jobs||[]).filter(j=>j.status!=='Completed'&&j.status!=='Cancelled');
@@ -3350,7 +3369,8 @@ function startKiosk(){
   async function poll(){
     try{
       const res=await apiGetOnce('stationqueue',{station:stationId,token:stationToken});
-      renderQueue(res.jobs||[]);
+      lastJobs=res.jobs||[];
+      renderQueue(lastJobs);
       const status=$('kioskStatus'); if(status){ status.textContent='อัปเดตล่าสุด '+new Date().toLocaleTimeString('th-TH'); status.style.color='#8b755d'; }
     }catch(e){
       console.error(e);
