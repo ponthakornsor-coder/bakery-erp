@@ -1713,8 +1713,8 @@ async function copyKioskLink(stationId){
   }catch(e){console.error(e); alertModal('ขอลิงก์ไม่สำเร็จ: '+(e.message||e));}
 }
 
-/* === v9.101: ภาพรวมการผลิต — บอร์ดแบบ Kanban ซ้าย: สรุปแต่ละ Station / ขวา: 3 คอลัมน์ตามสถานะ
- * (รอคิว / กำลังผลิต / ผลิตเสร็จแล้ว) รวมงานทุก Station ไว้ด้วยกัน แต่ละการ์ดติดป้ายชื่อ Station กำกับ
+/* === v9.101: ภาพรวมการผลิต — แยกเป็นกล่องต่อ Station ชัดเจน (คำสั่งผลิตของ Station ไหนอยู่ในกล่องนั้น)
+ * ในแต่ละกล่องเรียงลำดับคอลัมน์เป็น รอคิว → กำลังผลิต → เสร็จ → เวลาที่ใช้ ตามที่ขอ
  * ใช้ db.po (StationId) + db.stations ที่ sync มาแล้ว ไม่ต้องเรียก API เพิ่ม
  */
 function manufacturingQty_(p){
@@ -1730,64 +1730,63 @@ function manufacturingFormatDuration_(ms){
   const h=Math.floor(mins/60), mm=mins%60;
   return (h>0?h+' ชม. ':'')+mm+' นาที';
 }
-function manufacturingJobCard_(p,stationsById){
-  const st=stationsById[p.stationId];
+function manufacturingJobCard_(p){
   return `<div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px">
     <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
       <div style="min-width:0"><b>${escHTML(itemName(p.sku))}</b><br><span class="mini">${escHTML(p.sku)}</span></div>
       <div style="font-weight:800;white-space:nowrap">${roundDisplay(manufacturingQty_(p))}</div>
     </div>
-    <div class="mini" style="margin-top:6px;opacity:.8">📟 ${escHTML(st?st.name:'-')}</div>
-    ${p.remark?`<div class="mini">${escHTML(p.remark)}</div>`:''}
+    ${p.remark?`<div class="mini" style="margin-top:4px">${escHTML(p.remark)}</div>`:''}
   </div>`;
 }
-function manufacturingColumn_(title,list,emptyMsg,stationsById){
-  return `<div style="flex:1;min-width:240px">
+function manufacturingColumn_(title,list,emptyMsg){
+  return `<div style="flex:1;min-width:200px">
     <div class="hint" style="font-weight:700;margin-bottom:8px">${title} (${list.length})</div>
-    ${list.length?list.map(p=>manufacturingJobCard_(p,stationsById)).join(''):`<p class="hint">${emptyMsg}</p>`}
+    ${list.length?list.map(manufacturingJobCard_).join(''):`<p class="hint">${emptyMsg}</p>`}
   </div>`;
 }
-function manufacturingStationCard_(s,jobs,today){
+function manufacturingStationBlock_(s,jobs,today){
+  const queued=jobs.filter(p=>p.status==='Open');
+  const working=jobs.filter(p=>p.status==='In Progress');
   const doneToday=jobs.filter(p=>p.status==='Completed' && dateISO(p.finish||p.time)===today);
   const doneQty=doneToday.reduce((a,p)=>a+(+manufacturingQty_(p)||0),0);
   const totalMs=doneToday.reduce((a,p)=>a+manufacturingDurationMs_(p),0);
   const durLabel=totalMs>0?manufacturingFormatDuration_(totalMs):'-';
-  const working=jobs.filter(p=>p.status==='In Progress').length;
-  const queued=jobs.filter(p=>p.status==='Open').length;
-  return `<div class="box" style="margin-bottom:10px">
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-      <b>${escHTML(s.name)}</b>${genericStatusPill(s.status)}
+  return `<div class="box" style="margin-bottom:16px">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px">
+      <h2 style="margin:0">${escHTML(s.name)}</h2>
+      ${genericStatusPill(s.status)}
     </div>
-    <div class="mini" style="margin-top:8px">✅ ทำเสร็จวันนี้ <b>${roundDisplay(doneQty)}</b> ชิ้น (${doneToday.length} งาน)</div>
-    <div class="mini">⏱ เวลาที่ใช้ผลิต ${durLabel}</div>
-    <div class="mini">⚪ รอคิว ${queued} · 🟠 กำลังทำ ${working}</div>
+    <div style="display:flex;gap:16px;flex-wrap:wrap">
+      ${manufacturingColumn_('⚪ รอคิว',queued,'ไม่มีงานรอคิว')}
+      ${manufacturingColumn_('🟠 กำลังผลิต',working,'ไม่มีงานกำลังผลิตตอนนี้')}
+      ${manufacturingColumn_('✅ เสร็จวันนี้',doneToday,'ยังไม่มีงานเสร็จวันนี้')}
+      <div style="flex:1;min-width:160px">
+        <div class="hint" style="font-weight:700;margin-bottom:8px">⏱ เวลาที่ใช้</div>
+        <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px">
+          <div>${durLabel}</div>
+          <div class="mini" style="margin-top:4px">ผลิตได้ ${roundDisplay(doneQty)} ชิ้นวันนี้</div>
+        </div>
+      </div>
+    </div>
   </div>`;
 }
 function manufacturingPage(m){
   const stations=(db.stations||[]).slice().sort((a,b)=>a.name.localeCompare(b.name));
-  const stationsById={}; stations.forEach(s=>stationsById[s.id]=s);
   const today=todayISO();
   const allPo=(db.po||[]).filter(p=>p.stationId);
   const activeStations=stations.filter(s=>s.status==='Active').length;
-  const working=allPo.filter(p=>p.status==='In Progress');
-  const queued=allPo.filter(p=>p.status==='Open');
-  const doneToday=allPo.filter(p=>p.status==='Completed' && dateISO(p.finish||p.time)===today);
+  const working=allPo.filter(p=>p.status==='In Progress').length;
+  const queued=allPo.filter(p=>p.status==='Open').length;
+  const doneToday=allPo.filter(p=>p.status==='Completed' && dateISO(p.finish||p.time)===today).length;
   const summary=`<div class="kpis">
     <div class="kpi">Station ที่เปิดใช้งาน<b>${activeStations}</b></div>
-    <div class="kpi">รอคิว<b>${queued.length}</b></div>
-    <div class="kpi">กำลังทำอยู่ตอนนี้<b>${working.length}</b></div>
-    <div class="kpi">เสร็จวันนี้<b>${doneToday.length}</b></div>
+    <div class="kpi">รอคิว<b>${queued}</b></div>
+    <div class="kpi">กำลังทำอยู่ตอนนี้<b>${working}</b></div>
+    <div class="kpi">เสร็จวันนี้<b>${doneToday}</b></div>
   </div>`;
-  const stationList=stations.length?stations.map(s=>manufacturingStationCard_(s,allPo.filter(p=>String(p.stationId)===String(s.id)),today)).join(''):'<div class="box"><p class="hint">ยังไม่มี Station เลย ไปเพิ่มที่หน้า "จัดการ Station / Tablet" ก่อนครับ</p></div>';
-  const board=`<div style="display:flex;gap:16px;align-items:flex-start;margin-top:16px;flex-wrap:wrap">
-    <div style="flex:0 0 260px">${stationList}</div>
-    <div style="flex:3;display:flex;gap:16px;flex-wrap:wrap;min-width:260px">
-      ${manufacturingColumn_('⚪ รอคิว',queued,'ไม่มีงานรอคิว',stationsById)}
-      ${manufacturingColumn_('🟠 กำลังผลิต',working,'ไม่มีงานกำลังผลิตตอนนี้',stationsById)}
-      ${manufacturingColumn_('✅ ผลิตเสร็จแล้ว',doneToday,'ยังไม่มีงานเสร็จวันนี้',stationsById)}
-    </div>
-  </div>`;
-  m.innerHTML=head('ภาพรวมการผลิต','ดูสถานะทุก Station พร้อมกัน: กำลังทำอะไร รอคิวอะไรบ้าง และทำไปแล้วเท่าไรวันนี้')+summary+board;
+  const body=stations.length?stations.map(s=>manufacturingStationBlock_(s,allPo.filter(p=>String(p.stationId)===String(s.id)),today)).join(''):'<div class="box"><p class="hint">ยังไม่มี Station เลย ไปเพิ่มที่หน้า "จัดการ Station / Tablet" ก่อนครับ</p></div>';
+  m.innerHTML=head('ภาพรวมการผลิต','ดูสถานะทุก Station พร้อมกัน: กำลังทำอะไร รอคิวอะไรบ้าง และทำไปแล้วเท่าไรวันนี้')+summary+body;
 }
 
 /* === v9.95: สั่งผลิตอัตโนมัติ — เทียบ Stock กับ Min Stock (คำนวณฝั่ง browser จาก db.items ที่โหลดมาแล้ว
