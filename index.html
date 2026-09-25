@@ -1695,11 +1695,13 @@ async function copyKioskLink(stationId){
     // ทั้งที่ปุ่มนี้แค่ต้องการ Token สั้นๆ อันเดียว ทำให้กดคัดลอกลิงก์ทีนึงช้าเท่าโหลดทั้งแอปใหม่
     // เปลี่ยนไปยิง action เบาๆ ตรงๆ (ยังต้อง login/session เหมือนเดิม แค่ไม่พ่วงข้อมูลทั้งชุดกลับมา)
     const res=await apiGetOnce('getstationtoken',{stationId});
+    const stationName=(db.stations||[]).find(s=>s.id===stationId)?.name||'';
     const url=new URL(location.href);
     url.search='';
     url.searchParams.set('kiosk','1');
     url.searchParams.set('station',stationId);
     url.searchParams.set('token',res.token);
+    if(stationName) url.searchParams.set('name',stationName);
     if(apiKey) url.searchParams.set('key',apiKey);
     const link=url.toString();
     try{
@@ -3276,6 +3278,7 @@ const KIOSK_MODE = ERP_QUERY.get('kiosk') === '1';
 function startKiosk(){
   const stationId = ERP_QUERY.get('station') || '';
   const stationToken = ERP_QUERY.get('token') || '';
+  const stationName = ERP_QUERY.get('name') || '';
   const urlKey = ERP_QUERY.get('key') || '';
   if(urlKey){ apiKey = urlKey; localStorage.setItem('bakery_api_key', urlKey); }
   document.body.classList.add('login-locked'); // ซ่อนแอปหลัก/หน้า login ปกติทั้งหมด ไม่ให้ปนกับ Kiosk
@@ -3425,10 +3428,10 @@ function startKiosk(){
     if(unlocked) return; unlocked=true;
     try{ audioCtx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ console.error('AudioContext ไม่รองรับ',e); }
     requestWakeLock();
-    root.innerHTML=`<div style="padding:20px 28px;background:#15182280;display:flex;align-items:center;gap:16px;border-bottom:1px solid #2c2f42"><div style="font-size:22px;font-weight:800">📟 คิวงานผลิต — Station</div><div id="kioskStatus" style="margin-left:auto;font-size:14px;color:#8b755d">กำลังโหลด...</div></div><div id="kioskBody" style="flex:1;display:flex;flex-direction:column;padding:8px 0"></div>`;
+    root.innerHTML=`<div style="padding:20px 28px;background:#15182280;display:flex;align-items:center;gap:16px;border-bottom:1px solid #2c2f42"><div style="font-size:22px;font-weight:800">📟 คิวงานผลิต — ${stationName?escHTML(stationName):'Station'}</div><div id="kioskStatus" style="margin-left:auto;font-size:14px;color:#8b755d">กำลังโหลด...</div></div><div id="kioskBody" style="flex:1;display:flex;flex-direction:column;padding:8px 0"></div>`;
     startPolling();
   }
-  root.innerHTML='<div style="margin:auto;text-align:center;padding:24px"><div style="font-size:70px">📟</div><h1 style="font-size:30px">พร้อมใช้งาน Kiosk</h1><p style="opacity:.75;max-width:420px;margin:8px auto 24px">กดปุ่มด้านล่างครั้งเดียวเพื่อเปิดเสียงแจ้งเตือนงานใหม่ จากนั้นจะทำงานเองตลอด ไม่ต้องแตะจออีก</p><button onclick="(function(){window.__kioskStart&&window.__kioskStart()})()" style="border:0;background:#df6518;color:#fff;font-size:22px;font-weight:800;border-radius:16px;padding:20px 40px;cursor:pointer">▶ เริ่มใช้งาน Kiosk</button></div>';
+  root.innerHTML=`<div style="margin:auto;text-align:center;padding:24px"><div style="font-size:70px">📟</div><h1 style="font-size:30px">พร้อมใช้งาน Kiosk${stationName?'<br><span style=\"font-size:20px;opacity:.75\">'+escHTML(stationName)+'</span>':''}</h1><p style="opacity:.75;max-width:420px;margin:8px auto 24px">กดปุ่มด้านล่างครั้งเดียวเพื่อเปิดเสียงแจ้งเตือนงานใหม่ จากนั้นจะทำงานเองตลอด ไม่ต้องแตะจออีก</p><button onclick="(function(){window.__kioskStart&&window.__kioskStart()})()" style="border:0;background:#df6518;color:#fff;font-size:22px;font-weight:800;border-radius:16px;padding:20px 40px;cursor:pointer">▶ เริ่มใช้งาน Kiosk</button></div>`;
   window.__kioskStart = unlockAndStart;
 }
 /* === v9.97: B2B Customer Order Portal ===
