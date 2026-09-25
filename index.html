@@ -3369,8 +3369,13 @@ function startKiosk(){
   async function poll(){
     try{
       const res=await apiGetOnce('stationqueue',{station:stationId,token:stationToken});
-      lastJobs=res.jobs||[];
-      renderQueue(lastJobs);
+      // v9.101 fix: ถ้ามีการกด เริ่มทำ/จบงาน ค้างอยู่ (actionBusy) ห้ามเอาผลโพลรอบนี้ (ซึ่งเป็นข้อมูลเก่า
+      // ก่อนกดจะเสร็จ) มาทับสถานะที่เพิ่ง optimistic update ไป ไม่งั้นจอจะเด้งกลับเป็นค่าเก่าทั้งที่ request
+      // ที่กดไปยังไม่ตอบกลับ (Apps Script ตอบช้าได้ถึง 30-40 วิ) ทำให้เหมือนกดไม่ติดตอนกดซ้ำ (actionBusy กันไว้)
+      if(!actionBusy){
+        lastJobs=res.jobs||[];
+        renderQueue(lastJobs);
+      }
       const status=$('kioskStatus'); if(status){ status.textContent='อัปเดตล่าสุด '+new Date().toLocaleTimeString('th-TH'); status.style.color='#8b755d'; }
     }catch(e){
       console.error(e);
