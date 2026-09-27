@@ -1992,8 +1992,39 @@ function boothsPage(m){
   const booths=(db.booths||[]).slice().sort((a,b)=>a.name.localeCompare(b.name));
   m.innerHTML=head('จัดการบูธ (POS)','ตั้งบูธแต่ละจุด แล้วคัดลอกลิงก์ POS ไปเปิดที่ Tablet/มือถือประจำบูธ — Stock ของบูธแยกจากโรงงานโดยอัตโนมัติ')+
   `<div class="box"><h2>เพิ่มบูธใหม่</h2><div class="row2"><input id="newBoothName" placeholder="ชื่อบูธ เช่น บูธตลาดนัดสวนจตุจักร"><span></span><span></span><button class="primary" onclick="addBoothAction()">เพิ่ม</button></div></div>`+
-  `<div class="box"><h2>รายชื่อบูธ (${booths.length})</h2>${booths.length?`<table><tr><th>ชื่อ</th><th>สถานะ</th><th></th></tr>${booths.map(b=>`<tr><td><b>${escHTML(b.name)}</b></td><td>${genericStatusPill(b.status)}</td><td class="actions"><button class="small" onclick="copyBoothPosLink('${b.id}')">📋 คัดลอกลิงก์ POS</button> ${b.status==='Active'?`<button class="small danger" onclick="setBoothStatusAction('${b.id}','Disabled')">ปิดใช้งาน</button>`:`<button class="small" onclick="setBoothStatusAction('${b.id}','Active')">เปิดใช้งาน</button>`}</td></tr>`).join('')}</table>`:'<p class="hint">ยังไม่มีบูธ เพิ่มก่อนเลยครับ</p>'}</div>`+
-  `<div class="box"><h2>วิธีตั้งค่า POS ที่บูธ</h2><p class="hint">1. กด "คัดลอกลิงก์ POS" ของบูธที่ต้องการ<br>2. เปิดลิงก์นั้นในเบราว์เซอร์ของ Tablet/มือถือที่บูธ (Chrome แนะนำ)<br>3. ส่งของไปบูธก่อนที่หน้า "ส่งของไปบูธ" เพื่อให้บูธมี Stock ให้ขาย (ชื่อบูธต้องพิมพ์ให้ตรงกับที่ตั้งไว้ที่นี่)<br>4. เริ่มขายที่หน้า POS ได้เลย ระบบตัด Stock ของบูธเองอัตโนมัติทุกครั้งที่ขาย ไม่กระทบ Stock โรงงาน</p></div>`;
+  `<div class="box"><h2>รายชื่อบูธ (${booths.length})</h2>${booths.length?`<table><tr><th>ชื่อ</th><th>สถานะ</th><th>สินค้าที่ขาย</th><th></th></tr>${booths.map(b=>{
+    const n=(db.boothProducts||[]).filter(r=>r.boothName===b.name).length;
+    return `<tr><td><b>${escHTML(b.name)}</b></td><td>${genericStatusPill(b.status)}</td><td>${n?n+' รายการ':'<span class="mini">ยังไม่ได้ตั้ง</span>'}</td><td class="actions"><button class="small" onclick="boothProductsModal('${b.id}')">🛍️ ตั้งสินค้าที่ขาย</button> <button class="small" onclick="copyBoothPosLink('${b.id}')">📋 คัดลอกลิงก์ POS</button> ${b.status==='Active'?`<button class="small danger" onclick="setBoothStatusAction('${b.id}','Disabled')">ปิดใช้งาน</button>`:`<button class="small" onclick="setBoothStatusAction('${b.id}','Active')">เปิดใช้งาน</button>`}</td></tr>`;
+  }).join('')}</table>`:'<p class="hint">ยังไม่มีบูธ เพิ่มก่อนเลยครับ</p>'}</div>`+
+  `<div class="box"><h2>วิธีตั้งค่า POS ที่บูธ</h2><p class="hint">1. กด "คัดลอกลิงก์ POS" ของบูธที่ต้องการ<br>2. เปิดลิงก์นั้นในเบราว์เซอร์ของ Tablet/มือถือที่บูธ (Chrome แนะนำ)<br>3. กด "🛍️ ตั้งสินค้าที่ขาย" เลือกเฉพาะสินค้าที่บูธนี้ขายจริง (ไม่ติ๊ก = ไม่ขึ้นในหน้า POS)<br>4. ส่งของไปบูธก่อนที่หน้า "ส่งของไปบูธ" เพื่อให้บูธมี Stock ให้ขาย (ชื่อบูธต้องพิมพ์ให้ตรงกับที่ตั้งไว้ที่นี่)<br>5. เริ่มขายที่หน้า POS ได้เลย ระบบตัด Stock ของบูธเองอัตโนมัติทุกครั้งที่ขาย ไม่กระทบ Stock โรงงาน</p></div>`;
+}
+function boothProductsModal(boothId){
+  const booth=(db.booths||[]).find(b=>b.id===boothId); if(!booth) return;
+  const assigned=new Set((db.boothProducts||[]).filter(r=>r.boothName===booth.name).map(r=>r.sku));
+  const list=(db.items||[]).filter(x=>String(x.status||'Active')==='Active').slice().sort((a,b)=>a.name.localeCompare(b.name));
+  modal(`<h2>สินค้าที่ขายที่บูธ "${escHTML(booth.name)}"</h2>
+    <p class="hint">ติ๊กเฉพาะสินค้าที่บูธนี้ขายจริง — หน้า POS จะโชว์แค่รายการที่ติ๊กเท่านั้น</p>
+    <input id="bpmSearch" placeholder="ค้นหาสินค้า..." oninput="filterBoothProductsModal()" style="width:100%;margin-bottom:10px">
+    <div id="bpmList" style="max-height:360px;overflow:auto;border:1px solid var(--line);border-radius:12px;padding:8px">
+      ${list.map(x=>`<label class="bpmRow" data-search="${escHTML((x.sku+' '+x.name).toLowerCase())}" style="display:flex;align-items:center;gap:10px;padding:6px 4px;cursor:pointer"><input type="checkbox" class="bpmChk" value="${escHTML(x.sku)}" ${assigned.has(x.sku)?'checked':''} style="width:18px;height:18px"><b>${escHTML(x.sku)}</b> ${escHTML(x.name)}</label>`).join('')}
+    </div>
+    <br><button class="primary" onclick="saveBoothProducts('${boothId}')">บันทึก</button> <button class="ghost" onclick="$('modal').style.display='none'">ปิด</button>`);
+}
+function filterBoothProductsModal(){
+  const q=($('bpmSearch')?.value||'').toLowerCase();
+  document.querySelectorAll('.bpmRow').forEach(r=>{ r.style.display=(!q||r.dataset.search.includes(q))?'flex':'none'; });
+}
+async function saveBoothProducts(boothId){
+  const booth=(db.booths||[]).find(b=>b.id===boothId); if(!booth) return;
+  const skus=[...document.querySelectorAll('.bpmChk:checked')].map(c=>c.value);
+  toast('กำลังบันทึก...');
+  try{
+    await apiPost({action:'setboothproducts',boothName:booth.name,skus});
+    await loadFromGoogleSheet();
+    $('modal').style.display='none';
+    page='booths'; render();
+    sheetDone('บันทึกสินค้าที่ขายที่บูธแล้ว ('+skus.length+' รายการ)');
+  }catch(e){console.error(e); alertModal('บันทึกไม่สำเร็จ: '+(e.message||e));}
 }
 async function addBoothAction(){
   const name=($('newBoothName')?.value||'').trim();
@@ -3268,6 +3299,7 @@ function fromSheetData(data){
   db.rmLots=remoteRMLots;
   db.stations=remoteStations;
   db.booths=remoteBooths;
+  db.boothProducts=(data.boothProducts||[]).map(r=>({boothName:r.BoothName||'',sku:r.SKU||''})).filter(x=>x.boothName&&x.sku);
   db.purchaseOrder=(data.purchaseOrder||[]).map(p=>({po:p.PO,orderDate:dateISO(p.OrderDate)||String(p.OrderDate||''),supplier:p.Supplier||'',status:p.Status||'Open',remark:p.Remark||''})).filter(x=>x.po);
   db.purchaseOrderItems=(data.purchaseOrderItems||[]).map(i=>({po:i.PO,rmCode:String(i.RMCode||''),orderQty:+i.OrderQty||0,unitPrice:+i.UnitPrice||0,receivedQty:+i.ReceivedQty||0})).filter(x=>x.po);
   db.goodsReceipt=(data.goodsReceipt||[]).map(g=>({id:g.ReceiptID,receiveDate:dateISO(g.ReceiveDate)||String(g.ReceiveDate||''),po:g.PO||'',rmCode:String(g.RMCode||''),qty:+g.Qty||0,unitPrice:+g.UnitPrice||0,supplier:g.Supplier||'',remark:g.Remark||''})).filter(x=>x.id);
@@ -3638,7 +3670,7 @@ function startBoothPos(){
       <b style="font-size:14px">${escHTML(it.name)}</b>
       <span style="font-size:12px;color:#8b755d">${escHTML(it.sku)} · เหลือ ${roundDisplay(it.stock)}</span>
       <span style="font-size:16px;font-weight:800;color:#df6518">฿${money(it.price)}</span>
-    </button>`).join(''):'<p style="opacity:.6;padding:20px">ไม่พบสินค้า</p>';
+    </button>`).join(''):(items.length?'<p style="opacity:.6;padding:20px">ไม่พบสินค้า</p>':'<p style="opacity:.6;padding:20px">ยังไม่ได้ตั้งสินค้าที่ขายให้บูธนี้ — ให้แอดมินไปกด "🛍️ ตั้งสินค้าที่ขาย" ที่หน้า "จัดการบูธ (POS)"</p>');
     grid.querySelectorAll('.posItemBtn').forEach(btn=>{ btn.onclick=()=>addToCart(btn.dataset.sku); });
   }
   function renderCart(){
