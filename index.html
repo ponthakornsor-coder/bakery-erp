@@ -3733,7 +3733,7 @@ function startKiosk(){
     kioskModal('<div style="background:#262a3c;border-radius:20px;padding:32px;max-width:420px;text-align:center"><div style="font-size:44px">⚠️</div><div style="font-size:20px;font-weight:700;margin:12px 0">'+escHTML(title)+'</div><div style="opacity:.8;margin-bottom:20px">'+escHTML(e&&e.message||String(e))+'</div><button id="kioskErrClose" style="border:0;background:#df6518;color:#fff;font-size:18px;font-weight:700;border-radius:12px;padding:14px 28px;cursor:pointer">ปิด</button></div>');
     const b=document.getElementById('kioskErrClose'); if(b) b.onclick=kioskCloseModal;
   }
-  let actionBusy=false, lastJobs=[], products=[];
+  let actionBusy=false, lastJobs=[], products=[], productsLoaded=false;
   function openAddJobModal(){
     kioskModal(`<div style="background:#262a3c;border-radius:20px;padding:28px;max-width:480px;width:100%;max-height:80vh;display:flex;flex-direction:column">
       <div style="font-size:22px;font-weight:800;margin-bottom:12px">เลือกสินค้าที่จะผลิต</div>
@@ -3753,7 +3753,7 @@ function startKiosk(){
     box.innerHTML=list.length?list.map(p=>`<button class="kioskJobProductBtn" data-sku="${escHTML(p.sku)}" data-name="${escHTML(p.name)}" style="display:flex;align-items:center;gap:14px;border:0;background:#1c1f2e;color:#fff;border-radius:14px;padding:12px 16px;cursor:pointer;text-align:left">
       ${p.imageUrl?`<img src="${p.imageUrl}" style="width:56px;height:56px;object-fit:cover;border-radius:10px;flex:0 0 auto">`:'<div style="width:56px;height:56px;border-radius:10px;background:#3a3f57;display:flex;align-items:center;justify-content:center;font-size:24px;flex:0 0 auto">📦</div>'}
       <div style="min-width:0"><div style="font-size:17px;font-weight:700">${escHTML(p.name)}</div><div style="font-size:13px;opacity:.6">${escHTML(p.sku)}</div></div>
-    </button>`).join(''):'<p style="opacity:.6;text-align:center;padding:20px">ไม่พบสินค้า</p>';
+    </button>`).join(''):(productsLoaded?'<p style="opacity:.6;text-align:center;padding:20px">ไม่พบสินค้า</p>':'<p style="opacity:.6;text-align:center;padding:20px">⏳ กำลังโหลดรายการสินค้า...</p>');
     box.querySelectorAll('.kioskJobProductBtn').forEach(btn=>{
       btn.onclick=()=>openAddJobQtyModal(btn.dataset.sku, btn.dataset.name);
     });
@@ -3869,6 +3869,10 @@ function startKiosk(){
     try{
       const res=await apiGetOnce('stationqueue',{station:stationId,token:stationToken});
       products=res.products||products;
+      productsLoaded=true;
+      // v9.104: ถ้าหน้าต่าง "เพิ่มงานผลิต" เปิดค้างอยู่ตอนที่ยังโหลดสินค้าไม่เสร็จ (เช่นกดเร็วตั้งแต่เพิ่งเปิด
+      // Kiosk) ให้รีเฟรชรายการในหน้าต่างนั้นให้เองทันทีที่ข้อมูลมาถึง ไม่ต้องปิด-เปิดใหม่เอง
+      if(document.getElementById('kioskJobProductList')) renderJobProductList(document.getElementById('kioskJobSearch')?.value||'');
       // v9.101 fix: ถ้ามีการกด เริ่มทำ/จบงาน ค้างอยู่ (actionBusy) ห้ามเอาผลโพลรอบนี้ (ซึ่งเป็นข้อมูลเก่า
       // ก่อนกดจะเสร็จ) มาทับสถานะที่เพิ่ง optimistic update ไป ไม่งั้นจอจะเด้งกลับเป็นค่าเก่าทั้งที่ request
       // ที่กดไปยังไม่ตอบกลับ (Apps Script ตอบช้าได้ถึง 30-40 วิ) ทำให้เหมือนกดไม่ติดตอนกดซ้ำ (actionBusy กันไว้)
