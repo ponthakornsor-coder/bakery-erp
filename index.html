@@ -3733,7 +3733,64 @@ function startKiosk(){
     kioskModal('<div style="background:#262a3c;border-radius:20px;padding:32px;max-width:420px;text-align:center"><div style="font-size:44px">⚠️</div><div style="font-size:20px;font-weight:700;margin:12px 0">'+escHTML(title)+'</div><div style="opacity:.8;margin-bottom:20px">'+escHTML(e&&e.message||String(e))+'</div><button id="kioskErrClose" style="border:0;background:#df6518;color:#fff;font-size:18px;font-weight:700;border-radius:12px;padding:14px 28px;cursor:pointer">ปิด</button></div>');
     const b=document.getElementById('kioskErrClose'); if(b) b.onclick=kioskCloseModal;
   }
-  let actionBusy=false, lastJobs=[];
+  let actionBusy=false, lastJobs=[], products=[];
+  function openAddJobModal(){
+    kioskModal(`<div style="background:#262a3c;border-radius:20px;padding:28px;max-width:480px;width:100%;max-height:80vh;display:flex;flex-direction:column">
+      <div style="font-size:22px;font-weight:800;margin-bottom:12px">เลือกสินค้าที่จะผลิต</div>
+      <input id="kioskJobSearch" placeholder="ค้นหาสินค้า..." style="padding:14px;border-radius:12px;border:none;margin-bottom:14px;font-size:16px">
+      <div id="kioskJobProductList" style="overflow:auto;flex:1;display:flex;flex-direction:column;gap:8px"></div>
+      <button id="kioskAddJobCancel" style="margin-top:14px;border:0;background:#3a3f57;color:#fff;font-size:16px;font-weight:700;border-radius:12px;padding:14px;cursor:pointer">ยกเลิก</button>
+    </div>`);
+    renderJobProductList('');
+    document.getElementById('kioskJobSearch').oninput=(e)=>renderJobProductList(e.target.value);
+    document.getElementById('kioskAddJobCancel').onclick=kioskCloseModal;
+  }
+  function renderJobProductList(filter){
+    const q=(filter||'').toLowerCase();
+    const list=products.filter(p=>!q||(p.sku+' '+p.name).toLowerCase().includes(q));
+    const box=document.getElementById('kioskJobProductList');
+    if(!box) return;
+    box.innerHTML=list.length?list.map(p=>`<button class="kioskJobProductBtn" data-sku="${escHTML(p.sku)}" data-name="${escHTML(p.name)}" style="display:flex;align-items:center;gap:14px;border:0;background:#1c1f2e;color:#fff;border-radius:14px;padding:12px 16px;cursor:pointer;text-align:left">
+      ${p.imageUrl?`<img src="${p.imageUrl}" style="width:56px;height:56px;object-fit:cover;border-radius:10px;flex:0 0 auto">`:'<div style="width:56px;height:56px;border-radius:10px;background:#3a3f57;display:flex;align-items:center;justify-content:center;font-size:24px;flex:0 0 auto">📦</div>'}
+      <div style="min-width:0"><div style="font-size:17px;font-weight:700">${escHTML(p.name)}</div><div style="font-size:13px;opacity:.6">${escHTML(p.sku)}</div></div>
+    </button>`).join(''):'<p style="opacity:.6;text-align:center;padding:20px">ไม่พบสินค้า</p>';
+    box.querySelectorAll('.kioskJobProductBtn').forEach(btn=>{
+      btn.onclick=()=>openAddJobQtyModal(btn.dataset.sku, btn.dataset.name);
+    });
+  }
+  function openAddJobQtyModal(sku,name){
+    kioskModal(`<div style="background:#262a3c;border-radius:20px;padding:32px;max-width:420px;width:100%;text-align:center">
+      <div style="font-size:22px;font-weight:800;margin-bottom:8px">${escHTML(name)}</div>
+      <div style="opacity:.6;margin-bottom:16px">${escHTML(sku)}</div>
+      <div style="opacity:.75;margin-bottom:8px">จะผลิตกี่ชิ้น?</div>
+      <input id="kioskJobQty" type="number" min="1" placeholder="จำนวน" style="font-size:28px;text-align:center;width:100%;padding:14px;border-radius:12px;border:none;margin-bottom:20px">
+      <div style="display:flex;gap:12px;justify-content:center">
+        <button id="kioskAddJobConfirm" style="flex:1;border:0;background:#df6518;color:#fff;font-size:18px;font-weight:800;border-radius:12px;padding:16px;cursor:pointer">➕ เพิ่มงานนี้</button>
+        <button id="kioskAddJobBack" style="flex:1;border:0;background:#3a3f57;color:#fff;font-size:18px;font-weight:700;border-radius:12px;padding:16px;cursor:pointer">ย้อนกลับ</button>
+      </div>
+    </div>`);
+    document.getElementById('kioskAddJobBack').onclick=openAddJobModal;
+    document.getElementById('kioskAddJobConfirm').onclick=()=>submitAddJob(sku);
+    const inp=document.getElementById('kioskJobQty');
+    if(inp){ inp.focus(); inp.onkeydown=(e)=>{ if(e.key==='Enter') submitAddJob(sku); }; }
+  }
+  function submitAddJob(sku){
+    if(actionBusy) return;
+    const input=document.getElementById('kioskJobQty');
+    const qty=+((input&&input.value)||0);
+    if(!qty||qty<=0){ if(input) input.focus(); return; }
+    actionBusy=true;
+    kioskModal('<div style="background:#262a3c;border-radius:20px;padding:40px;text-align:center"><div style="font-size:20px;font-weight:700">กำลังเพิ่มงาน...</div></div>');
+    const requestid=Date.now()+'-'+Math.random().toString(36).slice(2);
+    apiGetOnce('stationaddjob',{station:stationId,token:stationToken,sku,qty,requestid}).then(()=>{
+      actionBusy=false;
+      kioskCloseModal();
+      poll();
+    }).catch(e=>{
+      actionBusy=false;
+      kioskErrorModal('เพิ่มงานไม่สำเร็จ',e);
+    });
+  }
   function startJob(po){
     if(actionBusy) return; actionBusy=true;
     // v9.101: เดิมรอผล API ก่อนค่อยอัปเดตจอ (Apps Script บางทีตอบช้า 10-40 วิ) พนักงานกดแล้วจอไม่ขยับ
@@ -3811,6 +3868,7 @@ function startKiosk(){
   async function poll(){
     try{
       const res=await apiGetOnce('stationqueue',{station:stationId,token:stationToken});
+      products=res.products||products;
       // v9.101 fix: ถ้ามีการกด เริ่มทำ/จบงาน ค้างอยู่ (actionBusy) ห้ามเอาผลโพลรอบนี้ (ซึ่งเป็นข้อมูลเก่า
       // ก่อนกดจะเสร็จ) มาทับสถานะที่เพิ่ง optimistic update ไป ไม่งั้นจอจะเด้งกลับเป็นค่าเก่าทั้งที่ request
       // ที่กดไปยังไม่ตอบกลับ (Apps Script ตอบช้าได้ถึง 30-40 วิ) ทำให้เหมือนกดไม่ติดตอนกดซ้ำ (actionBusy กันไว้)
@@ -3833,7 +3891,8 @@ function startKiosk(){
     if(unlocked) return; unlocked=true;
     try{ audioCtx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ console.error('AudioContext ไม่รองรับ',e); }
     requestWakeLock();
-    root.innerHTML=`<div style="padding:20px 28px;background:#15182280;display:flex;align-items:center;gap:16px;border-bottom:1px solid #2c2f42"><div style="font-size:22px;font-weight:800">📟 คิวงานผลิต — ${stationName?escHTML(stationName):'Station'}</div><div id="kioskStatus" style="margin-left:auto;font-size:14px;color:#8b755d">กำลังโหลด...</div></div><div id="kioskBody" style="flex:1;display:flex;flex-direction:column;padding:8px 0"></div>`;
+    root.innerHTML=`<div style="padding:20px 28px;background:#15182280;display:flex;align-items:center;gap:16px;border-bottom:1px solid #2c2f42"><div style="font-size:22px;font-weight:800">📟 คิวงานผลิต — ${stationName?escHTML(stationName):'Station'}</div><button id="kioskAddJobBtn" style="border:0;background:#df6518;color:#fff;font-size:16px;font-weight:800;border-radius:12px;padding:10px 18px;cursor:pointer;white-space:nowrap">➕ เพิ่มงานผลิต</button><div id="kioskStatus" style="margin-left:auto;font-size:14px;color:#8b755d">กำลังโหลด...</div></div><div id="kioskBody" style="flex:1;display:flex;flex-direction:column;padding:8px 0"></div>`;
+    document.getElementById('kioskAddJobBtn').onclick=openAddJobModal;
     startPolling();
   }
   root.innerHTML=`<div style="margin:auto;text-align:center;padding:24px"><div style="font-size:70px">📟</div><h1 style="font-size:30px">พร้อมใช้งาน Kiosk${stationName?'<br><span style=\"font-size:20px;opacity:.75\">'+escHTML(stationName)+'</span>':''}</h1><p style="opacity:.75;max-width:420px;margin:8px auto 24px">กดปุ่มด้านล่างครั้งเดียวเพื่อเปิดเสียงแจ้งเตือนงานใหม่ จากนั้นจะทำงานเองตลอด ไม่ต้องแตะจออีก</p><button onclick="(function(){window.__kioskStart&&window.__kioskStart()})()" style="border:0;background:#df6518;color:#fff;font-size:22px;font-weight:800;border-radius:16px;padding:20px 40px;cursor:pointer">▶ เริ่มใช้งาน Kiosk</button></div>`;
