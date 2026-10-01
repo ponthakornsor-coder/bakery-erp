@@ -3760,7 +3760,10 @@ async function confirmCycleImport(){
  */
 function normStaffTime_(v){
   const s=String(v||'').trim();
-  const m=s.match(/T(\d{2}):(\d{2})/);
+  // v9.104 fix: Google Sheets auto-converts a typed "HH:MM" into a Date/time cell, and
+  // readObjects()'s normalizeDateForERP_ then formats ANY Date cell as "YYYY-MM-DD HH:mm:ss"
+  // (ดูวันที่ยุคของ Sheets เองคือ 1899-12-30 สำหรับค่าที่เป็นเวลาล้วนๆ) — ดึง HH:MM กลับออกมาจากตรงนั้น
+  const m=s.match(/\d{4}-\d{2}-\d{2}\s+(\d{2}):(\d{2})/);
   if(m) return m[1]+':'+m[2];
   const m2=s.match(/^(\d{1,2}):(\d{2})/);
   if(m2) return m2[1].padStart(2,'0')+':'+m2[2];
