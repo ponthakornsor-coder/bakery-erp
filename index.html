@@ -3891,7 +3891,8 @@ function staffScheduleTimelineHTML(usernames, byUser, userMap){
   }));
   if(minH>=maxH){ minH=7; maxH=20; }
   const hours=[]; for(let h=minH; h<maxH; h++) hours.push(h);
-  const header=`<tr><th style="min-width:120px">พนักงาน</th>${hours.map(h=>`<th style="min-width:60px">${String(h).padStart(2,'0')}:00</th>`).join('')}</tr>`;
+  const thStyle='min-width:60px;background:#df6518;color:#fff;font-weight:800;padding:8px 6px';
+  const header=`<tr><th style="min-width:120px;${thStyle}">พนักงาน</th>${hours.map(h=>`<th style="${thStyle}">${String(h).padStart(2,'0')}:00</th>`).join('')}</tr>`;
   const rows=usernames.map(u=>{
     const blocks=byUser[u];
     const cells=[]; let h=0;
