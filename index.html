@@ -1,4 +1,4 @@
-<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Bakery ERP v9.14 Security Fix</title><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8D%AA%3C/text%3E%3C/svg%3E"><link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%23f5f1e8'/%3E%3Ctext x='50' y='68' font-size='60' text-anchor='middle'%3E%F0%9F%8D%AA%3C/text%3E%3C/svg%3E"><script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script><style>
+<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Bakery ERP v9.14 Security Fix</title><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8D%AA%3C/text%3E%3C/svg%3E"><link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%23f5f1e8'/%3E%3Ctext x='50' y='68' font-size='60' text-anchor='middle'%3E%F0%9F%8D%AA%3C/text%3E%3C/svg%3E"><script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script><style>
 :root{--bg:#f5f6fa;--panel:#fffaf1;--card:#fff;--line:#ead8bf;--text:#321800;--muted:#8b755d;--brand:#df6518;--good:#059669;--bad:#dc2626;--warn:#d97706;--shadow:0 10px 25px rgba(72,36,0,.08);--r:18px;--sidebar-bg:#1c1f2e;--sidebar-text:#a6a9bb;--sidebar-line:#2c2f42;--content-bg:#f5f6fa;--topbar-h:72px}*{box-sizing:border-box}body{margin:0;background:var(--content-bg);font-family:Inter,Segoe UI,Tahoma,sans-serif;color:var(--text)}.app{display:flex;min-height:100vh}.side{width:280px;background:var(--sidebar-bg);border-right:1px solid var(--sidebar-line);padding:24px 16px;position:fixed;height:100vh;overflow:auto;display:flex;flex-direction:column;color:var(--sidebar-text)}.logo{font-size:20px;font-weight:800;margin-bottom:4px;color:#fff;display:flex;align-items:center;gap:8px}.logo .ver-badge{font-size:10px;background:#2c2f42;color:#a6a9bb;border-radius:999px;padding:3px 8px;font-weight:700}.sub{font-size:12px;color:#6d7086;line-height:1.35;margin-bottom:18px}.nav{flex:1}.nav-group-label{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:#6d7086;padding:14px 14px 4px;margin-top:6px}.nav-group-label:first-child{margin-top:0}.nav button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:0;background:transparent;padding:13px 14px;border-radius:14px;margin:3px 0;font-size:14.5px;color:var(--sidebar-text);cursor:pointer;font-weight:600}.nav button .nav-ic{font-size:16px;width:20px;text-align:center;flex:0 0 auto}.nav button.active{background:var(--brand);color:#fff;box-shadow:0 6px 16px rgba(223,101,24,.35)}.nav button:hover:not(.active){background:#262a3c;color:#fff}.side-footer{border-top:1px solid var(--sidebar-line);padding-top:16px;margin-top:12px;font-size:12px;color:#6d7086}.main-wrap{margin-left:280px;width:calc(100% - 280px);min-height:100vh;display:flex;flex-direction:column}.topbar{height:var(--topbar-h);background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:16px;padding:0 28px;position:sticky;top:0;z-index:8}.topbar-search{flex:1;max-width:520px;position:relative}.topbar-search input{border-radius:999px;padding:11px 16px;background:#f5f6fa;border:1px solid var(--line);font-size:14px;width:100%}.topsearch-results{display:none;position:absolute;top:calc(100% + 6px);left:0;right:0;background:#fff;border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);max-height:420px;overflow:auto;z-index:9;padding:6px}.topsearch-group-label{font-size:11px;font-weight:800;text-transform:uppercase;color:var(--muted);padding:8px 10px 4px}.topsearch-item{display:block;width:100%;text-align:left;border:0;background:transparent;padding:10px;border-radius:10px;cursor:pointer;font-size:14px;color:var(--text)}.topsearch-item:hover{background:#f5f6fa}.topsearch-item .mini{display:block;color:var(--muted);font-size:12px;margin-top:2px}.topsearch-empty{padding:14px;color:var(--muted);font-size:13px;text-align:center}.topbar-right{display:flex;align-items:center;gap:14px;margin-left:auto}.topbar-date{font-size:13px;color:var(--muted);white-space:nowrap}.icon-btn{position:relative;border:1px solid var(--line);background:#fff;border-radius:12px;width:42px;height:42px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:17px}.icon-btn .badge{position:absolute;top:-4px;right:-4px;background:var(--bad);color:#fff;font-size:10px;font-weight:800;border-radius:999px;min-width:16px;height:16px;display:flex;align-items:center;justify-content:center;padding:0 3px}.user-chip{display:flex;align-items:center;gap:8px;padding:6px 10px 6px 6px;border-radius:999px;background:#f5f6fa;cursor:pointer}.user-chip .avatar{width:32px;height:32px;border-radius:50%;background:var(--brand);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px}.user-chip .u-name{font-size:13px;font-weight:700;line-height:1.2}.user-chip .u-role{font-size:11px;color:var(--muted)}.main{padding:32px;flex:1}h1{margin:0;font-size:28px}.hint{color:var(--muted);margin:4px 0 18px}.toolbar,.box{background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:20px;margin:24px 0;box-shadow:0 1px 3px rgba(20,20,40,.04)}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:16px}.kpis{display:grid;grid-template-columns:repeat(4,minmax(160px,1fr));gap:18px}.kpi,.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:18px;box-shadow:0 1px 3px rgba(20,20,40,.04)}.kpi b{display:block;font-size:28px;margin-top:8px}.card h3{margin:0 0 5px;font-size:20px}.meta{color:var(--muted);font-size:13px}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}.stat{background:#fafafa;border-radius:12px;padding:10px;text-align:center}.stat b{display:block}.row{display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:10px;align-items:center}.row2{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:10px}.row3{display:grid;grid-template-columns:1fr 1fr auto;gap:10px}input,select,textarea{width:100%;border:1px solid var(--line);border-radius:13px;padding:13px 14px;font-size:16px;background:white}button.primary{border:0;background:var(--brand);color:#fff;border-radius:13px;padding:13px 22px;font-size:16px;font-weight:800;cursor:pointer}button.ghost,button.small{border:1px solid var(--line);background:#fff;border-radius:12px;padding:10px 14px;cursor:pointer}button.small{font-size:13px;padding:9px 13px;margin:3px 3px 3px 0;border-radius:11px}
 .stat-card-v2{background:#fff;border:1px solid var(--line);border-radius:18px;padding:18px 20px;box-shadow:0 1px 3px rgba(20,20,40,.04);display:flex;flex-direction:column;gap:12px}
 .stat-card-v2 .ic-badge{width:44px;height:44px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:20px}
@@ -85,11 +85,11 @@ const ERP_QUERY = new URLSearchParams(window.location.search);
 const VIEWER_ONLY = ERP_QUERY.get('view') === '1' || ERP_QUERY.get('role') === 'viewer';
 const MASTER_SKUS = [];
 const DEFAULT_RM = [];
-const pages=[['dashboard','Dashboard','🏠'],['master','Master Data','🗂️'],['items','สินค้า & สูตร','📦'],['rm','วัตถุดิบ','🧺'],['stockops','จัดการสต๊อก','↕️'],['fglog','Production Log FG','📋'],['prodrecord','บันทึกผลผลิต','📝'],['packing','แพ็คสินค้า','📮'],['trxhistory','Transaction / ประวัติ','🏦'],['prodsummary','สรุปผลผลิต','📊'],['manufacturing','ภาพรวมการผลิต','🏭'],['shipcheck','เช็ค Stock พอส่ง / ขายออก','🛒'],['importorders','นำเข้า Order TikTok','📥'],['prod','สั่งผลิต','⚙️'],['autoproduction','สั่งผลิตอัตโนมัติ','🤖',true],['orders','Order / ส่งของ','🚚'],['boothship','ส่งของไปบูธ','🏪'],['booths','จัดการบูธ (POS)','🛍️',true],['boothbundles','จัดการชุด (Bundle)','🎁',true],['promotions','โปรโมชั่น','🏷️',true],['bom','BOM / สูตร','🧮'],['suppliers','ซัพพลายเออร์','🚚'],['rmlots','รับเข้า Lot วัตถุดิบ','📥'],['purchasing','จัดซื้อ / รับของเข้า','🛒'],['customers','ลูกค้า (CRM)','👥'],['rewards','Point / ของรางวัล','🎁'],['b2borders','อนุมัติออเดอร์ B2B','📥'],['stations','จัดการ Station / Tablet','📟',true],['voidapproval','อนุมัติ Void','✅',true],['users','จัดการ User','👥',true],['settings','ตั้งค่า','⚙️']];
+const pages=[['dashboard','Dashboard','🏠'],['master','Master Data','🗂️'],['items','สินค้า & สูตร','📦'],['rm','วัตถุดิบ','🧺'],['stockops','จัดการสต๊อก','↕️'],['importcyclecount','นำเข้า Cycle Count (Excel)','📥'],['fglog','Production Log FG','📋'],['prodrecord','บันทึกผลผลิต','📝'],['packing','แพ็คสินค้า','📮'],['trxhistory','Transaction / ประวัติ','🏦'],['prodsummary','สรุปผลผลิต','📊'],['manufacturing','ภาพรวมการผลิต','🏭'],['shipcheck','เช็ค Stock พอส่ง / ขายออก','🛒'],['importorders','นำเข้า Order TikTok','📥'],['prod','สั่งผลิต','⚙️'],['autoproduction','สั่งผลิตอัตโนมัติ','🤖',true],['orders','Order / ส่งของ','🚚'],['boothship','ส่งของไปบูธ','🏪'],['booths','จัดการบูธ (POS)','🛍️',true],['boothbundles','จัดการชุด (Bundle)','🎁',true],['promotions','โปรโมชั่น','🏷️',true],['bom','BOM / สูตร','🧮'],['suppliers','ซัพพลายเออร์','🚚'],['rmlots','รับเข้า Lot วัตถุดิบ','📥'],['purchasing','จัดซื้อ / รับของเข้า','🛒'],['customers','ลูกค้า (CRM)','👥'],['rewards','Point / ของรางวัล','🎁'],['b2borders','อนุมัติออเดอร์ B2B','📥'],['stations','จัดการ Station / Tablet','📟',true],['voidapproval','อนุมัติ Void','✅',true],['users','จัดการ User','👥',true],['settings','ตั้งค่า','⚙️']];
 const pageGroups=[
   {label:'ภาพรวม',ids:['dashboard']},
   {label:'🏭 การผลิต',ids:['manufacturing','prod','autoproduction','prodrecord','packing','fglog','prodsummary','bom']},
-  {label:'📦 คลังสินค้า',ids:['items','rm','stockops']},
+  {label:'📦 คลังสินค้า',ids:['items','rm','stockops','importcyclecount']},
   {label:'🛍️ จัดซื้อ',ids:['suppliers','rmlots','purchasing']},
   {label:'🛒 การขาย',ids:['shipcheck','importorders','orders','boothship','booths','boothbundles','promotions']},
   {label:'👥 ลูกค้า',ids:['customers','rewards','b2borders']},
@@ -827,7 +827,7 @@ function updateTopbar(){
     if(n>0){ badge.textContent=n>99?'99+':n; badge.style.display='flex'; } else badge.style.display='none';
   }
 }
-function render(){try{nav(); manageManufacturingPoll_(); if(isOperator() && !OPERATOR_PAGES_.includes(page)){ page='prodrecord'; nav(); } const m=$('main'); if(page=='dashboard') return dash(m); if(page=='master') return masterData(m); if(page=='items') return items(m); if(page=='rm') return rm(m); if(page=='stockops') return stockOpsPage(m); if(page=='fglog') return fgLogPage(m); if(page=='prodrecord') return productionRecordPage(m); if(page=='trxhistory') return trxHistPage(m); if(page=='prodsummary') return productionSummaryPage(m); if(page=='manufacturing') return manufacturingPage(m); if(page=='shipcheck') return shipCheckPage(m); if(page=='prod') return prod(m); if(page=='orders') return ordersPage(m); if(page=='boothship') return boothShipPage(m); if(page=='booths') return boothsPage(m); if(page=='boothbundles') return boothBundlesPage(m); if(page=='promotions') return promotionsPage(m); if(page=='bom') return bom(m); if(page=='packing') return packingPage(m); if(page=='importorders') return importOrdersPage(m); if(page=='suppliers') return suppliersPage(m); if(page=='rmlots') return rmLotsPage(m); if(page=='purchasing') return purchasingPage(m); if(page=='customers') return customersPage(m); if(page=='rewards') return rewardsPage(m); if(page=='b2borders') return b2bOrdersPage(m); if(page=='stations') return stationsPage(m); if(page=='autoproduction') return autoProductionPage(m); if(page=='voidapproval') return voidApprovalPage(m); if(page=='users') return userManagementPage(m); if(page=='settings') return settings(m); return dash(m);}catch(e){console.error(e); $('main').innerHTML='<h1>เกิด Error</h1><div class="box"><b>'+String(e.message||e)+'</b><p class="hint">กด Settings → Reset หรือส่งรูปหน้านี้มาให้ผมดู</p><button class="primary" onclick="localStorage.removeItem(\'bakery_erp_v6_1\');location.reload()">Reset ข้อมูลใน Browser</button></div>';}}
+function render(){try{nav(); manageManufacturingPoll_(); if(isOperator() && !OPERATOR_PAGES_.includes(page)){ page='prodrecord'; nav(); } const m=$('main'); if(page=='dashboard') return dash(m); if(page=='master') return masterData(m); if(page=='items') return items(m); if(page=='rm') return rm(m); if(page=='stockops') return stockOpsPage(m); if(page=='importcyclecount') return importCycleCountPage(m); if(page=='fglog') return fgLogPage(m); if(page=='prodrecord') return productionRecordPage(m); if(page=='trxhistory') return trxHistPage(m); if(page=='prodsummary') return productionSummaryPage(m); if(page=='manufacturing') return manufacturingPage(m); if(page=='shipcheck') return shipCheckPage(m); if(page=='prod') return prod(m); if(page=='orders') return ordersPage(m); if(page=='boothship') return boothShipPage(m); if(page=='booths') return boothsPage(m); if(page=='boothbundles') return boothBundlesPage(m); if(page=='promotions') return promotionsPage(m); if(page=='bom') return bom(m); if(page=='packing') return packingPage(m); if(page=='importorders') return importOrdersPage(m); if(page=='suppliers') return suppliersPage(m); if(page=='rmlots') return rmLotsPage(m); if(page=='purchasing') return purchasingPage(m); if(page=='customers') return customersPage(m); if(page=='rewards') return rewardsPage(m); if(page=='b2borders') return b2bOrdersPage(m); if(page=='stations') return stationsPage(m); if(page=='autoproduction') return autoProductionPage(m); if(page=='voidapproval') return voidApprovalPage(m); if(page=='users') return userManagementPage(m); if(page=='settings') return settings(m); return dash(m);}catch(e){console.error(e); $('main').innerHTML='<h1>เกิด Error</h1><div class="box"><b>'+String(e.message||e)+'</b><p class="hint">กด Settings → Reset หรือส่งรูปหน้านี้มาให้ผมดู</p><button class="primary" onclick="localStorage.removeItem(\'bakery_erp_v6_1\');location.reload()">Reset ข้อมูลใน Browser</button></div>';}}
 function head(t,h=''){return `<h1>${t}</h1><div class="hint">${h}</div>`}
 function todayISO(){
   const d=new Date();
@@ -3582,6 +3582,176 @@ function saveCycleCount(){
       alertModal('Cycle Count: '+statusMsg+'\n\nสาเหตุ: '+(e.message||e)+'\n\nลองกด "บันทึก Cycle Count" ซ้ำได้เลย ระบบจะคำนวณผลต่างใหม่จากสต๊อกล่าสุด ตัวที่บันทึกสำเร็จไปแล้วจะไม่ถูกปรับซ้ำอีก (ผลต่างกลายเป็น 0 แล้ว) ไม่ต้องกังวลเรื่องข้อมูลซ้ำ');
     }
   })();
+}
+/* === v9.104: นำเข้า Cycle Count วัตถุดิบจากไฟล์ Excel ที่พนักงานกรอกทุกวันจันทร์ ===
+ * ไฟล์มีหลายชีต (ตามสัปดาห์) และแต่ละชีตมี 2-3 ตารางเรียงติดกัน คั่นด้วยคอลัมน์ว่าง — เอาเฉพาะตารางแรก
+ * (วัตถุดิบอาหาร) พนักงานนับมาเป็นหน่วย เช่น ถุง/ลัง แต่แอดมินจะเขียนกำกับน้ำหนักต่อหน่วยไว้ท้ายชื่อ
+ * เช่น "สลัดครีม (500g/ถุง)" ระบบจะแยกชื่อจริง + น้ำหนักออกจากกัน แล้วคูณเป็นจำนวนจริงให้อัตโนมัติ
+ */
+let cycleImportRows=[];
+function importCycleCountPage(m){
+  m.innerHTML=head('นำเข้า Cycle Count วัตถุดิบ (Excel)','อัปโหลดไฟล์ Excel ที่พนักงานกรอกยอดนับทุกวันจันทร์ — ถ้าเขียนน้ำหนักต่อหน่วยกำกับไว้ท้ายชื่อ เช่น "สลัดครีม (500g/ถุง)" ระบบจะคูณน้ำหนักจริงให้อัตโนมัติ ไม่ต้องคำนวณเอง')+
+  `<div class="box"><h2>1. เลือกไฟล์</h2><input type="file" id="cycleImportFile" accept=".xlsx,.xls" onchange="handleCycleImportFile(this)"><p class="hint">รองรับเฉพาะตารางแรกของแต่ละชีต (คอลัมน์ รายการ/เหลือ/หน่วย) — ตารางกลุ่มสินค้าและของใช้/แพ็กเกจจิ้งจะไม่ถูกนำเข้า</p></div>`+
+  `<div id="cycleImportSheetPicker"></div>`+
+  `<div id="cycleImportPreview"></div>`;
+}
+function handleCycleImportFile(input){
+  const file=input.files[0];
+  if(!file) return;
+  if(typeof XLSX==='undefined'){ alertModal('โหลดตัวช่วยอ่านไฟล์ Excel ไม่สำเร็จ ลองรีเฟรชหน้าใหม่'); return; }
+  toast('กำลังอ่านไฟล์...');
+  const reader=new FileReader();
+  reader.onload=(e)=>{
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array'});
+      window.__cycleImportWb=wb;
+      const picker=$('cycleImportSheetPicker');
+      picker.innerHTML=`<div class="box"><h2>2. เลือกชีต (สัปดาห์)</h2><div class="row3"><select id="cycleImportSheet">${wb.SheetNames.map(n=>`<option value="${escHTML(n)}">${escHTML(n)}</option>`).join('')}</select><button class="primary" onclick="parseCycleImportSheet()">แยกข้อมูล</button><span></span></div></div>`;
+      $('cycleImportSheet').value=wb.SheetNames[wb.SheetNames.length-1];
+      parseCycleImportSheet();
+    }catch(err){ console.error(err); alertModal('อ่านไฟล์ไม่สำเร็จ: '+(err.message||err)); }
+  };
+  reader.readAsArrayBuffer(file);
+}
+function parseWeightAnnotation_(rawName){
+  const m=String(rawName||'').match(/\(([\d.]+)\s*(kg|g|ml|l|กก\.?|กรัม|ลิตร)\s*\/\s*([^)]+)\)\s*$/i);
+  if(!m) return null;
+  let unit=m[2].toLowerCase().replace(/\./g,'');
+  if(unit==='กก'||unit==='กิโลกรัม') unit='kg';
+  if(unit==='กรัม') unit='g';
+  if(unit==='ลิตร') unit='l';
+  return {baseName:String(rawName).slice(0,m.index).trim(), weightValue:+m[1], weightUnit:unit, perUnit:m[3].trim()};
+}
+function convertCycleQty_(value, fromUnit, toUnit){
+  fromUnit=String(fromUnit||'').toLowerCase().trim(); toUnit=String(toUnit||'').toLowerCase().trim();
+  if(!toUnit || fromUnit===toUnit) return value;
+  const factor={g:1,kg:1000,ml:1,l:1000};
+  const weightUnits=['g','kg'], volUnits=['ml','l'];
+  if(weightUnits.includes(fromUnit)&&weightUnits.includes(toUnit)) return value*factor[fromUnit]/factor[toUnit];
+  if(volUnits.includes(fromUnit)&&volUnits.includes(toUnit)) return value*factor[fromUnit]/factor[toUnit];
+  return value; // หน่วยไม่เข้าพวกกัน ส่งค่าตามหน่วยที่กำกับไว้กลับไปตรงๆ ให้ผู้ใช้ตรวจสอบเองในตาราง preview
+}
+function normalizeForMatch_(s){ return String(s||'').toLowerCase().replace(/[\s\-_.,()]+/g,'').trim(); }
+function fuzzyMatchRM_(name, rmList){
+  const norm=normalizeForMatch_(name);
+  if(!norm) return '';
+  let hit=rmList.find(r=>normalizeForMatch_(r.name)===norm);
+  if(hit) return hit.sku;
+  hit=rmList.find(r=>{ const rn=normalizeForMatch_(r.name); return rn && (rn.includes(norm)||norm.includes(rn)); });
+  return hit?hit.sku:'';
+}
+function parseCycleImportSheet(){
+  const wb=window.__cycleImportWb; if(!wb) return;
+  const sheetName=$('cycleImportSheet')?.value||wb.SheetNames[0];
+  const ws=wb.Sheets[sheetName];
+  const grid=XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
+  if(!grid.length){ alertModal('ชีตนี้ไม่มีข้อมูล'); return; }
+  const headerRow=grid[0];
+  const colOf={};
+  for(let i=0;i<headerRow.length;i++){
+    const h=String(headerRow[i]||'').trim();
+    if(!h) break; // เจอคอลัมน์ว่าง = จบตารางแรก (ตารางถัดไปที่ติดกันไม่เอา)
+    if(!(h in colOf)) colOf[h]=i;
+  }
+  const nameCol=colOf['รายการ'], qtyCol=colOf['เหลือ'], unitCol=colOf['หน่วย'];
+  if(nameCol===undefined || qtyCol===undefined){ alertModal('หาคอลัมน์ "รายการ" หรือ "เหลือ" ในตารางแรกของชีตนี้ไม่เจอ'); return; }
+  const rmList=(db.rm||[]).slice();
+  const rows=[];
+  for(let r=1;r<grid.length;r++){
+    const row=grid[r]; if(!row) continue;
+    const rawName=row[nameCol]; const countedRaw=row[qtyCol];
+    if(!rawName || countedRaw===null || countedRaw===undefined || countedRaw==='') continue; // ยังไม่ได้กรอกยอดนับแถวนี้ ข้าม
+    const counted=+countedRaw; if(isNaN(counted)) continue;
+    const unitRaw=unitCol!==undefined?String(row[unitCol]||'').trim():'';
+    const wInfo=parseWeightAnnotation_(rawName);
+    const baseName=wInfo?wInfo.baseName:String(rawName).trim();
+    const existingMap=(db.channelSkuMap||[]).find(x=>x.channel==='CycleCountRM'&&x.externalKey===baseName);
+    const guessSku=existingMap?.sku||fuzzyMatchRM_(baseName,rmList);
+    const rmItem=rmList.find(x=>String(x.sku)===String(guessSku));
+    let finalQty;
+    if(wInfo) finalQty=convertCycleQty_(counted*wInfo.weightValue, wInfo.weightUnit, rmItem?.unit);
+    else finalQty=counted;
+    rows.push({rawName:String(rawName).trim(), baseName, counted, unitRaw, weightInfo:wInfo, sku:guessSku, finalQty:Math.round(finalQty*100)/100});
+  }
+  cycleImportRows=rows;
+  renderCycleImportPreview();
+}
+function renderCycleImportPreview(){
+  const box=$('cycleImportPreview'); if(!box) return;
+  if(!cycleImportRows.length){ box.innerHTML='<div class="box"><p class="hint">ไม่พบแถวที่กรอกยอดนับไว้ในชีตนี้ (คอลัมน์ "เหลือ" ว่างหมด)</p></div>'; return; }
+  const rmOptions=(db.rm||[]).slice().sort((a,b)=>a.name.localeCompare(b.name)).map(x=>`<option value="${escHTML(x.sku)}">${escHTML(x.name)} (${x.sku})</option>`).join('');
+  box.innerHTML=`<div class="box"><h2>3. ตรวจสอบก่อนบันทึก (${cycleImportRows.length} รายการ)</h2>
+    <table><tr><th>ชื่อในไฟล์</th><th>นับได้</th><th>น้ำหนัก/หน่วยที่ตรวจพบ</th><th>จับคู่วัตถุดิบ</th><th>หน่วยในระบบ</th><th>จำนวนที่จะบันทึก</th></tr>
+    ${cycleImportRows.map((r,i)=>{
+      const rmItem=(db.rm||[]).find(x=>String(x.sku)===String(r.sku));
+      return `<tr>
+        <td><b>${escHTML(r.baseName)}</b></td>
+        <td>${roundDisplay(r.counted)} ${escHTML(r.unitRaw)}</td>
+        <td class="mini">${r.weightInfo?(r.weightInfo.weightValue+' '+r.weightInfo.weightUnit+' / '+escHTML(r.weightInfo.perUnit)):'<span class="hint">ไม่มี — ใช้ค่า "เหลือ" ตรงๆ</span>'}</td>
+        <td><select id="cycleRmSel_${i}" onchange="window.__cycleImportRmChanged(${i})"><option value="">-- เลือกวัตถุดิบ --</option>${rmOptions}</select></td>
+        <td class="mini">${rmItem?escHTML(rmItem.unit||'-'):'-'}</td>
+        <td><input id="cycleQty_${i}" type="number" step="0.01" value="${r.finalQty}" style="width:100px"></td>
+      </tr>`;
+    }).join('')}</table>
+    <br><button class="primary" onclick="confirmCycleImport()">บันทึก Cycle Count เข้าระบบ</button></div>`;
+  cycleImportRows.forEach((r,i)=>{ const sel=$('cycleRmSel_'+i); if(sel) sel.value=r.sku||''; });
+  window.__cycleImportRmChanged=(i)=>{
+    const sel=$('cycleRmSel_'+i); const row=cycleImportRows[i]; if(!sel||!row) return;
+    row.sku=sel.value;
+    const rmItem=(db.rm||[]).find(x=>String(x.sku)===String(row.sku));
+    const unitCell=sel.closest('tr')?.children[4]; if(unitCell) unitCell.textContent=rmItem?.unit||'-';
+    if(row.weightInfo){
+      const qtyInput=$('cycleQty_'+i);
+      const recalced=Math.round(convertCycleQty_(row.counted*row.weightInfo.weightValue, row.weightInfo.weightUnit, rmItem?.unit)*100)/100;
+      if(qtyInput) qtyInput.value=recalced;
+    }
+  };
+}
+async function confirmCycleImport(){
+  if(!cycleImportRows.length) return toast('ไม่มีข้อมูลให้บันทึก');
+  const finalRows=[];
+  for(let i=0;i<cycleImportRows.length;i++){
+    const sku=$('cycleRmSel_'+i)?.value;
+    const qtyVal=$('cycleQty_'+i)?.value;
+    if(!sku){ alertModal('กรุณาจับคู่วัตถุดิบให้ครบทุกแถวก่อน (แถวที่ '+(i+1)+': '+cycleImportRows[i].baseName+' ยังไม่ได้เลือก)'); return; }
+    const counted=qtyVal===''?null:+qtyVal;
+    if(counted===null||isNaN(counted)||counted<0){ alertModal('จำนวนที่จะบันทึกไม่ถูกต้อง (แถวที่ '+(i+1)+': '+cycleImportRows[i].baseName+')'); return; }
+    finalRows.push({sku, counted, baseName:cycleImportRows[i].baseName});
+  }
+  toast('กำลังบันทึก...');
+  try{
+    const newMappings=[];
+    finalRows.forEach(r=>{
+      const existing=(db.channelSkuMap||[]).find(x=>x.channel==='CycleCountRM'&&x.externalKey===r.baseName);
+      if(!existing||existing.sku!==r.sku) newMappings.push({channel:'CycleCountRM',externalKey:r.baseName,externalLabel:r.baseName,sku:r.sku});
+    });
+    if(newMappings.length){
+      await apiPostBatched('savechannelskumap', newMappings, 8, chunk=>({rows:chunk}));
+      newMappings.forEach(nm=>{ db.channelSkuMap=(db.channelSkuMap||[]).filter(x=>!(x.channel===nm.channel&&x.externalKey===nm.externalKey)); db.channelSkuMap.push(nm); });
+    }
+    const ref='CC-IMPORT-'+Date.now(); const pairs=[];
+    finalRows.forEach(r=>{
+      const it=(db.rm||[]).find(x=>String(x.sku)===String(r.sku)); if(!it) return;
+      const before=+it.stock||0, diff=r.counted-before; it.stock=r.counted;
+      const id='MV-'+Date.now()+'-'+Math.floor(Math.random()*9999);
+      const remark=`Cycle Count (นำเข้า Excel: ${r.baseName}) | Before ${before} → After ${r.counted}`;
+      pairs.push({
+        mov:{MoveID:id,Timestamp:now(),ItemType:'RM',SKU:r.sku,Mode:'CYCLE_COUNT',Qty:diff,Ref:ref,Remark:remark,StockAfter:r.counted,Source:'ERP-CYCLE-IMPORT-v9.104'},
+        cycle:{CountID:id,Timestamp:now(),ItemType:'RM',SKU:r.sku,SystemQty:before,CountQty:r.counted,Diff:diff,Remark:remark}
+      });
+    });
+    saveLocalOnly(); render();
+    const chunks=chunkItemsBySize_(pairs, chunk=>({action:'cycletransaction',data:{movements:chunk.map(p=>p.mov),cycles:chunk.map(p=>p.cycle)}}));
+    for(const chunk of chunks){
+      await apiPost({action:'cycletransaction',data:{movements:chunk.map(p=>p.mov),cycles:chunk.map(p=>p.cycle)}});
+    }
+    cycleImportRows=[];
+    await loadFromGoogleSheet();
+    page='importcyclecount'; render();
+    sheetDone('นำเข้า Cycle Count สำเร็จ ('+pairs.length+' รายการ)');
+  }catch(e){
+    console.error(e); alertModal('นำเข้าไม่สำเร็จ: '+(e.message||e));
+  }
 }
 async function voidProductionTransaction(logId,reason){
   if(!logId)return;
