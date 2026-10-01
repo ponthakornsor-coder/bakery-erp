@@ -85,10 +85,10 @@ const ERP_QUERY = new URLSearchParams(window.location.search);
 const VIEWER_ONLY = ERP_QUERY.get('view') === '1' || ERP_QUERY.get('role') === 'viewer';
 const MASTER_SKUS = [];
 const DEFAULT_RM = [];
-const pages=[['dashboard','Dashboard','🏠'],['master','Master Data','🗂️'],['items','สินค้า & สูตร','📦'],['rm','วัตถุดิบ','🧺'],['stockops','จัดการสต๊อก','↕️'],['importcyclecount','นำเข้า Cycle Count (Excel)','📥'],['fglog','Production Log FG','📋'],['prodrecord','บันทึกผลผลิต','📝'],['packing','แพ็คสินค้า','📮'],['trxhistory','Transaction / ประวัติ','🏦'],['prodsummary','สรุปผลผลิต','📊'],['manufacturing','ภาพรวมการผลิต','🏭'],['shipcheck','เช็ค Stock พอส่ง / ขายออก','🛒'],['importorders','นำเข้า Order TikTok','📥'],['prod','สั่งผลิต','⚙️'],['autoproduction','สั่งผลิตอัตโนมัติ','🤖',true],['orders','Order / ส่งของ','🚚'],['boothship','ส่งของไปบูธ','🏪'],['booths','จัดการบูธ (POS)','🛍️',true],['boothbundles','จัดการชุด (Bundle)','🎁',true],['promotions','โปรโมชั่น','🏷️',true],['bom','BOM / สูตร','🧮'],['suppliers','ซัพพลายเออร์','🚚'],['rmlots','รับเข้า Lot วัตถุดิบ','📥'],['purchasing','จัดซื้อ / รับของเข้า','🛒'],['customers','ลูกค้า (CRM)','👥'],['rewards','Point / ของรางวัล','🎁'],['b2borders','อนุมัติออเดอร์ B2B','📥'],['stations','จัดการ Station / Tablet','📟',true],['voidapproval','อนุมัติ Void','✅',true],['users','จัดการ User','👥',true],['settings','ตั้งค่า','⚙️']];
+const pages=[['dashboard','Dashboard','🏠'],['master','Master Data','🗂️'],['items','สินค้า & สูตร','📦'],['rm','วัตถุดิบ','🧺'],['stockops','จัดการสต๊อก','↕️'],['importcyclecount','นำเข้า Cycle Count (Excel)','📥'],['fglog','Production Log FG','📋'],['prodrecord','บันทึกผลผลิต','📝'],['packing','แพ็คสินค้า','📮'],['trxhistory','Transaction / ประวัติ','🏦'],['prodsummary','สรุปผลผลิต','📊'],['manufacturing','ภาพรวมการผลิต','🏭'],['shipcheck','เช็ค Stock พอส่ง / ขายออก','🛒'],['importorders','นำเข้า Order TikTok','📥'],['prod','สั่งผลิต','⚙️'],['autoproduction','สั่งผลิตอัตโนมัติ','🤖',true],['staffschedule','จัดตารางงานพนักงาน','🗓️',true],['staffscheduledashboard','ภาพรวมตารางงานพนักงาน','📅',true],['orders','Order / ส่งของ','🚚'],['boothship','ส่งของไปบูธ','🏪'],['booths','จัดการบูธ (POS)','🛍️',true],['boothbundles','จัดการชุด (Bundle)','🎁',true],['promotions','โปรโมชั่น','🏷️',true],['bom','BOM / สูตร','🧮'],['suppliers','ซัพพลายเออร์','🚚'],['rmlots','รับเข้า Lot วัตถุดิบ','📥'],['purchasing','จัดซื้อ / รับของเข้า','🛒'],['customers','ลูกค้า (CRM)','👥'],['rewards','Point / ของรางวัล','🎁'],['b2borders','อนุมัติออเดอร์ B2B','📥'],['stations','จัดการ Station / Tablet','📟',true],['voidapproval','อนุมัติ Void','✅',true],['users','จัดการ User','👥',true],['settings','ตั้งค่า','⚙️']];
 const pageGroups=[
   {label:'ภาพรวม',ids:['dashboard']},
-  {label:'🏭 การผลิต',ids:['manufacturing','prod','autoproduction','prodrecord','packing','fglog','prodsummary','bom']},
+  {label:'🏭 การผลิต',ids:['manufacturing','prod','autoproduction','staffschedule','staffscheduledashboard','prodrecord','packing','fglog','prodsummary','bom']},
   {label:'📦 คลังสินค้า',ids:['items','rm','stockops','importcyclecount']},
   {label:'🛍️ จัดซื้อ',ids:['suppliers','rmlots','purchasing']},
   {label:'🛒 การขาย',ids:['shipcheck','importorders','orders','boothship','booths','boothbundles','promotions']},
@@ -827,7 +827,7 @@ function updateTopbar(){
     if(n>0){ badge.textContent=n>99?'99+':n; badge.style.display='flex'; } else badge.style.display='none';
   }
 }
-function render(){try{nav(); manageManufacturingPoll_(); if(isOperator() && !OPERATOR_PAGES_.includes(page)){ page='prodrecord'; nav(); } const m=$('main'); if(page=='dashboard') return dash(m); if(page=='master') return masterData(m); if(page=='items') return items(m); if(page=='rm') return rm(m); if(page=='stockops') return stockOpsPage(m); if(page=='importcyclecount') return importCycleCountPage(m); if(page=='fglog') return fgLogPage(m); if(page=='prodrecord') return productionRecordPage(m); if(page=='trxhistory') return trxHistPage(m); if(page=='prodsummary') return productionSummaryPage(m); if(page=='manufacturing') return manufacturingPage(m); if(page=='shipcheck') return shipCheckPage(m); if(page=='prod') return prod(m); if(page=='orders') return ordersPage(m); if(page=='boothship') return boothShipPage(m); if(page=='booths') return boothsPage(m); if(page=='boothbundles') return boothBundlesPage(m); if(page=='promotions') return promotionsPage(m); if(page=='bom') return bom(m); if(page=='packing') return packingPage(m); if(page=='importorders') return importOrdersPage(m); if(page=='suppliers') return suppliersPage(m); if(page=='rmlots') return rmLotsPage(m); if(page=='purchasing') return purchasingPage(m); if(page=='customers') return customersPage(m); if(page=='rewards') return rewardsPage(m); if(page=='b2borders') return b2bOrdersPage(m); if(page=='stations') return stationsPage(m); if(page=='autoproduction') return autoProductionPage(m); if(page=='voidapproval') return voidApprovalPage(m); if(page=='users') return userManagementPage(m); if(page=='settings') return settings(m); return dash(m);}catch(e){console.error(e); $('main').innerHTML='<h1>เกิด Error</h1><div class="box"><b>'+String(e.message||e)+'</b><p class="hint">กด Settings → Reset หรือส่งรูปหน้านี้มาให้ผมดู</p><button class="primary" onclick="localStorage.removeItem(\'bakery_erp_v6_1\');location.reload()">Reset ข้อมูลใน Browser</button></div>';}}
+function render(){try{nav(); manageManufacturingPoll_(); if(isOperator() && !OPERATOR_PAGES_.includes(page)){ page='prodrecord'; nav(); } const m=$('main'); if(page=='dashboard') return dash(m); if(page=='master') return masterData(m); if(page=='items') return items(m); if(page=='rm') return rm(m); if(page=='stockops') return stockOpsPage(m); if(page=='importcyclecount') return importCycleCountPage(m); if(page=='fglog') return fgLogPage(m); if(page=='prodrecord') return productionRecordPage(m); if(page=='trxhistory') return trxHistPage(m); if(page=='prodsummary') return productionSummaryPage(m); if(page=='manufacturing') return manufacturingPage(m); if(page=='shipcheck') return shipCheckPage(m); if(page=='prod') return prod(m); if(page=='orders') return ordersPage(m); if(page=='boothship') return boothShipPage(m); if(page=='booths') return boothsPage(m); if(page=='boothbundles') return boothBundlesPage(m); if(page=='promotions') return promotionsPage(m); if(page=='bom') return bom(m); if(page=='packing') return packingPage(m); if(page=='importorders') return importOrdersPage(m); if(page=='suppliers') return suppliersPage(m); if(page=='rmlots') return rmLotsPage(m); if(page=='purchasing') return purchasingPage(m); if(page=='customers') return customersPage(m); if(page=='rewards') return rewardsPage(m); if(page=='b2borders') return b2bOrdersPage(m); if(page=='stations') return stationsPage(m); if(page=='autoproduction') return autoProductionPage(m); if(page=='staffschedule') return staffSchedulePage(m); if(page=='staffscheduledashboard') return staffScheduleDashboardPage(m); if(page=='voidapproval') return voidApprovalPage(m); if(page=='users') return userManagementPage(m); if(page=='settings') return settings(m); return dash(m);}catch(e){console.error(e); $('main').innerHTML='<h1>เกิด Error</h1><div class="box"><b>'+String(e.message||e)+'</b><p class="hint">กด Settings → Reset หรือส่งรูปหน้านี้มาให้ผมดู</p><button class="primary" onclick="localStorage.removeItem(\'bakery_erp_v6_1\');location.reload()">Reset ข้อมูลใน Browser</button></div>';}}
 function head(t,h=''){return `<h1>${t}</h1><div class="hint">${h}</div>`}
 function todayISO(){
   const d=new Date();
@@ -3542,6 +3542,8 @@ function fromSheetData(data){
   db.b2bOrderItems=(data.b2bOrderItems||[]).map(i=>({orderId:i.OrderID||'',sku:String(i.SKU||''),qty:+i.Qty||0,remark:i.Remark||''})).filter(x=>x.orderId);
   db.supplierRm=(data.supplierRm||[]).map(x=>({supplierId:x.SupplierID||'',rmCode:String(x.RMCode||'')})).filter(x=>x.supplierId&&x.rmCode);
   db.dashboard=(data.dashboard&&data.dashboard.length)?data.dashboard:(db.dashboard||[]);
+  // v9.104: ตารางงานพนักงาน (อ้างอิงเท่านั้น ไม่ผูกกับ Production Order/Kiosk)
+  db.staffSchedule=(data.staffSchedule||[]).map(r=>({id:r.ScheduleID||'',username:r.Username||'',date:dateISO(r.Date)||String(r.Date||''),startTime:normStaffTime_(r.StartTime),endTime:normStaffTime_(r.EndTime),sku:r.SKU||'',note:r.Note||''})).filter(x=>x.id);
   db.remote=db.remote||{}; db.remote.lastApiSync=now();
 }
 function saveCycleCount(){
@@ -3752,6 +3754,165 @@ async function confirmCycleImport(){
   }catch(e){
     console.error(e); alertModal('นำเข้าไม่สำเร็จ: '+(e.message||e));
   }
+}
+/* === v9.104: ตารางงานพนักงาน — เป็นตารางอ้างอิงล้วนๆ สำหรับแอดมินวางแผน/ดูภาพรวมเท่านั้น
+ * ไม่ผูกกับ Production Order หรือคิวงานที่ Kiosk เลย (พนักงานยังกดเริ่มงานเองที่ Kiosk ตามปกติ)
+ */
+function normStaffTime_(v){
+  const s=String(v||'').trim();
+  const m=s.match(/T(\d{2}):(\d{2})/);
+  if(m) return m[1]+':'+m[2];
+  const m2=s.match(/^(\d{1,2}):(\d{2})/);
+  if(m2) return m2[1].padStart(2,'0')+':'+m2[2];
+  return s;
+}
+function timeToMin_(t){
+  const m=String(t||'0:0').match(/^(\d{1,2}):(\d{2})/);
+  if(!m) return 0;
+  return (+m[1])*60+(+m[2]);
+}
+let staffScheduleSelUser='', staffScheduleSelDate='', staffScheduleBlocks=[{startTime:'',endTime:'',sku:'',note:''}];
+function staffSchedulePage(m){
+  m.innerHTML='<p class="hint">กำลังโหลด...</p>';
+  ensureUserListLoaded().then(users=>{
+    const activeUsers=users.filter(u=>u.status==='Active').sort((a,b)=>(a.displayName||'').localeCompare(b.displayName||''));
+    if(!staffScheduleSelUser && activeUsers.length) staffScheduleSelUser=activeUsers[0].username;
+    if(!staffScheduleSelDate) staffScheduleSelDate=todayISO();
+    const date=staffScheduleSelDate, username=staffScheduleSelUser;
+    const existing=(db.staffSchedule||[]).filter(s=>s.username===username && s.date===date).sort((a,b)=>timeToMin_(a.startTime)-timeToMin_(b.startTime));
+    m.innerHTML=head('จัดตารางงานพนักงาน','วางแผนว่าพนักงานแต่ละคนควรทำอะไรช่วงเวลาไหนในแต่ละวัน — เป็นตารางอ้างอิงสำหรับดูภาพรวมเท่านั้น ไม่ผูกกับคิวงานผลิตที่ Kiosk')+
+    (activeUsers.length?`<div class="box"><div class="row3">
+      <select id="ssUserSel" onchange="staffScheduleUserChanged()">${activeUsers.map(u=>`<option value="${escHTML(u.username)}" ${u.username===username?'selected':''}>${escHTML(u.displayName)} (${u.role})</option>`).join('')}</select>
+      <input id="ssDateSel" type="date" value="${date}" onchange="staffScheduleDateChanged()">
+      <span></span>
+    </div></div>`:'<div class="box"><p class="hint">ยังไม่มีพนักงานที่เปิดใช้งานในระบบ</p></div>')+
+    `<div class="box"><h2>ตารางงานที่ตั้งไว้แล้ว (${existing.length})</h2>${existing.length?`<table><tr><th>เวลา</th><th>งาน</th><th>หมายเหตุ</th><th></th></tr>${existing.map(s=>`<tr><td><b>${escHTML(s.startTime)} - ${escHTML(s.endTime)}</b></td><td>${s.sku?escHTML(itemName(s.sku))+' ('+escHTML(s.sku)+')':'<span class="mini">-</span>'}</td><td>${escHTML(s.note||'-')}</td><td class="actions"><button class="small danger" onclick="deleteStaffScheduleAction('${s.id}')">ลบ</button></td></tr>`).join('')}</table>`:'<p class="hint">ยังไม่มีตารางงานสำหรับวันนี้</p>'}</div>`+
+    `<div class="box"><h2>เพิ่มช่วงเวลาใหม่</h2><div id="ssBlockRows">${staffScheduleBlocks.map((b,i)=>staffScheduleBlockRowHTML(b,i)).join('')}</div>
+      <button class="ghost" onclick="addStaffScheduleBlockRow()" style="margin-top:8px">+ เพิ่มช่วงเวลา</button>
+      <div style="margin-top:12px"><button class="primary" onclick="saveStaffScheduleAction()">บันทึกตารางงาน</button></div>
+    </div>`;
+  });
+}
+function staffScheduleBlockRowHTML(b,i){
+  const skuOptions=(db.items||[]).filter(x=>String(x.status||'Active')==='Active').slice().sort((a,b)=>a.name.localeCompare(b.name)).map(x=>`<option value="${escHTML(x.sku)}" ${b.sku===x.sku?'selected':''}>${escHTML(x.name)} (${escHTML(x.sku)})</option>`).join('');
+  return `<div class="ssBlockRow" data-i="${i}" style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;align-items:center">
+    <input type="time" class="ssStart" value="${escHTML(b.startTime)}" style="width:120px">
+    <input type="time" class="ssEnd" value="${escHTML(b.endTime)}" style="width:120px">
+    <select class="ssSku" style="flex:1;min-width:160px"><option value="">-- (ไม่ระบุสินค้า) --</option>${skuOptions}</select>
+    <input class="ssNote" placeholder="หมายเหตุ (ไม่บังคับ)" value="${escHTML(b.note||'')}" style="flex:1;min-width:140px">
+    <button class="ghost" onclick="removeStaffScheduleBlockRow(${i})">ลบ</button>
+  </div>`;
+}
+function syncStaffScheduleBlocksFromDom_(){
+  const rows=[...document.querySelectorAll('.ssBlockRow')];
+  staffScheduleBlocks=rows.map(row=>({
+    startTime: row.querySelector('.ssStart')?.value||'',
+    endTime: row.querySelector('.ssEnd')?.value||'',
+    sku: row.querySelector('.ssSku')?.value||'',
+    note: row.querySelector('.ssNote')?.value||''
+  }));
+}
+function addStaffScheduleBlockRow(){
+  syncStaffScheduleBlocksFromDom_();
+  staffScheduleBlocks.push({startTime:'',endTime:'',sku:'',note:''});
+  staffSchedulePage($('main'));
+}
+function removeStaffScheduleBlockRow(i){
+  syncStaffScheduleBlocksFromDom_();
+  staffScheduleBlocks.splice(i,1);
+  if(!staffScheduleBlocks.length) staffScheduleBlocks=[{startTime:'',endTime:'',sku:'',note:''}];
+  staffSchedulePage($('main'));
+}
+function staffScheduleUserChanged(){
+  syncStaffScheduleBlocksFromDom_();
+  staffScheduleSelUser=$('ssUserSel')?.value||'';
+  staffSchedulePage($('main'));
+}
+function staffScheduleDateChanged(){
+  syncStaffScheduleBlocksFromDom_();
+  staffScheduleSelDate=$('ssDateSel')?.value||todayISO();
+  staffSchedulePage($('main'));
+}
+async function saveStaffScheduleAction(){
+  syncStaffScheduleBlocksFromDom_();
+  const username=staffScheduleSelUser;
+  const date=staffScheduleSelDate;
+  const blocks=staffScheduleBlocks.filter(b=>b.startTime&&b.endTime&&(b.sku||b.note));
+  if(!username) return toast('เลือกพนักงานก่อน');
+  if(!date) return toast('เลือกวันที่ก่อน');
+  if(!blocks.length) return toast('เพิ่มช่วงเวลาอย่างน้อย 1 รายการ (ต้องมีเวลาเริ่ม-จบ และระบุสินค้าหรือหมายเหตุ)');
+  toast('กำลังบันทึก...');
+  try{
+    await apiPost({action:'addstaffschedulebatch',data:{username,date,blocks}});
+    staffScheduleBlocks=[{startTime:'',endTime:'',sku:'',note:''}];
+    await loadFromGoogleSheet();
+    page='staffschedule'; render();
+    sheetDone('บันทึกตารางงานแล้ว ('+blocks.length+' ช่วงเวลา)');
+  }catch(e){console.error(e); alertModal('บันทึกไม่สำเร็จ: '+(e.message||e));}
+}
+async function deleteStaffScheduleAction(scheduleId){
+  if(!await confirmModal('ลบรายการนี้ออกจากตารางงาน?')) return;
+  toast('กำลังลบ...');
+  try{
+    await apiPost({action:'deletestaffschedule',scheduleId});
+    await loadFromGoogleSheet();
+    page='staffschedule'; render();
+    sheetDone('ลบแล้ว');
+  }catch(e){console.error(e); alertModal('ลบไม่สำเร็จ: '+(e.message||e));}
+}
+let staffDashboardDate='';
+function staffScheduleDashboardPage(m){
+  m.innerHTML='<p class="hint">กำลังโหลด...</p>';
+  if(!staffDashboardDate) staffDashboardDate=todayISO();
+  const date=staffDashboardDate;
+  ensureUserListLoaded().then(users=>{
+    const userMap={}; users.forEach(u=>{ userMap[u.username]=u.displayName||u.username; });
+    const dayBlocks=(db.staffSchedule||[]).filter(s=>s.date===date);
+    const byUser={};
+    dayBlocks.forEach(s=>{ (byUser[s.username]=byUser[s.username]||[]).push(s); });
+    const usernames=Object.keys(byUser).sort((a,b)=>(userMap[a]||a).localeCompare(userMap[b]||b));
+    m.innerHTML=head('ภาพรวมตารางงานพนักงาน','ดูว่าพนักงานแต่ละคนควรทำอะไรช่วงเวลาไหนของวันที่เลือก (ตารางแผนที่ตั้งไว้ ไม่ใช่สถานะจริงจาก Kiosk)')+
+    `<div class="box"><input id="ssdDateSel" type="date" value="${date}" onchange="staffDashboardDateChanged()"></div>`+
+    `<div class="box" style="overflow-x:auto">${usernames.length?staffScheduleTimelineHTML(usernames, byUser, userMap):'<p class="hint">ยังไม่มีตารางงานที่ตั้งไว้สำหรับวันนี้</p>'}</div>`;
+  });
+}
+function staffDashboardDateChanged(){
+  staffDashboardDate=$('ssdDateSel')?.value||todayISO();
+  staffScheduleDashboardPage($('main'));
+}
+function staffScheduleTimelineHTML(usernames, byUser, userMap){
+  let minH=24, maxH=0;
+  usernames.forEach(u=>byUser[u].forEach(b=>{
+    minH=Math.min(minH, Math.floor(timeToMin_(b.startTime)/60));
+    maxH=Math.max(maxH, Math.ceil(timeToMin_(b.endTime)/60));
+  }));
+  if(minH>=maxH){ minH=7; maxH=20; }
+  const hours=[]; for(let h=minH; h<maxH; h++) hours.push(h);
+  const header=`<tr><th style="min-width:120px">พนักงาน</th>${hours.map(h=>`<th style="min-width:60px">${String(h).padStart(2,'0')}:00</th>`).join('')}</tr>`;
+  const rows=usernames.map(u=>{
+    const blocks=byUser[u];
+    const cells=[]; let h=0;
+    while(h<hours.length){
+      const hour=hours[h];
+      const block=blocks.find(b=>timeToMin_(b.startTime)<=hour*60 && hour*60<timeToMin_(b.endTime));
+      if(block){
+        let span=1;
+        while(h+span<hours.length){
+          const nextHour=hours[h+span];
+          const sameBlock=blocks.find(b=>timeToMin_(b.startTime)<=nextHour*60 && nextHour*60<timeToMin_(b.endTime));
+          if(sameBlock===block) span++; else break;
+        }
+        const label=block.sku?itemName(block.sku):(block.note||'-');
+        cells.push(`<td colspan="${span}" style="background:#fff3e1;border:1px solid #ead8bf;font-weight:700;text-align:center">${escHTML(label)}</td>`);
+        h+=span;
+      } else {
+        cells.push('<td style="border:1px solid var(--line)"></td>');
+        h+=1;
+      }
+    }
+    return `<tr><td><b>${escHTML(userMap[u]||u)}</b></td>${cells.join('')}</tr>`;
+  }).join('');
+  return `<table style="table-layout:fixed">${header}${rows}</table>`;
 }
 async function voidProductionTransaction(logId,reason){
   if(!logId)return;
