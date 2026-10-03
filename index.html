@@ -3557,7 +3557,7 @@ function fromSheetData(data){
   db.supplierRm=(data.supplierRm||[]).map(x=>({supplierId:x.SupplierID||'',rmCode:String(x.RMCode||'')})).filter(x=>x.supplierId&&x.rmCode);
   db.dashboard=(data.dashboard&&data.dashboard.length)?data.dashboard:(db.dashboard||[]);
   // v9.104: ตารางงานพนักงาน (อ้างอิงเท่านั้น ไม่ผูกกับ Production Order/Kiosk)
-  db.staffSchedule=(data.staffSchedule||[]).map(r=>({id:r.ScheduleID||'',username:r.Username||'',date:dateISO(r.Date)||String(r.Date||''),startTime:normStaffTime_(r.StartTime),endTime:normStaffTime_(r.EndTime),sku:r.SKU||'',note:r.Note||''})).filter(x=>x.id);
+  db.staffSchedule=(data.staffSchedule||[]).map(r=>({id:r.ScheduleID||'',username:r.Username||'',date:dateISO(r.Date)||String(r.Date||''),startTime:normStaffTime_(r.StartTime),endTime:normSchedEnd_(normStaffTime_(r.EndTime)),sku:r.SKU||'',note:r.Note||''})).filter(x=>x.id);
   db.remote=db.remote||{}; db.remote.lastApiSync=now();
 }
 function saveCycleCount(){
@@ -3788,6 +3788,72 @@ function timeToMin_(t){
   if(!m) return 0;
   return (+m[1])*60+(+m[2]);
 }
+// v9.106: เวลาจบ 00:00 = สิ้นสุดที่เที่ยงคืน (24:00) — ช่อง <input type=time> พิมพ์ 24:00 ไม่ได้ และถ้าเก็บเป็น 00:00
+// ตัวเลขจะน้อยกว่าเวลาเริ่ม ทำให้ช่วงนั้นไม่ขึ้นในตารางเลย จึงแปลงเป็น "24:00" ตอนบันทึก/ตอนอ่านข้อมูลเก่า
+function normSchedEnd_(end){
+  const e=String(end||'').trim();
+  const m=e.match(/^(\d{1,2}):(\d{2})/);
+  if(m && +m[1]===0 && +m[2]===0) return '24:00';
+  return e;
+}
+function schedEndOk_(start,end){ return timeToMin_(normSchedEnd_(end))>timeToMin_(start); }
+function ssItemFamily_(sku){ const it=(db.items||[]).find(x=>String(x.sku)===String(sku)); return it?(it.product||''):''; }
+function ssFamilies_(){ return [...new Set((db.items||[]).map(x=>x.product).filter(Boolean))].sort((a,b)=>String(a).localeCompare(String(b))); }
+function ssSkuOptionsHTML_(family, selectedSku){
+  const list=(db.items||[]).filter(x=>String(x.status||'Active')==='Active' && (!family || x.product===family)).slice().sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+  return '<option value="">-- (ไม่ระบุสินค้า) --</option>'+list.map(x=>`<option value="${escHTML(x.sku)}" ${String(x.sku)===String(selectedSku)?'selected':''}>${escHTML(x.name)} (${escHTML(x.sku)})</option>`).join('');
+}
+function ssSkuPickerHTML_(selectedSku, family){
+  const fam=(family===undefined||family===null)?ssItemFamily_(selectedSku):family;
+  return `<select class="ssFam" onchange="ssFamilyChanged(this)" style="min-width:150px"><option value="">ทุกกลุ่มสินค้า</option>${ssFamilies_().map(f=>`<option value="${escHTML(f)}" ${f===fam?'selected':''}>${escHTML(f)}</option>`).join('')}</select>
+    <select class="ssSku" style="flex:1;min-width:220px">${ssSkuOptionsHTML_(fam, selectedSku)}</select>`;
+}
+// <input type=time> แสดงเป็น AM/PM ตามภาษาของเครื่อง/เบราว์เซอร์และบังคับ 24 ชม. ไม่ได้ จึงใช้ select ชั่วโมง (00-23, ช่องเวลาจบมี 24 ด้วย)
+// + นาที (ทุก 5 นาที) แทน ค่าจริงเก็บใน <input type=hidden class=cls> เป็น "HH:MM" โค้ดที่อ่าน .value จึงใช้เหมือนเดิม
+function ssTimePickerHTML_(cls, value, isEnd){
+  const m=String(value||'').match(/^(\d{1,2}):(\d{2})/);
+  const hh=m?String(+m[1]).padStart(2,'0'):'', mm=m?m[2]:'';
+  let hOpts='<option value="">--</option>';
+  for(let h=0;h<=(isEnd?24:23);h++){ const v=String(h).padStart(2,'0'); hOpts+=`<option value="${v}" ${v===hh?'selected':''}>${v}</option>`; }
+  const mins=[]; for(let i=0;i<60;i+=5) mins.push(String(i).padStart(2,'0'));
+  if(mm && !mins.includes(mm)){ mins.push(mm); mins.sort(); }
+  const mOpts=mins.map(v=>`<option value="${v}" ${v===(mm||'00')?'selected':''}>${v}</option>`).join('');
+  return `<span class="ssTime" style="display:inline-flex;align-items:center;gap:3px"><select class="ssH" onchange="ssTimeChanged(this)" style="width:74px;padding:13px 6px" aria-label="ชั่วโมง">${hOpts}</select><b>:</b><select class="ssM" onchange="ssTimeChanged(this)" style="width:74px;padding:13px 6px" aria-label="นาที">${mOpts}</select><input type="hidden" class="${cls}" value="${hh?hh+':'+(mm||'00'):''}"></span>`;
+}
+function ssTimeChanged(sel){
+  const w=sel.closest('.ssTime'); if(!w) return;
+  const h=w.querySelector('.ssH').value, mSel=w.querySelector('.ssM');
+  if(h==='24') mSel.value='00'; // 24:00 ได้แค่ตรงๆ ไม่มี 24:30
+  w.querySelector('input[type=hidden]').value=h?(h+':'+mSel.value):'';
+}
+function ssFamilyChanged(famSel){
+  const row=famSel.closest('.ssBlockRow, .ssEditRow'); const skuSel=row&&row.querySelector('.ssSku'); if(!skuSel) return;
+  skuSel.innerHTML=ssSkuOptionsHTML_(famSel.value, skuSel.value);
+}
+// สีประจำสินค้าแต่ละตัวบน Dashboard: แบ่งวงล้อสีเท่าๆ กันตามจำนวนสินค้าที่ปรากฏในหน้านั้น (เรียงตาม SKU) จึงได้สีที่ห่างกันมากที่สุด
+// ไม่มีสองสินค้าสีใกล้กันจนสับสน (ถ้าเกิน 8 ตัว สลับความเข้มของสีที่อยู่ติดกันเพิ่ม) — สีของสินค้าอาจเปลี่ยนเมื่อมีสินค้าอื่นมาเพิ่ม/หายไปในวันนั้น
+function schedColorMap_(skus){
+  const list=[...new Set((skus||[]).filter(Boolean))].sort(), n=list.length, map={};
+  list.forEach((k,i)=>{
+    const hue=Math.round((215+i*360/n)%360);
+    let light=(n>8 && i%2)?30:38;
+    if(hue>=45 && hue<=100) light=Math.min(light,32);
+    map[k]='hsl('+hue+',65%,'+light+'%)';
+  });
+  return map;
+}
+// แยกช่วงเวลาที่ซ้อนกันของคนเดียวกันเป็นหลายแถว (lane) ไม่ให้ช่วงหนึ่งบังอีกช่วงหนึ่งจนมองไม่เห็น
+function schedLanes_(blocks){
+  const sorted=(blocks||[]).slice().sort((a,b)=>timeToMin_(a.startTime)-timeToMin_(b.startTime)||timeToMin_(a.endTime)-timeToMin_(b.endTime));
+  const lanes=[];
+  sorted.forEach(b=>{
+    const s=timeToMin_(b.startTime), e=timeToMin_(b.endTime);
+    let lane=lanes.find(l=>l.endMin<=s);
+    if(!lane){ lane={blocks:[],endMin:0}; lanes.push(lane); }
+    lane.blocks.push(b); lane.endMin=e;
+  });
+  return lanes.map(l=>l.blocks);
+}
 let staffScheduleSelUser='', staffScheduleSelDate='', staffScheduleBlocks=[{startTime:'',endTime:'',sku:'',note:''}];
 function staffSchedulePage(m){
   m.innerHTML='<p class="hint">กำลังโหลด...</p>';
@@ -3797,25 +3863,31 @@ function staffSchedulePage(m){
     if(!staffScheduleSelDate) staffScheduleSelDate=todayISO();
     const date=staffScheduleSelDate, username=staffScheduleSelUser;
     const existing=(db.staffSchedule||[]).filter(s=>s.username===username && s.date===date).sort((a,b)=>timeToMin_(a.startTime)-timeToMin_(b.startTime));
+    // แถวแรกของฟอร์มที่ยังว่างอยู่: ให้เวลาเริ่มต่อจากเวลาจบสุดท้ายของวันนั้นที่บันทึกไว้แล้ว (ยังแก้ไขได้)
+    const lastEndMin=existing.reduce((mx,s)=>Math.max(mx,timeToMin_(s.endTime)),0);
+    if(lastEndMin>0 && lastEndMin<1440 && staffScheduleBlocks.length===1){
+      const b0=staffScheduleBlocks[0];
+      if(!b0.startTime && !b0.endTime && !b0.sku && !b0.note) b0.startTime=String(Math.floor(lastEndMin/60)).padStart(2,'0')+':'+String(lastEndMin%60).padStart(2,'0');
+    }
     m.innerHTML=head('จัดตารางงานพนักงาน','วางแผนว่าพนักงานแต่ละคนควรทำอะไรช่วงเวลาไหนในแต่ละวัน — เป็นตารางอ้างอิงสำหรับดูภาพรวมเท่านั้น ไม่ผูกกับคิวงานผลิตที่ Kiosk')+
     (activeUsers.length?`<div class="box"><div class="row3">
       <select id="ssUserSel" onchange="staffScheduleUserChanged()">${activeUsers.map(u=>`<option value="${escHTML(u.username)}" ${u.username===username?'selected':''}>${escHTML(u.displayName)} (${u.role})</option>`).join('')}</select>
       <input id="ssDateSel" type="date" value="${date}" onchange="staffScheduleDateChanged()">
       <span></span>
     </div></div>`:'<div class="box"><p class="hint">ยังไม่มีพนักงานที่เปิดใช้งานในระบบ</p></div>')+
-    `<div class="box"><h2>ตารางงานที่ตั้งไว้แล้ว (${existing.length})</h2>${existing.length?`<table><tr><th>เวลา</th><th>งาน</th><th>หมายเหตุ</th><th></th></tr>${existing.map(s=>`<tr><td><b>${escHTML(s.startTime)} - ${escHTML(s.endTime)}</b></td><td>${s.sku?escHTML(itemName(s.sku))+' ('+escHTML(s.sku)+')':'<span class="mini">-</span>'}</td><td>${escHTML(s.note||'-')}</td><td class="actions"><button class="small danger" onclick="deleteStaffScheduleAction('${s.id}')">ลบ</button></td></tr>`).join('')}</table>`:'<p class="hint">ยังไม่มีตารางงานสำหรับวันนี้</p>'}</div>`+
-    `<div class="box"><h2>เพิ่มช่วงเวลาใหม่</h2><div id="ssBlockRows">${staffScheduleBlocks.map((b,i)=>staffScheduleBlockRowHTML(b,i)).join('')}</div>
+    `<div class="box"><h2>ตารางงานที่ตั้งไว้แล้ว (${existing.length})</h2>${existing.length?`<table><tr><th>เวลา</th><th>งาน</th><th>หมายเหตุ</th><th></th></tr>${existing.map(s=>`<tr><td><b>${escHTML(s.startTime)} - ${escHTML(s.endTime)}</b></td><td>${s.sku?escHTML(itemName(s.sku))+' ('+escHTML(s.sku)+')':'<span class="mini">-</span>'}</td><td>${escHTML(s.note||'-')}</td><td class="actions"><button class="small" onclick="editStaffScheduleModal('${s.id}')">แก้ไข</button> <button class="small danger" onclick="deleteStaffScheduleAction('${s.id}')">ลบ</button></td></tr>`).join('')}</table>`:'<p class="hint">ยังไม่มีตารางงานสำหรับวันนี้</p>'}</div>`+
+    `<div class="box"><h2>เพิ่มช่วงเวลาใหม่</h2><p class="hint" style="margin-top:0">ใช้เวลาแบบ 24 ชั่วโมง — ถ้าจบที่เที่ยงคืนให้เลือกเวลาจบ 24:00 (เลือก 00:00 ก็ถือว่าเที่ยงคืนเหมือนกัน) · กด "+ เพิ่มช่วงเวลา" แล้วเวลาเริ่มจะต่อจากเวลาจบของแถวก่อนหน้าให้เอง (แก้ได้)</p><div id="ssBlockRows">${staffScheduleBlocks.map((b,i)=>staffScheduleBlockRowHTML(b,i)).join('')}</div>
       <button class="ghost" onclick="addStaffScheduleBlockRow()" style="margin-top:8px">+ เพิ่มช่วงเวลา</button>
       <div style="margin-top:12px"><button class="primary" onclick="saveStaffScheduleAction()">บันทึกตารางงาน</button></div>
     </div>`;
   });
 }
 function staffScheduleBlockRowHTML(b,i){
-  const skuOptions=(db.items||[]).filter(x=>String(x.status||'Active')==='Active').slice().sort((a,b)=>a.name.localeCompare(b.name)).map(x=>`<option value="${escHTML(x.sku)}" ${b.sku===x.sku?'selected':''}>${escHTML(x.name)} (${escHTML(x.sku)})</option>`).join('');
   return `<div class="ssBlockRow" data-i="${i}" style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;align-items:center">
-    <input type="time" class="ssStart" value="${escHTML(b.startTime)}" style="width:120px">
-    <input type="time" class="ssEnd" value="${escHTML(b.endTime)}" style="width:120px">
-    <select class="ssSku" style="flex:1;min-width:160px"><option value="">-- (ไม่ระบุสินค้า) --</option>${skuOptions}</select>
+    ${ssTimePickerHTML_('ssStart', b.startTime, false)}
+    <span class="mini">ถึง</span>
+    ${ssTimePickerHTML_('ssEnd', b.endTime, true)}
+    ${ssSkuPickerHTML_(b.sku, b.family)}
     <input class="ssNote" placeholder="หมายเหตุ (ไม่บังคับ)" value="${escHTML(b.note||'')}" style="flex:1;min-width:140px">
     <button class="ghost" onclick="removeStaffScheduleBlockRow(${i})">ลบ</button>
   </div>`;
@@ -3825,14 +3897,25 @@ function syncStaffScheduleBlocksFromDom_(){
   staffScheduleBlocks=rows.map(row=>({
     startTime: row.querySelector('.ssStart')?.value||'',
     endTime: row.querySelector('.ssEnd')?.value||'',
+    family: row.querySelector('.ssFam')?.value||'',
     sku: row.querySelector('.ssSku')?.value||'',
     note: row.querySelector('.ssNote')?.value||''
   }));
 }
 function addStaffScheduleBlockRow(){
   syncStaffScheduleBlocksFromDom_();
-  staffScheduleBlocks.push({startTime:'',endTime:'',sku:'',note:''});
+  const last=staffScheduleBlocks[staffScheduleBlocks.length-1];
+  // เวลาเริ่มของแถวใหม่ = เวลาจบของแถวก่อนหน้า (แก้ได้) / ถ้าแถวก่อนหน้าจบเที่ยงคืนแล้วไม่มีเวลาต่อ ปล่อยว่าง
+  const prevEnd=last?normSchedEnd_(last.endTime):'';
+  const nextStart=(prevEnd && prevEnd!=='24:00')?prevEnd:'';
+  staffScheduleBlocks.push({startTime:nextStart,endTime:'',sku:'',note:'',family:last?last.family:''});
   staffSchedulePage($('main'));
+}
+// ถ้าฟอร์มยังไม่ได้กรอกอะไรจริงจัง (มีแค่เวลาเริ่มที่ระบบใส่ให้) ให้ล้างทิ้งเมื่อเปลี่ยนพนักงาน/วันที่ จะได้คำนวณเวลาเริ่มใหม่ตามคนนั้น
+function ssResetBlocksIfPristine_(){
+  syncStaffScheduleBlocksFromDom_();
+  const dirty=staffScheduleBlocks.some(b=>b.sku||b.note||b.endTime);
+  if(!dirty) staffScheduleBlocks=[{startTime:'',endTime:'',sku:'',note:''}];
 }
 function removeStaffScheduleBlockRow(i){
   syncStaffScheduleBlocksFromDom_();
@@ -3841,12 +3924,12 @@ function removeStaffScheduleBlockRow(i){
   staffSchedulePage($('main'));
 }
 function staffScheduleUserChanged(){
-  syncStaffScheduleBlocksFromDom_();
+  ssResetBlocksIfPristine_();
   staffScheduleSelUser=$('ssUserSel')?.value||'';
   staffSchedulePage($('main'));
 }
 function staffScheduleDateChanged(){
-  syncStaffScheduleBlocksFromDom_();
+  ssResetBlocksIfPristine_();
   staffScheduleSelDate=$('ssDateSel')?.value||todayISO();
   staffSchedulePage($('main'));
 }
@@ -3854,9 +3937,16 @@ async function saveStaffScheduleAction(){
   syncStaffScheduleBlocksFromDom_();
   const username=staffScheduleSelUser;
   const date=staffScheduleSelDate;
-  const blocks=staffScheduleBlocks.filter(b=>b.startTime&&b.endTime&&(b.sku||b.note));
   if(!username) return toast('เลือกพนักงานก่อน');
   if(!date) return toast('เลือกวันที่ก่อน');
+  const blocks=[];
+  for(let i=0;i<staffScheduleBlocks.length;i++){
+    const b=staffScheduleBlocks[i];
+    if(!(b.endTime||b.sku||b.note)) continue; // แถวว่าง (มีแค่เวลาเริ่มที่ระบบใส่ให้) ข้ามไป
+    if(!b.startTime||!b.endTime||!(b.sku||b.note)) return toast('แถวที่ '+(i+1)+' ยังกรอกไม่ครบ (ต้องมีเวลาเริ่ม-จบ และสินค้าหรือหมายเหตุ)');
+    if(!schedEndOk_(b.startTime,b.endTime)) return toast('แถวที่ '+(i+1)+': เวลาจบต้องหลังเวลาเริ่ม (ถ้าจบที่เที่ยงคืนให้เลือก 24:00)');
+    blocks.push({startTime:b.startTime,endTime:normSchedEnd_(b.endTime),sku:b.sku,note:b.note});
+  }
   if(!blocks.length) return toast('เพิ่มช่วงเวลาอย่างน้อย 1 รายการ (ต้องมีเวลาเริ่ม-จบ และระบุสินค้าหรือหมายเหตุ)');
   toast('กำลังบันทึก...');
   try{
@@ -3866,6 +3956,37 @@ async function saveStaffScheduleAction(){
     page='staffschedule'; render();
     sheetDone('บันทึกตารางงานแล้ว ('+blocks.length+' ช่วงเวลา)');
   }catch(e){console.error(e); alertModal('บันทึกไม่สำเร็จ: '+(e.message||e));}
+}
+function editStaffScheduleModal(scheduleId){
+  const s=(db.staffSchedule||[]).find(x=>x.id===scheduleId); if(!s) return;
+  modal(`<h2>แก้ไขช่วงเวลา</h2>
+    <p class="hint">วันที่ ${escHTML(s.date)} · เวลาแบบ 24 ชั่วโมง ถ้าจบที่เที่ยงคืนให้เลือกเวลาจบ 24:00</p>
+    <div class="ssEditRow" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:12px 0">
+      ${ssTimePickerHTML_('ssStart', s.startTime, false)}
+      <span class="mini">ถึง</span>
+      ${ssTimePickerHTML_('ssEnd', s.endTime, true)}
+      ${ssSkuPickerHTML_(s.sku)}
+      <input class="ssNote" placeholder="หมายเหตุ (ไม่บังคับ)" value="${escHTML(s.note||'')}" style="flex:1;min-width:140px">
+    </div>
+    <button class="primary" onclick="saveEditStaffSchedule('${escHTML(s.id)}')">บันทึก</button> <button class="ghost" onclick="$('modal').style.display='none'">ยกเลิก</button>`);
+}
+async function saveEditStaffSchedule(scheduleId){
+  const row=document.querySelector('.ssEditRow'); if(!row) return;
+  const startTime=row.querySelector('.ssStart')?.value||'';
+  const endRaw=row.querySelector('.ssEnd')?.value||'';
+  const sku=row.querySelector('.ssSku')?.value||'';
+  const note=(row.querySelector('.ssNote')?.value||'').trim();
+  if(!startTime||!endRaw) return toast('ใส่เวลาเริ่มและเวลาจบก่อน');
+  if(!sku&&!note) return toast('เลือกสินค้าหรือใส่หมายเหตุก่อน');
+  if(!schedEndOk_(startTime,endRaw)) return toast('เวลาจบต้องหลังเวลาเริ่ม (ถ้าจบที่เที่ยงคืนให้เลือก 24:00)');
+  toast('กำลังบันทึก...');
+  try{
+    await apiPost({action:'updatestaffschedule',data:{scheduleId,startTime,endTime:normSchedEnd_(endRaw),sku,note}});
+    $('modal').style.display='none';
+    await loadFromGoogleSheet();
+    page='staffschedule'; render();
+    sheetDone('แก้ไขตารางงานแล้ว');
+  }catch(e){console.error(e); alertModal('แก้ไขไม่สำเร็จ: '+(e.message||e));}
 }
 async function deleteStaffScheduleAction(scheduleId){
   if(!await confirmModal('ลบรายการนี้ออกจากตารางงาน?')) return;
@@ -3890,47 +4011,55 @@ function staffScheduleDashboardPage(m){
     const usernames=Object.keys(byUser).sort((a,b)=>(userMap[a]||a).localeCompare(userMap[b]||b));
     m.innerHTML=head('ภาพรวมตารางงานพนักงาน','ดูว่าพนักงานแต่ละคนควรทำอะไรช่วงเวลาไหนของวันที่เลือก (ตารางแผนที่ตั้งไว้ ไม่ใช่สถานะจริงจาก Kiosk)')+
     `<div class="box"><input id="ssdDateSel" type="date" value="${date}" onchange="staffDashboardDateChanged()"></div>`+
-    `<div class="box" style="overflow-x:auto">${usernames.length?staffScheduleTimelineHTML(usernames, byUser, userMap):'<p class="hint">ยังไม่มีตารางงานที่ตั้งไว้สำหรับวันนี้</p>'}</div>`;
+    `<div class="box"><div style="overflow-x:auto">${usernames.length?staffScheduleTimelineHTML(usernames, byUser, userMap):'<p class="hint">ยังไม่มีตารางงานที่ตั้งไว้สำหรับวันนี้</p>'}</div>${usernames.length?staffScheduleLegendHTML_(usernames, byUser):''}</div>`;
   });
+}
+function staffScheduleLegendHTML_(usernames, byUser){
+  const skus=[]; usernames.forEach(u=>byUser[u].forEach(b=>{ if(b.sku) skus.push(b.sku); }));
+  const colorOf=schedColorMap_(skus);
+  const items=Object.keys(colorOf).sort((a,b)=>String(itemName(a)).localeCompare(String(itemName(b))));
+  if(!items.length) return '';
+  return `<div style="margin-top:14px;display:flex;flex-wrap:wrap">${items.map(k=>`<span style="display:inline-flex;align-items:center;gap:6px;font-size:13px;margin:4px 16px 4px 0"><i style="display:inline-block;width:14px;height:14px;border-radius:4px;background:${colorOf[k]}"></i>${escHTML(itemName(k)||k)}</span>`).join('')}</div>`;
 }
 function staffDashboardDateChanged(){
   staffDashboardDate=$('ssdDateSel')?.value||todayISO();
   staffScheduleDashboardPage($('main'));
 }
 function staffScheduleTimelineHTML(usernames, byUser, userMap){
-  let minH=24, maxH=0;
-  usernames.forEach(u=>byUser[u].forEach(b=>{
-    minH=Math.min(minH, Math.floor(timeToMin_(b.startTime)/60));
-    maxH=Math.max(maxH, Math.ceil(timeToMin_(b.endTime)/60));
-  }));
-  if(minH>=maxH){ minH=7; maxH=20; }
-  const hours=[]; for(let h=minH; h<maxH; h++) hours.push(h);
-  const thStyle='min-width:60px;background:#df6518;color:#fff;font-weight:800;padding:8px 6px';
-  const header=`<tr><th style="min-width:120px;${thStyle}">พนักงาน</th>${hours.map(h=>`<th style="${thStyle}">${String(h).padStart(2,'0')}:00</th>`).join('')}</tr>`;
+  const hours=[]; for(let h=0; h<24; h++) hours.push(h); // v9.106: แสดงครบ 24 ชั่วโมง (00:00-24:00)
+  const allSkus=[]; usernames.forEach(u=>byUser[u].forEach(b=>{ if(b.sku) allSkus.push(b.sku); }));
+  const colorOf=schedColorMap_(allSkus);
+  const thStyle='background:#df6518;color:#fff;font-weight:800;padding:8px 2px;font-size:12px;text-align:center';
+  const header=`<tr><th style="${thStyle};text-align:left;padding-left:8px">พนักงาน</th>${hours.map(h=>`<th style="${thStyle}">${String(h).padStart(2,'0')}:00</th>`).join('')}</tr>`;
   const rows=usernames.map(u=>{
-    const blocks=byUser[u];
-    const cells=[]; let h=0;
-    while(h<hours.length){
-      const hour=hours[h];
-      const block=blocks.find(b=>timeToMin_(b.startTime)<=hour*60 && hour*60<timeToMin_(b.endTime));
-      if(block){
-        let span=1;
-        while(h+span<hours.length){
-          const nextHour=hours[h+span];
-          const sameBlock=blocks.find(b=>timeToMin_(b.startTime)<=nextHour*60 && nextHour*60<timeToMin_(b.endTime));
-          if(sameBlock===block) span++; else break;
+    const lanes=schedLanes_(byUser[u]); // ช่วงที่ซ้อนกันจะถูกแยกเป็นหลายแถว ไม่บังกัน
+    return lanes.map((blocks,li)=>{
+      const cells=[]; let h=0;
+      while(h<hours.length){
+        const hour=hours[h];
+        const block=blocks.find(b=>timeToMin_(b.startTime)<=hour*60 && hour*60<timeToMin_(b.endTime));
+        if(block){
+          let span=1;
+          while(h+span<hours.length){
+            const nextHour=hours[h+span];
+            const sameBlock=blocks.find(b=>timeToMin_(b.startTime)<=nextHour*60 && nextHour*60<timeToMin_(b.endTime));
+            if(sameBlock===block) span++; else break;
+          }
+          const label=block.sku?itemName(block.sku):(block.note||'-');
+          const bg=block.sku?colorOf[block.sku]:'#64748b';
+          const tip=label+(block.sku?' ('+block.sku+')':'')+'\n'+block.startTime+' - '+block.endTime+((block.sku&&block.note)?'\nหมายเหตุ: '+block.note:'');
+          cells.push(`<td colspan="${span}" title="${escHTML(tip)}" style="background:${bg};color:#fff;font-weight:700;text-align:center;font-size:12px;line-height:1.25;padding:6px 4px;border:1px solid #fff;word-break:break-word">${escHTML(label)}</td>`);
+          h+=span;
+        } else {
+          cells.push('<td style="border:1px solid var(--line)"></td>');
+          h+=1;
         }
-        const label=block.sku?itemName(block.sku):(block.note||'-');
-        cells.push(`<td colspan="${span}" style="background:#fff3e1;border:1px solid #ead8bf;font-weight:700;text-align:center">${escHTML(label)}</td>`);
-        h+=span;
-      } else {
-        cells.push('<td style="border:1px solid var(--line)"></td>');
-        h+=1;
       }
-    }
-    return `<tr><td><b>${escHTML(userMap[u]||u)}</b></td>${cells.join('')}</tr>`;
+      const nameCell=li===0?`<td rowspan="${lanes.length}" style="vertical-align:middle;padding-left:8px"><b>${escHTML(userMap[u]||u)}</b>${lanes.length>1?'<div class="mini" style="color:#b45309">⚠ มีช่วงเวลาซ้อนกัน</div>':''}</td>`:'';
+      return `<tr>${nameCell}${cells.join('')}</tr>`;
+    }).join('');
   }).join('');
-  return `<table style="table-layout:fixed">${header}${rows}</table>`;
+  return `<table style="table-layout:fixed;width:100%;min-width:1500px"><colgroup><col style="width:120px">${hours.map(()=>'<col>').join('')}</colgroup>${header}${rows}</table>`;
 }
 async function voidProductionTransaction(logId,reason){
   if(!logId)return;
