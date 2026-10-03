@@ -4025,8 +4025,12 @@ function staffDashboardDateChanged(){
   staffDashboardDate=$('ssdDateSel')?.value||todayISO();
   staffScheduleDashboardPage($('main'));
 }
+function overlapsHour_(b,hour){ return timeToMin_(b.startTime)<(hour+1)*60 && timeToMin_(b.endTime)>hour*60; }
 function staffScheduleTimelineHTML(usernames, byUser, userMap){
-  const hours=[]; for(let h=0; h<24; h++) hours.push(h); // v9.106: แสดงครบ 24 ชั่วโมง (00:00-24:00)
+  // เริ่มตารางที่ชั่วโมงของงานแรกสุดของทุกคนในวัน (ไม่โชว์ช่องว่างก่อนหน้านั้น) ไปจนถึง 24:00 — ถ้าไม่มีงานเลยแสดงทั้งวัน
+  const startMins=[]; usernames.forEach(u=>byUser[u].forEach(b=>{ const t=timeToMin_(b.startTime); if(isFinite(t)) startMins.push(t); }));
+  const firstHour=startMins.length?Math.min(23,Math.max(0,Math.floor(Math.min(...startMins)/60))):0;
+  const hours=[]; for(let h=firstHour; h<24; h++) hours.push(h);
   const allSkus=[]; usernames.forEach(u=>byUser[u].forEach(b=>{ if(b.sku) allSkus.push(b.sku); }));
   const colorOf=schedColorMap_(allSkus);
   const thStyle='background:#df6518;color:#fff;font-weight:800;padding:8px 2px;font-size:12px;text-align:center';
@@ -4037,12 +4041,12 @@ function staffScheduleTimelineHTML(usernames, byUser, userMap){
       const cells=[]; let h=0;
       while(h<hours.length){
         const hour=hours[h];
-        const block=blocks.find(b=>timeToMin_(b.startTime)<=hour*60 && hour*60<timeToMin_(b.endTime));
+        const block=blocks.find(b=>overlapsHour_(b,hour)); // ทับช่องชั่วโมงนั้นบางส่วนก็นับ (เช่น 06:30-09:00 ครอบช่อง 06,07,08)
         if(block){
           let span=1;
           while(h+span<hours.length){
             const nextHour=hours[h+span];
-            const sameBlock=blocks.find(b=>timeToMin_(b.startTime)<=nextHour*60 && nextHour*60<timeToMin_(b.endTime));
+            const sameBlock=blocks.find(b=>overlapsHour_(b,nextHour));
             if(sameBlock===block) span++; else break;
           }
           const label=block.sku?itemName(block.sku):(block.note||'-');
@@ -4059,7 +4063,7 @@ function staffScheduleTimelineHTML(usernames, byUser, userMap){
       return `<tr>${nameCell}${cells.join('')}</tr>`;
     }).join('');
   }).join('');
-  return `<table style="table-layout:fixed;width:100%;min-width:1500px"><colgroup><col style="width:120px">${hours.map(()=>'<col>').join('')}</colgroup>${header}${rows}</table>`;
+  return `<table style="table-layout:fixed;width:100%;min-width:${120+hours.length*58}px"><colgroup><col style="width:120px">${hours.map(()=>'<col>').join('')}</colgroup>${header}${rows}</table>`;
 }
 async function voidProductionTransaction(logId,reason){
   if(!logId)return;
