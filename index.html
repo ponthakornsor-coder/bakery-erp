@@ -62,7 +62,7 @@ body.login-locked .app{display:none}
 <input id="loginPw" type="password" placeholder="รหัสผ่าน" autocomplete="off" onkeydown="if(event.key==='Enter')doLogin()">
 <button class="primary" onclick="doLogin()">เข้าสู่ระบบ</button>
 <div class="login-error" id="loginError"></div>
-</div></div><div class="app"><aside class="side"><div class="logo">🍪 Bakery ERP <span class="ver-badge">v9.14</span></div><div class="sub">Full web app<br>Security: API key + RM stock fix</div><div class="nav" id="nav"></div><div class="side-footer">📘 คู่มือการใช้งาน</div></aside><div class="main-wrap"><div class="topbar"><button class="icon-btn" onclick="document.querySelector('.side').classList.toggle('side-hidden')">☰</button><div class="topbar-search"><input id="topSearch" autocomplete="off" oninput="handleTopSearch()" onkeydown="topSearchKeydown(event)" placeholder="ค้นหา SKU หรือเมนู..."><div id="topSearchResults" class="topsearch-results"></div></div><div class="topbar-right"><span class="topbar-date" id="topbarDate"></span><button class="icon-btn" title="แจ้งเตือน" onclick="go('dashboard')">🔔<span class="badge" id="topbarAlertBadge" style="display:none"></span></button><button class="icon-btn" title="ตั้งค่า" onclick="go('settings')">⚙️</button><button class="icon-btn" title="ออกจากระบบ" onclick="logout()">🚪</button><div class="user-chip" onclick="go('settings')"><div class="avatar" id="userAvatar">E</div><div><div class="u-name" id="userNameChip">ERP User</div><div class="u-role" id="userRoleChip">Admin</div></div></div></div></div><main class="main" id="main"></main></div></div><div class="toast" id="toast"></div><div class="sync-overlay" id="syncOverlay"><div class="sync-overlay-card"><div class="spinner" id="syncOverlaySpinner"></div><div id="syncOverlayMsg" style="font-weight:700"></div><div id="syncOverlayResult" style="display:none"></div><span class="sync-overlay-close" id="syncOverlayClose" onclick="$('syncOverlay').style.display='none'" style="display:none">✕</span></div></div><div class="modal" id="modal"><div id="modalBody"></div></div><script>
+</div></div><div class="app"><aside class="side"><div class="logo">🍪 Bakery ERP <span class="ver-badge">v9.14</span></div><div class="sub">Full web app<br>Security: API key + RM stock fix</div><div class="nav" id="nav"></div><div class="side-footer">📘 คู่มือการใช้งาน</div></aside><div class="main-wrap"><div class="topbar"><button class="icon-btn" onclick="document.querySelector('.side').classList.toggle('side-hidden')">☰</button><div class="topbar-search"><input id="topSearch" autocomplete="off" oninput="handleTopSearch()" onkeydown="topSearchKeydown(event)" placeholder="ค้นหา SKU หรือเมนู..."><div id="topSearchResults" class="topsearch-results"></div></div><div class="topbar-right"><span class="topbar-date" id="topbarDate"></span><button class="icon-btn" title="แจ้งเตือน" onclick="go('dashboard')">🔔<span class="badge" id="topbarAlertBadge" style="display:none"></span></button><button class="icon-btn" title="ตั้งค่า" onclick="go('settings')">⚙️</button><button class="icon-btn" title="ออกจากระบบ" onclick="logout()">🚪</button><div class="user-chip" onclick="go('settings')"><div class="avatar" id="userAvatar">E</div><div><div class="u-name" id="userNameChip">ERP User</div><div class="u-role" id="userRoleChip">Admin</div></div></div></div></div><main class="main" id="main"></main></div></div><div class="toast" id="toast"></div><div class="sync-overlay" id="syncOverlay"><div class="sync-overlay-card"><div class="spinner" id="syncOverlaySpinner"></div><div id="syncOverlayMsg" style="font-weight:700"></div><div id="syncOverlayResult" style="display:none"></div><span class="sync-overlay-close" id="syncOverlayClose" onclick="forceCloseSyncOverlay()" style="display:none">✕</span></div></div><div class="modal" id="modal"><div id="modalBody"></div></div><script>
 const $ = (id) => document.getElementById(id);
 // v9.40 fix: หน้าที่มี filter แบบพิมพ์ค้นหา (oninput) เดิมเรียก re-render ทั้งหน้าทุกครั้งที่พิมพ์
 // ทำให้ input ถูกสร้างใหม่ (DOM element ใหม่) เสีย focus ไป ต้องกดกลับเข้าช่องเดิมทุกตัวอักษร
@@ -195,6 +195,16 @@ function showSyncOverlay(msg){
   $('syncOverlayMsg').style.display='block'; $('syncOverlayMsg').textContent=msg||'กำลังบันทึกเข้า Google Sheet...';
   $('syncOverlayResult').style.display='none';
   $('syncOverlayClose').style.display='none';
+  // ทางหนีทีไล่: ถ้า overlay ยังหมุนค้างเกิน 30 วิ ให้โชว์ปุ่ม ✕ ให้กดปิดเองได้ ไม่ต้องรีเฟรชทั้งหน้า
+  clearTimeout(window.__syncCloseTimer);
+  window.__syncCloseTimer=setTimeout(()=>{
+    const c=$('syncOverlayClose'), sp=$('syncOverlaySpinner');
+    if(c && sp && el.style.display==='flex' && sp.style.display==='block') c.style.display='inline-block';
+  },30000);
+}
+function forceCloseSyncOverlay(){
+  syncOverlayActive=0; // รีเซ็ตด้วย ไม่งั้น overlay ครั้งถัดไปจะไม่ยอมปิดเองเพราะนึกว่ายังมีงานค้าง
+  const el=$('syncOverlay'); if(el) el.style.display='none';
 }
 function hideSyncOverlaySuccess(msg){
   syncOverlayActive=Math.max(0,syncOverlayActive-1);
@@ -251,6 +261,10 @@ async function apiPost(body,_retriesLeft){
     const msg=String(e&&e.message||e);
     const isConnectionIssue=msg.includes('เชื่อมต่อ API ไม่ได้')||msg.includes('รอผลนานเกินไป');
     if(isConnectionIssue && _retriesLeft>0){
+      // v9.105 fix: รอบถัดไป (recursive) จะเรียก showSyncOverlay อีกครั้ง แต่จบงานทีเดียวด้วย hide ครั้งเดียว
+      // ตัวนับ syncOverlayActive เลยค้างเกินจริง → hideSyncOverlaySuccess return เร็วเพราะคิดว่ายังมีงานค้าง
+      // overlay (วงกลมหมุน) จึงค้างถาวรทั้งที่ retry สำเร็จแล้ว ต้องคืนตัวนับของรอบที่ล้มเหลวก่อน retry
+      syncOverlayActive=Math.max(0,syncOverlayActive-1);
       await new Promise(r=>setTimeout(r,1500));
       return apiPost(body,_retriesLeft-1);
     }
