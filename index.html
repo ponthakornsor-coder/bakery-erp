@@ -3201,7 +3201,7 @@ function orderShortEditor(arr){let date=$('orderDate')?.value||todayISO(); if(!a
 function orderDayHistory(){let arr=(db.orderDays||[]).slice().sort((a,b)=>String(b.date).localeCompare(String(a.date))).slice(0,20); if(!arr.length)return '<p class="hint">ยังไม่มีข้อมูล Order</p>'; return `<table><tr><th>วันที่</th><th>Order</th><th>ส่งสำเร็จ</th><th>ไม่สำเร็จ</th><th>รายการขาด</th><th>หมายเหตุ</th></tr>${arr.map(x=>`<tr><td>${x.date}</td><td>${roundDisplay(+x.total||0)}</td><td>${roundDisplay(+x.shipped||0)}</td><td>${roundDisplay(Math.max(0,(+x.total||0)-(+x.shipped||0)))}</td><td>${(x.shortages||[]).map(s=>`${s.sku} ${roundDisplay(s.qty)}`).join('<br>')}</td><td>${x.note||''}</td></tr>`).join('')}</table>`}
 function esc(v){return String(v??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('"','&quot;')}
 function bom(m){m.innerHTML=head('BOM / สูตร','ตั้งสูตรต่อ 1 ชิ้น/1 ถุง/1 กระปุก ตามหน่วยที่คุณใช้')+`<div class="toolbar row3"><select id="bprod" onchange="bom($('main'))">${productOptions($('bprod')?.value||'')}</select><select id="bsku" onchange="bom($('main'))">${itemOptions($('bprod')?.value||'',$('bsku')?.value||db.items[0]?.sku)}</select><button class="primary" onclick="addBomLine()">เพิ่ม RM ในสูตร</button></div><div class="box">${bomEditor($('bsku')?.value||db.items[0]?.sku)}</div>`}
-function bomEditor(sku){let lines=db.bom[sku]||[]; return `<h2>${sku}</h2><p class="hint">"ใช้ตอนผลิต" = วัตถุดิบที่ตัดตอนผสม/ผลิต (ตัดเข้า WIP) — "ใช้ตอนแพ็ค" = PM เช่นสติกเกอร์/ถุง ที่ตัดตอนแพ็ค (WIP→FG) คิดต่อ 1 หน่วยเสมอ ไม่เกี่ยวกับ Batch</p><table><tr><th>RM / PM</th><th>Qty ต่อ 1 หน่วย</th><th>หน่วย</th><th>ขั้นตอน</th><th></th></tr>${lines.map((l,i)=>{let r=db.rm.find(x=>x.sku==l.sku)||{};return `<tr><td><select onchange="db.bom['${sku}'][${i}].sku=this.value;saveLocalOnly();render();saveBomDirect('${sku}')">${rmOptions(l.sku)}</select></td><td><input type="number" value="${roundNum(l.qty)}" onchange="db.bom['${sku}'][${i}].qty=+this.value;saveLocalOnly();render();saveBomDirect('${sku}')"></td><td>${r.unit||''}</td><td><select onchange="db.bom['${sku}'][${i}].stage=this.value;saveLocalOnly();render();saveBomDirect('${sku}')"><option value="Production" ${(l.stage||'Production')==='Production'?'selected':''}>ใช้ตอนผลิต (RM)</option><option value="Packing" ${l.stage==='Packing'?'selected':''}>ใช้ตอนแพ็ค (PM)</option></select></td><td><button class="small" onclick="db.bom['${sku}'].splice(${i},1);saveLocalOnly();render();saveBomDirect('${sku}')">ลบ</button></td></tr>`}).join('')}</table>`}
+function bomEditor(sku){let lines=db.bom[sku]||[]; return `<h2>${sku}</h2><p style="margin:0 0 10px"><button class="small" onclick="productionDetailModal('${sku}')">📋 ดูสูตร + ขั้นตอนการผลิต (${prodStepsOf_(sku).length} ขั้นตอน)</button></p><p class="hint">"ใช้ตอนผลิต" = วัตถุดิบที่ตัดตอนผสม/ผลิต (ตัดเข้า WIP) — "ใช้ตอนแพ็ค" = PM เช่นสติกเกอร์/ถุง ที่ตัดตอนแพ็ค (WIP→FG) คิดต่อ 1 หน่วยเสมอ ไม่เกี่ยวกับ Batch</p><table><tr><th>RM / PM</th><th>Qty ต่อ 1 หน่วย</th><th>หน่วย</th><th>ขั้นตอน</th><th></th></tr>${lines.map((l,i)=>{let r=db.rm.find(x=>x.sku==l.sku)||{};return `<tr><td><select onchange="db.bom['${sku}'][${i}].sku=this.value;saveLocalOnly();render();saveBomDirect('${sku}')">${rmOptions(l.sku)}</select></td><td><input type="number" value="${roundNum(l.qty)}" onchange="db.bom['${sku}'][${i}].qty=+this.value;saveLocalOnly();render();saveBomDirect('${sku}')"></td><td>${r.unit||''}</td><td><select onchange="db.bom['${sku}'][${i}].stage=this.value;saveLocalOnly();render();saveBomDirect('${sku}')"><option value="Production" ${(l.stage||'Production')==='Production'?'selected':''}>ใช้ตอนผลิต (RM)</option><option value="Packing" ${l.stage==='Packing'?'selected':''}>ใช้ตอนแพ็ค (PM)</option></select></td><td><button class="small" onclick="db.bom['${sku}'].splice(${i},1);saveLocalOnly();render();saveBomDirect('${sku}')">ลบ</button></td></tr>`}).join('')}</table>`}
 function addBomLine(){let sku=$('bsku').value; db.bom[sku]=db.bom[sku]||[]; db.bom[sku].push({sku:db.rm[0].sku,qty:0,stage:'Production'}); saveLocalOnly(); render(); saveBomDirect(sku)}
 function openBom(sku){page='bom'; render(); setTimeout(()=>{if($('bsku')){$('bsku').value=sku; bom($('main'))}},0)}
 function bomText(sku){let b=db.bom[sku]||[]; return b.length?`${b.length} ส่วนผสม`:'ยังไม่ได้ตั้ง BOM'}
@@ -3556,6 +3556,14 @@ function fromSheetData(data){
   db.b2bOrderItems=(data.b2bOrderItems||[]).map(i=>({orderId:i.OrderID||'',sku:String(i.SKU||''),qty:+i.Qty||0,remark:i.Remark||''})).filter(x=>x.orderId);
   db.supplierRm=(data.supplierRm||[]).map(x=>({supplierId:x.SupplierID||'',rmCode:String(x.RMCode||'')})).filter(x=>x.supplierId&&x.rmCode);
   db.dashboard=(data.dashboard&&data.dashboard.length)?data.dashboard:(db.dashboard||[]);
+  // v9.107: ขั้นตอนการผลิตต่อสินค้า {sku:[{name,detail,minutes}]} เรียงตามลำดับ (ไม่มีคีย์นี้ในคำตอบ = เก็บของเดิมไว้)
+  if(Array.isArray(data.productionSteps)){
+    db.productionSteps={};
+    data.productionSteps.slice().sort((a,b)=>(+a.StepNo||0)-(+b.StepNo||0)).forEach(r=>{
+      const k=String(r.SKU||''); if(!k||!String(r.StepName||'').trim()) return;
+      (db.productionSteps[k]=db.productionSteps[k]||[]).push({name:String(r.StepName||''),detail:String(r.Detail||''),minutes:+r.Minutes||0});
+    });
+  }
   // v9.104: ตารางงานพนักงาน (อ้างอิงเท่านั้น ไม่ผูกกับ Production Order/Kiosk)
   db.staffSchedule=(data.staffSchedule||[]).map(r=>({id:r.ScheduleID||'',username:r.Username||'',date:dateISO(r.Date)||String(r.Date||''),startTime:normStaffTime_(r.StartTime),endTime:normSchedEnd_(normStaffTime_(r.EndTime)),sku:r.SKU||'',note:r.Note||''})).filter(x=>x.id);
   db.remote=db.remote||{}; db.remote.lastApiSync=now();
@@ -3875,7 +3883,7 @@ function staffSchedulePage(m){
       <input id="ssDateSel" type="date" value="${date}" onchange="staffScheduleDateChanged()">
       <span></span>
     </div></div>`:'<div class="box"><p class="hint">ยังไม่มีพนักงานที่เปิดใช้งานในระบบ</p></div>')+
-    `<div class="box"><h2>ตารางงานที่ตั้งไว้แล้ว (${existing.length})</h2>${existing.length?`<table><tr><th>เวลา</th><th>งาน</th><th>หมายเหตุ</th><th></th></tr>${existing.map(s=>`<tr><td><b>${escHTML(s.startTime)} - ${escHTML(s.endTime)}</b></td><td>${s.sku?escHTML(itemName(s.sku))+' ('+escHTML(s.sku)+')':'<span class="mini">-</span>'}</td><td>${escHTML(s.note||'-')}</td><td class="actions"><button class="small" onclick="editStaffScheduleModal('${s.id}')">แก้ไข</button> <button class="small danger" onclick="deleteStaffScheduleAction('${s.id}')">ลบ</button></td></tr>`).join('')}</table>`:'<p class="hint">ยังไม่มีตารางงานสำหรับวันนี้</p>'}</div>`+
+    `<div class="box"><h2>ตารางงานที่ตั้งไว้แล้ว (${existing.length})</h2>${existing.length?`<table><tr><th>เวลา</th><th>งาน</th><th>หมายเหตุ</th><th></th></tr>${existing.map(s=>`<tr><td><b>${escHTML(s.startTime)} - ${escHTML(s.endTime)}</b></td><td>${s.sku?escHTML(itemName(s.sku))+' ('+escHTML(s.sku)+')':'<span class="mini">-</span>'}</td><td>${escHTML(s.note||'-')}</td><td class="actions">${s.sku?`<button class="small" data-sku="${escHTML(s.sku)}" data-sid="${escHTML(s.id)}" onclick="productionDetailFromEl(this)">สูตร/ขั้นตอน</button> `:''}<button class="small" onclick="editStaffScheduleModal('${s.id}')">แก้ไข</button> <button class="small danger" onclick="deleteStaffScheduleAction('${s.id}')">ลบ</button></td></tr>`).join('')}</table>`:'<p class="hint">ยังไม่มีตารางงานสำหรับวันนี้</p>'}</div>`+
     `<div class="box"><h2>เพิ่มช่วงเวลาใหม่</h2><p class="hint" style="margin-top:0">ใช้เวลาแบบ 24 ชั่วโมง — ถ้าจบที่เที่ยงคืนให้เลือกเวลาจบ 24:00 (เลือก 00:00 ก็ถือว่าเที่ยงคืนเหมือนกัน) · กด "+ เพิ่มช่วงเวลา" แล้วเวลาเริ่มจะต่อจากเวลาจบของแถวก่อนหน้าให้เอง (แก้ได้)</p><div id="ssBlockRows">${staffScheduleBlocks.map((b,i)=>staffScheduleBlockRowHTML(b,i)).join('')}</div>
       <button class="ghost" onclick="addStaffScheduleBlockRow()" style="margin-top:8px">+ เพิ่มช่วงเวลา</button>
       <div style="margin-top:12px"><button class="primary" onclick="saveStaffScheduleAction()">บันทึกตารางงาน</button></div>
@@ -3998,6 +4006,122 @@ async function deleteStaffScheduleAction(scheduleId){
     sheetDone('ลบแล้ว');
   }catch(e){console.error(e); alertModal('ลบไม่สำเร็จ: '+(e.message||e));}
 }
+// ===== รายละเอียดการผลิต (สูตร + ขั้นตอน + เวลา) — กดจากช่วงงานในภาพรวมตารางงาน / รายการตารางงาน / หน้า BOM =====
+function prodStepsOf_(sku){ return (db.productionSteps&&db.productionSteps[sku])||[]; }
+function fmtMinutes_(min){ min=Math.round(+min||0); const h=Math.floor(min/60), m=min%60; return h?(m?h+' ชม. '+m+' นาที':h+' ชม.'):m+' นาที'; }
+function ssMinToTime_(min){ min=Math.round(+min||0); if(min===1440) return '24:00'; min=((min%1440)+1440)%1440; return String(Math.floor(min/60)).padStart(2,'0')+':'+String(min%60).padStart(2,'0'); }
+function productionDetailFromEl(el){ productionDetailModal(el.dataset.sku||'', el.dataset.sid||''); }
+function productionDetailModal(sku, scheduleId){
+  sku=String(sku||''); if(!sku) return;
+  const blk=scheduleId?(db.staffSchedule||[]).find(x=>x.id===scheduleId):null;
+  const yieldN=getBatchYield(sku);
+  const bomLines=(db.bom&&db.bom[sku])||[];
+  const prodLines=bomLines.filter(l=>(l.stage||'Production')==='Production');
+  const packLines=bomLines.filter(l=>l.stage==='Packing');
+  const rmRow=l=>{ const r=(db.rm||[]).find(x=>String(x.sku)===String(l.sku))||{}; return `<tr><td>${escHTML(r.name||l.sku)}<div class="mini">${escHTML(l.sku)}</div></td><td style="text-align:right"><b>${roundDisplay(l.qty)}</b></td><td>${escHTML(l.unit||r.unit||'')}</td></tr>`; };
+  const steps=prodStepsOf_(sku);
+  const total=steps.reduce((a,s)=>a+(+s.minutes||0),0);
+  const blkMin=blk?Math.max(0,timeToMin_(normSchedEnd_(blk.endTime))-timeToMin_(blk.startTime)):0;
+  const who=blk?(((typeof cachedUserList!=='undefined'&&cachedUserList)||[]).find(u=>u.username===blk.username)||{}).displayName||blk.username:'';
+  const blkStartMin=blk?timeToMin_(blk.startTime):0;
+  let cum=0;
+  const stepRows=steps.map((s,i)=>{
+    const from=cum; cum+=(+s.minutes||0);
+    const clock=blk&&s.minutes?`<div class="mini" style="${blkStartMin+cum>blkStartMin+blkMin?'color:#b45309;font-weight:700':''}">${ssMinToTime_(blkStartMin+from)}–${ssMinToTime_(blkStartMin+cum)}</div>`:'';
+    return `<tr><td style="vertical-align:top">${i+1}</td><td style="vertical-align:top"><b>${escHTML(s.name)}</b>${s.detail?`<div class="mini" style="white-space:pre-wrap;margin-top:3px">${escHTML(s.detail)}</div>`:''}</td><td style="text-align:right;vertical-align:top;white-space:nowrap">${s.minutes?escHTML(s.minutes)+' นาที':'-'}${clock}</td></tr>`;
+  }).join('');
+  let verdict='';
+  if(blk && total>0 && blkMin>0){
+    verdict=total<=blkMin
+      ?`<p class="hint" style="margin:8px 0 0">ช่วงเวลาที่จัดไว้ ${fmtMinutes_(blkMin)} ทำได้ประมาณ <b>${Math.floor(blkMin/total)} Batch</b> (≈ ${Math.floor(blkMin/total)*yieldN} ชิ้น) ถ้าทำต่อเนื่องไม่มีช่องว่าง</p>`
+      :`<p class="hint" style="margin:8px 0 0;color:#b45309"><b>⚠ ขั้นตอนรวมนานกว่าช่วงเวลาที่จัดไว้</b> (ต้องใช้ ${fmtMinutes_(total)} แต่จัดไว้ ${fmtMinutes_(blkMin)}) ทำไม่ทัน 1 Batch</p>`;
+  }
+  const canEdit=isAdmin()&&!VIEWER_ONLY;
+  modal(`<h2 style="margin-bottom:2px">${escHTML(itemName(sku)||sku)}</h2>
+    <p class="hint" style="margin-top:0">${escHTML(sku)}${(()=>{const it=(db.items||[]).find(x=>String(x.sku)===sku); return it&&it.product?' · '+escHTML(it.product):'';})()}</p>
+    ${blk?`<div class="box" style="margin:10px 0;padding:12px 14px">👤 <b>${escHTML(who)}</b> · ⏰ <b>${escHTML(blk.startTime)} - ${escHTML(blk.endTime)}</b> (${fmtMinutes_(blkMin)})${blk.note?`<div class="mini" style="margin-top:4px">หมายเหตุ: ${escHTML(blk.note)}</div>`:''}</div>`:''}
+    <h3 style="margin:14px 0 4px">🧾 สูตรการผลิต</h3>
+    ${prodLines.length?`<p class="hint" style="margin:0 0 6px">${yieldN>1?`สูตรต่อ 1 Batch → ได้ ${yieldN} ชิ้น`:'สูตรต่อ 1 ชิ้น'}</p><table><tr><th>ส่วนผสม</th><th style="text-align:right">ปริมาณ</th><th>หน่วย</th></tr>${prodLines.map(rmRow).join('')}</table>`:'<p class="hint">ยังไม่ได้ตั้งสูตร (BOM) ของสินค้านี้</p>'}
+    ${packLines.length?`<p class="hint" style="margin:10px 0 6px">วัสดุแพ็ค (ต่อ 1 ชิ้น)</p><table><tr><th>วัสดุ</th><th style="text-align:right">ปริมาณ</th><th>หน่วย</th></tr>${packLines.map(rmRow).join('')}</table>`:''}
+    <h3 style="margin:16px 0 4px">⏱ ขั้นตอนการผลิต</h3>
+    ${steps.length?`<p class="hint" style="margin:0 0 6px">เวลาต่อ 1 Batch${blk?' · เวลาใต้จำนวนนาทีคือเวลาโดยประมาณถ้าเริ่มตามช่วงที่จัดไว้':''}</p><table><tr><th style="width:34px">#</th><th>ขั้นตอน</th><th style="text-align:right">เวลา</th></tr>${stepRows}<tr><td></td><td style="text-align:right"><b>รวม</b></td><td style="text-align:right;white-space:nowrap"><b>${fmtMinutes_(total)}</b></td></tr></table>${verdict}`:`<p class="hint">ยังไม่ได้ตั้งขั้นตอนการผลิตของสินค้านี้${canEdit?' — กดปุ่มด้านล่างเพื่อเพิ่ม':''}</p>`}
+    <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
+      ${canEdit?`<button class="primary" data-sku="${escHTML(sku)}" data-sid="${escHTML(scheduleId||'')}" onclick="editProductionStepsFromEl(this)">✏️ ${steps.length?'แก้ไข':'เพิ่ม'}ขั้นตอนการผลิต</button><button class="ghost" onclick="$('modal').style.display='none';openBom('${escHTML(sku)}')">ไปหน้า BOM</button>`:''}
+      <button class="ghost" onclick="$('modal').style.display='none'">ปิด</button>
+    </div>`);
+}
+let prodStepsDraft_=[], prodStepsEditSku_='', prodStepsEditSched_='';
+function editProductionStepsFromEl(el){ editProductionStepsModal(el.dataset.sku||'', el.dataset.sid||''); }
+function editProductionStepsModal(sku, scheduleId){
+  prodStepsEditSku_=sku; prodStepsEditSched_=scheduleId||'';
+  prodStepsDraft_=prodStepsOf_(sku).map(s=>({name:s.name,detail:s.detail,minutes:s.minutes}));
+  if(!prodStepsDraft_.length) prodStepsDraft_=[{name:'',detail:'',minutes:''}];
+  renderProdStepsEditor_();
+}
+function prodStepRowHTML_(s,i){
+  return `<div class="psRow" style="border:1px solid var(--line);border-radius:12px;padding:8px;margin-bottom:8px;background:#fff">
+    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+      <b style="width:24px">${i+1}.</b>
+      <input class="psName" placeholder="ชื่อขั้นตอน เช่น ผสมแป้ง" value="${escHTML(s.name)}" style="flex:1;min-width:150px">
+      <input class="psMin" type="number" min="0" max="1440" step="1" placeholder="นาที" value="${escHTML(s.minutes)}" oninput="updateProdStepsTotal_()" style="width:84px">
+      <button class="ghost" onclick="moveProdStep(${i},-1)" ${i===0?'disabled':''} aria-label="เลื่อนขึ้น">↑</button><button class="ghost" onclick="moveProdStep(${i},1)" ${i===prodStepsDraft_.length-1?'disabled':''} aria-label="เลื่อนลง">↓</button><button class="ghost" onclick="removeProdStep(${i})">ลบ</button>
+    </div>
+    <textarea class="psDetail" rows="2" placeholder="รายละเอียด/วิธีทำ (ไม่บังคับ)" style="margin-top:6px;font-size:14px">${escHTML(s.detail)}</textarea>
+  </div>`;
+}
+function renderProdStepsEditor_(){
+  const sku=prodStepsEditSku_;
+  const others=Object.keys(db.productionSteps||{}).filter(k=>k!==sku&&prodStepsOf_(k).length).sort((a,b)=>String(itemName(a)||a).localeCompare(String(itemName(b)||b)));
+  modal(`<h2 style="margin-bottom:2px">ขั้นตอนการผลิต: ${escHTML(itemName(sku)||sku)}</h2>
+    <p class="hint" style="margin-top:0">ใส่ขั้นตอนตามลำดับ พร้อมเวลาที่ใช้ต่อ 1 Batch (นาที) — ระบบจะรวมเวลาและคำนวณเวลาเริ่มของแต่ละขั้นตอนให้ในหน้าตารางงาน</p>
+    ${others.length?`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px"><select id="psCopyFrom" style="flex:1;min-width:200px"><option value="">คัดลอกขั้นตอนจากสินค้าอื่น...</option>${others.map(k=>`<option value="${escHTML(k)}">${escHTML(itemName(k)||k)} (${prodStepsOf_(k).length} ขั้นตอน)</option>`).join('')}</select><button class="ghost" onclick="copyProdStepsFrom()">คัดลอกมาต่อท้าย</button></div>`:''}
+    <div id="psRows">${prodStepsDraft_.map((s,i)=>prodStepRowHTML_(s,i)).join('')}</div>
+    <button class="ghost" onclick="addProdStepRow()">+ เพิ่มขั้นตอน</button>
+    <p class="hint" id="psTotal" style="margin:10px 0"></p>
+    <button class="primary" onclick="saveProdSteps()">บันทึก</button> <button class="ghost" onclick="productionDetailModal(prodStepsEditSku_,prodStepsEditSched_)">ยกเลิก</button>`);
+  updateProdStepsTotal_();
+}
+function syncProdStepsDraft_(){
+  const rows=[...document.querySelectorAll('#psRows .psRow')];
+  if(!rows.length) return;
+  prodStepsDraft_=rows.map(r=>({name:r.querySelector('.psName').value, detail:r.querySelector('.psDetail').value, minutes:r.querySelector('.psMin').value}));
+}
+function updateProdStepsTotal_(){
+  const el=document.getElementById('psTotal'); if(!el) return;
+  const t=[...document.querySelectorAll('#psRows .psMin')].reduce((a,i)=>a+(+i.value||0),0);
+  el.textContent='เวลารวมต่อ 1 Batch: '+fmtMinutes_(t);
+}
+function addProdStepRow(){ syncProdStepsDraft_(); prodStepsDraft_.push({name:'',detail:'',minutes:''}); renderProdStepsEditor_(); }
+function removeProdStep(i){ syncProdStepsDraft_(); prodStepsDraft_.splice(i,1); if(!prodStepsDraft_.length) prodStepsDraft_=[{name:'',detail:'',minutes:''}]; renderProdStepsEditor_(); }
+function moveProdStep(i,d){ syncProdStepsDraft_(); const j=i+d; if(j<0||j>=prodStepsDraft_.length) return; const t=prodStepsDraft_[i]; prodStepsDraft_[i]=prodStepsDraft_[j]; prodStepsDraft_[j]=t; renderProdStepsEditor_(); }
+function copyProdStepsFrom(){
+  syncProdStepsDraft_();
+  const from=document.getElementById('psCopyFrom')?.value||''; if(!from) return toast('เลือกสินค้าที่จะคัดลอกขั้นตอนมาก่อน');
+  const copied=prodStepsOf_(from).map(s=>({name:s.name,detail:s.detail,minutes:s.minutes}));
+  const blank=prodStepsDraft_.every(s=>!s.name.trim()&&!s.detail.trim()&&String(s.minutes).trim()==='');
+  prodStepsDraft_=blank?copied:prodStepsDraft_.concat(copied);
+  renderProdStepsEditor_();
+}
+async function saveProdSteps(){
+  syncProdStepsDraft_();
+  const sku=prodStepsEditSku_, steps=[];
+  for(let i=0;i<prodStepsDraft_.length;i++){
+    const s=prodStepsDraft_[i], name=s.name.trim(), detail=s.detail.trim(), minRaw=String(s.minutes).trim();
+    if(!name&&!detail&&minRaw==='') continue; // แถวว่าง
+    if(!name) return toast('ขั้นตอนที่ '+(i+1)+' ยังไม่ได้ใส่ชื่อ');
+    const minutes=minRaw===''?0:+minRaw;
+    if(!isFinite(minutes)||minutes<0||minutes>1440) return toast('ขั้นตอนที่ '+(i+1)+': เวลาต้องอยู่ระหว่าง 0-1440 นาที');
+    steps.push({name,detail,minutes});
+  }
+  toast('กำลังบันทึก...');
+  try{
+    await apiPost({action:'saveproductionsteps',data:{sku,steps}});
+    db.productionSteps=db.productionSteps||{};
+    if(steps.length) db.productionSteps[sku]=steps; else delete db.productionSteps[sku];
+    productionDetailModal(sku, prodStepsEditSched_);
+    sheetDone('บันทึกขั้นตอนการผลิตแล้ว');
+  }catch(e){console.error(e); alertModal('บันทึกไม่สำเร็จ: '+(e.message||e));}
+}
 let staffDashboardDate='';
 function staffScheduleDashboardPage(m){
   m.innerHTML='<p class="hint">กำลังโหลด...</p>';
@@ -4009,7 +4133,7 @@ function staffScheduleDashboardPage(m){
     const byUser={};
     dayBlocks.forEach(s=>{ (byUser[s.username]=byUser[s.username]||[]).push(s); });
     const usernames=Object.keys(byUser).sort((a,b)=>(userMap[a]||a).localeCompare(userMap[b]||b));
-    m.innerHTML=head('ภาพรวมตารางงานพนักงาน','ดูว่าพนักงานแต่ละคนควรทำอะไรช่วงเวลาไหนของวันที่เลือก (ตารางแผนที่ตั้งไว้ ไม่ใช่สถานะจริงจาก Kiosk)')+
+    m.innerHTML=head('ภาพรวมตารางงานพนักงาน','ดูว่าพนักงานแต่ละคนควรทำอะไรช่วงเวลาไหนของวันที่เลือก (ตารางแผนที่ตั้งไว้ ไม่ใช่สถานะจริงจาก Kiosk) · กดที่ช่วงงานเพื่อดูสูตร ขั้นตอน และเวลาที่ใช้')+
     `<div class="box"><input id="ssdDateSel" type="date" value="${date}" onchange="staffDashboardDateChanged()"></div>`+
     `<div class="box"><div style="overflow-x:auto">${usernames.length?staffScheduleTimelineHTML(usernames, byUser, userMap):'<p class="hint">ยังไม่มีตารางงานที่ตั้งไว้สำหรับวันนี้</p>'}</div>${usernames.length?staffScheduleLegendHTML_(usernames, byUser):''}</div>`;
   });
@@ -4051,8 +4175,9 @@ function staffScheduleTimelineHTML(usernames, byUser, userMap){
           }
           const label=block.sku?itemName(block.sku):(block.note||'-');
           const bg=block.sku?colorOf[block.sku]:'#64748b';
-          const tip=label+(block.sku?' ('+block.sku+')':'')+'\n'+block.startTime+' - '+block.endTime+((block.sku&&block.note)?'\nหมายเหตุ: '+block.note:'');
-          cells.push(`<td colspan="${span}" title="${escHTML(tip)}" style="background:${bg};color:#fff;font-weight:700;text-align:center;font-size:12px;line-height:1.25;padding:6px 4px;border:1px solid #fff;word-break:break-word">${escHTML(label)}</td>`);
+          const tip=label+(block.sku?' ('+block.sku+')':'')+'\n'+block.startTime+' - '+block.endTime+((block.sku&&block.note)?'\nหมายเหตุ: '+block.note:'')+(block.sku?'\n(กดเพื่อดูสูตร / ขั้นตอน / เวลา)':'');
+          const clickAttrs=block.sku?` data-sku="${escHTML(block.sku)}" data-sid="${escHTML(block.id||'')}" onclick="productionDetailFromEl(this)"`:'';
+          cells.push(`<td colspan="${span}" title="${escHTML(tip)}"${clickAttrs} style="${block.sku?'cursor:pointer;':''}background:${bg};color:#fff;font-weight:700;text-align:center;font-size:12px;line-height:1.25;padding:6px 4px;border:1px solid #fff;word-break:break-word">${escHTML(label)}</td>`);
           h+=span;
         } else {
           cells.push('<td style="border:1px solid var(--line)"></td>');
