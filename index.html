@@ -3050,7 +3050,7 @@ function yieldInfo(p){
   const pct=(+p.actualQty/expected*100);
   return {pct,expected,actual:+p.actualQty,cls:pct>=98?'good':(pct>=90?'':'danger')};
 }
-function poTable(arr){if(!arr.length)return '<p class="hint">ยังไม่มีงาน</p>'; return `<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px"><label style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" id="poAssignSelectAll" onchange="toggleAllPOAssign(this.checked)" style="width:20px;height:20px"> เลือกทั้งหมด</label><button class="primary" onclick="assignPOPromptBulk()">มอบหมายที่เลือก</button><button class="danger" onclick="cancelPOBulk()">ยกเลิกที่เลือกทั้งหมด</button></div><table><tr><th style="width:36px"></th><th>เวลา</th><th>PO</th><th>SKU</th><th>จำนวน</th><th>Yield</th><th>มอบหมาย</th><th>สถานะ</th><th>เวลาที่ใช้ผลิต</th><th>RM ที่ต้องใช้</th><th></th></tr>${arr.map(p=>{
+function poTable(arr){if(!arr.length)return '<p class="hint">ยังไม่มีงาน</p>'; return `<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px"><label style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" id="poAssignSelectAll" onchange="toggleAllPOAssign(this.checked)" style="width:20px;height:20px"> เลือกทั้งหมด</label><button class="primary" onclick="assignPOPromptBulk()">มอบหมายที่เลือก</button><button class="ghost" onclick="printWorkOrdersSelected()">🖨 พิมพ์ WO ที่เลือก</button><button class="danger" onclick="cancelPOBulk()">ยกเลิกที่เลือกทั้งหมด</button></div><table><tr><th style="width:36px"></th><th>เวลา</th><th>PO</th><th>SKU</th><th>จำนวน</th><th>Yield</th><th>มอบหมาย</th><th>สถานะ</th><th>เวลาที่ใช้ผลิต</th><th>RM ที่ต้องใช้</th><th></th></tr>${arr.map(p=>{
   const hasActual=p.actualQty!==undefined&&p.actualQty!==''&&p.actualQty!==null;
   const qtyDisplay=hasActual&&+p.actualQty!==+p.qty
     ? `สั่ง ${roundDisplay(p.qty)} / <b class="${+p.actualQty>+p.qty?'good':'danger'}">ผลิตจริง ${roundDisplay(p.actualQty)}</b>`
@@ -3120,7 +3120,98 @@ function poActions(p){
   let id=p.id;
   if(['Completed','Cancelled'].includes(p.status)) return '';
   const completeBtn=p.status=='Open'?`<button class="small" onclick="completePO('${id}')">Complete</button>`:'';
-  return completeBtn+`<button class="small danger" onclick="cancelPO('${id}')">Cancel</button>`;
+  return `<button class="small" onclick="printWorkOrders(['${id}'])">🖨 WO</button>`+completeBtn+`<button class="small danger" onclick="cancelPO('${id}')">Cancel</button>`;
+}
+// ===== ใบสั่งผลิต (Work Order / WO): พิมพ์ติดรถวัตถุดิบแล้วส่งไปที่ Station =====
+// 1) วัตถุดิบอะไรเท่าไร (BOM × จำนวน Batch ของ PO)  2) ขั้นตอน + เวลา  3) ผลิตจำนวนเท่าไร  — ใช้เลข PO เป็นเลข WO
+const WO_PAPER_KEY='bakery_wo_paper';
+let woPrintHTML_='', woPrintCount_=0;
+function woPaper_(){ try{ return localStorage.getItem(WO_PAPER_KEY)==='A5'?'A5':'A4'; }catch(e){ return 'A4'; } }
+function woStationName_(p){ const s=(db.stations||[]).find(x=>x.id===p.stationId); return s?(s.name||s.id):''; }
+// จำนวน Batch ของ PO: ใช้ค่าที่วางแผนไว้ตอนสั่งผลิต ถ้าไม่มีให้คิดจากจำนวน ÷ Batch Yield (ตรงกับที่ reqText / ตัด RM ใช้)
+function woNum_(n){ return String(Math.round((+n||0)*100)/100); }
+function woBatches_(p){ const b=(p.batches!==''&&p.batches!==undefined&&p.batches!==null)?+p.batches:0; return b>0?b:(+p.qty||0)/getBatchYield(p.sku); }
+function woHTML_(p){
+  const it=(db.items||[]).find(x=>String(x.sku)===String(p.sku))||{};
+  const yieldN=getBatchYield(p.sku), batches=woBatches_(p), qty=+p.qty||0;
+  const bom=(db.bom&&db.bom[p.sku])||[];
+  const prodLines=bom.filter(l=>(l.stage||'Production')==='Production');
+  const packLines=bom.filter(l=>l.stage==='Packing');
+  const steps=prodStepsOf_(p.sku), stepTotal=steps.reduce((a,s)=>a+(+s.minutes||0),0);
+  const station=woStationName_(p);
+  const who=p.assignedTo?((((typeof cachedUserList!=='undefined'&&cachedUserList)||[]).find(u=>u.username===p.assignedTo)||{}).displayName||p.assignedTo):'';
+  const matRow=(l,mult)=>{ const r=(db.rm||[]).find(x=>String(x.sku)===String(l.sku))||{}; return `<tr><td class="c"><i class="woBox"></i></td><td>${escHTML(r.name||l.sku)}<div class="s">${escHTML(l.sku)}</div></td><td class="r">${roundDisplay(l.qty)}</td><td class="r"><b>${roundDisplay((+l.qty||0)*mult)}</b></td><td>${escHTML(l.unit||r.unit||'')}</td></tr>`; };
+  const matHead=(per,first)=>`<tr><th style="width:30px"></th><th>${first||'วัตถุดิบ'}</th><th class="r" style="width:84px">${per}</th><th class="r" style="width:104px">รวมที่ต้องใช้</th><th style="width:56px">หน่วย</th></tr>`;
+  const perLabel=yieldN>1?'ต่อ 1 Batch':'ต่อ 1 ชิ้น';
+  const stepRows=steps.map((s,i)=>`<tr><td class="c">${i+1}</td><td><b>${escHTML(s.name)}</b>${s.detail?`<div class="s" style="white-space:pre-wrap">${escHTML(s.detail)}</div>`:''}</td><td class="r">${s.minutes?escHTML(s.minutes):'-'}</td><td class="c"><i class="woBox"></i></td></tr>`).join('');
+  return `<section class="wo">
+    <div class="woHead"><div><div class="woTitle">ใบสั่งผลิต (WORK ORDER)</div><div class="s">พิมพ์เมื่อ ${escHTML(now())}</div></div><div class="woNo">${escHTML(p.id)}</div></div>
+    <div class="woStation"><span>STATION: ${escHTML(station||'ไม่ระบุ')}</span><span class="woCart">รถวัตถุดิบคันที่ ______</span></div>
+    <div class="woProd">${it.imageUrl?`<img src="${escHTML(it.imageUrl)}" alt="" onerror="this.style.display='none'">`:''}<div><div class="woProdName">${escHTML(itemName(p.sku)||p.sku)}</div><div class="s">${escHTML(p.sku)}${it.product?' · '+escHTML(it.product):''}</div></div>
+      <div class="woQty"><div>ผลิต</div><b>${roundDisplay(qty)}</b> ชิ้น${yieldN>1?`<div>${woNum_(batches)} Batch × ${yieldN} ชิ้น</div>`:''}</div></div>
+    <div class="s" style="margin:6px 0 0">สั่งเมื่อ ${escHTML(p.time||'-')}${who?' · ผู้รับผิดชอบ <b>'+escHTML(who)+'</b>':''}${p.remark?' · หมายเหตุ: '+escHTML(p.remark):''}</div>
+    <h3>1. วัตถุดิบที่ใช้${yieldN>1?` (สูตรต่อ 1 Batch × ${woNum_(batches)} Batch)`:` (× ${roundDisplay(qty)} ชิ้น)`}</h3>
+    ${prodLines.length?`<table>${matHead(perLabel)}${prodLines.map(l=>matRow(l,batches)).join('')}</table>`:'<p class="s">ยังไม่ได้ตั้งสูตร (BOM) ของสินค้านี้</p>'}
+    ${packLines.length?`<div class="s" style="margin:8px 0 3px"><b>วัสดุแพ็ค</b> (ใช้ตอนแพ็ค ต่อ 1 ชิ้น × ${roundDisplay(qty)} ชิ้น)</div><table>${matHead('ต่อ 1 ชิ้น','วัสดุแพ็ค')}${packLines.map(l=>matRow(l,qty)).join('')}</table>`:''}
+    <h3>2. ขั้นตอนการผลิต${steps.length?` <span class="s">(เวลาต่อ 1 Batch รวม ${escHTML(fmtMinutes_(stepTotal))})</span>`:''}</h3>
+    ${steps.length?`<table><tr><th style="width:30px">#</th><th>ขั้นตอน</th><th class="r" style="width:84px">เวลา (นาที)</th><th style="width:56px" class="c">เสร็จ</th></tr>${stepRows}</table>`:'<p class="s">ยังไม่ได้ตั้งขั้นตอนการผลิตของสินค้านี้</p>'}
+    <h3>3. จำนวนที่ผลิต</h3>
+    <table><tr><td style="width:34%">สั่งผลิต<br><b class="big">${roundDisplay(qty)} ชิ้น</b>${yieldN>1?`<div class="s">${woNum_(batches)} Batch</div>`:''}</td><td>ผลิตได้จริง ______________ ชิ้น<br><br>ผสมจริง ______________ Batch</td><td style="width:30%">เริ่ม ____:____<br><br>เสร็จ ____:____</td></tr></table>
+    <div class="woSign"><div>ผู้เตรียมวัตถุดิบ</div><div>ผู้ผลิต</div><div>ผู้ตรวจ / รับของ</div></div>
+  </section>`;
+}
+const WO_CSS_=`.wo{background:#fff;color:#000;font-family:Inter,'Segoe UI',Tahoma,sans-serif;font-size:13px;line-height:1.35;padding:14px 16px;border:1px solid #bbb;margin:0 0 14px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.wo,.wo *{box-sizing:border-box}.wo .s{font-size:11.5px;color:#444}.wo .c{text-align:center}.wo .r{text-align:right}
+.wo .woHead{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;border-bottom:3px solid #000;padding-bottom:6px}
+.wo .woTitle{font-size:20px;font-weight:800}.wo .woNo{font-size:28px;font-weight:900;border:3px solid #000;padding:2px 12px;white-space:nowrap}
+.wo .woStation{background:#000;color:#fff;font-size:20px;font-weight:800;padding:6px 12px;margin:8px 0;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}.wo .woCart{font-size:14px;font-weight:600}
+.wo .woProd{display:flex;align-items:center;gap:12px;border:2px solid #000;padding:8px 10px}.wo .woProd img{width:64px;height:64px;object-fit:cover;border:1px solid #888}
+.wo .woProdName{font-size:18px;font-weight:800}.wo .woQty{margin-left:auto;text-align:right;font-size:14px}.wo .woQty b{font-size:34px;line-height:1}
+.wo h3{margin:12px 0 4px;font-size:15px;background:#e9e9e9;padding:3px 8px;border-left:6px solid #000;color:#000}
+.wo table{width:100%;border-collapse:collapse;border:1px solid #000;border-radius:0;overflow:visible;background:#fff}
+.wo th,.wo td{padding:4px 6px;border:1px solid #555;font-size:12.5px;color:#000;vertical-align:top}.wo th{background:#e9e9e9}.wo tr{page-break-inside:avoid}.wo .big{font-size:20px}
+.wo .woBox{display:inline-block;width:15px;height:15px;border:2px solid #000;vertical-align:middle}
+.wo .woSign{display:flex;gap:18px;margin-top:26px}.wo .woSign div{flex:1;border-top:1px solid #000;padding-top:3px;text-align:center;font-size:12px}
+#woPrint{display:none}`;
+function ensureWoStyle_(){
+  let st=document.getElementById('woStyle');
+  if(!st){ st=document.createElement('style'); st.id='woStyle'; document.head.appendChild(st); }
+  st.textContent=WO_CSS_+`@media print{@page{size:${woPaper_()} portrait;margin:8mm}body>*:not(#woPrint){display:none!important}#woPrint{display:block!important}.wo{border:0;margin:0;padding:0;page-break-after:always}.wo:last-child{page-break-after:auto}}`;
+}
+function woSetPaper(v){ try{ localStorage.setItem(WO_PAPER_KEY,v==='A5'?'A5':'A4'); }catch(e){} ensureWoStyle_(); }
+function woDoPrint(){
+  ensureWoStyle_();
+  let box=document.getElementById('woPrint');
+  if(!box){ box=document.createElement('div'); box.id='woPrint'; document.body.appendChild(box); }
+  box.innerHTML=woPrintHTML_;
+  window.print();
+}
+function printWorkOrdersSelected(){
+  const ids=[...document.querySelectorAll('.poAssignChk:checked')].map(c=>c.value);
+  if(!ids.length) return toast('ติ๊กเลือกงานที่จะพิมพ์ WO ก่อน');
+  printWorkOrders(ids);
+}
+function printWorkOrders(ids){
+  const list=(ids||[]).map(id=>(db.po||[]).find(p=>p.id===id)).filter(p=>p&&p.status!=='Cancelled');
+  if(!list.length) return toast('ไม่พบใบสั่งผลิตที่จะพิมพ์');
+  // เรียงตาม Station แล้วตามเลข PO จะได้แยกกองส่งแต่ละ Station ได้ง่าย
+  list.sort((a,b)=>{ const sa=woStationName_(a), sb=woStationName_(b); if(!sa!==!sb) return sa?-1:1; return sa.localeCompare(sb)||String(a.id).localeCompare(String(b.id)); });
+  ensureWoStyle_();
+  woPrintHTML_=list.map(woHTML_).join(''); woPrintCount_=list.length;
+  const noBom=list.filter(p=>!((db.bom&&db.bom[p.sku])||[]).some(l=>(l.stage||'Production')==='Production')).map(p=>p.id);
+  const noSteps=list.filter(p=>!prodStepsOf_(p.sku).length).map(p=>p.id);
+  const noStation=list.filter(p=>!woStationName_(p)).map(p=>p.id);
+  const warn=[noBom.length?'ยังไม่มีสูตร (BOM): '+noBom.join(', '):'',noSteps.length?'ยังไม่มีขั้นตอนการผลิต: '+noSteps.join(', '):'',noStation.length?'ยังไม่ระบุ Station: '+noStation.join(', '):''].filter(Boolean);
+  const paper=woPaper_();
+  modal(`<h2 style="margin-bottom:4px">ใบสั่งผลิต (WO) ${list.length} ใบ</h2>
+    <p class="hint" style="margin:0 0 8px">1 ใบ = 1 หน้า เรียงตาม Station · ตรวจดูก่อน แล้วกดพิมพ์</p>
+    ${warn.length?`<div class="box" style="margin:8px 0;padding:10px 12px;border-color:#f5c26b;background:#fff7e6"><b>⚠ ข้อมูลยังไม่ครบ (WO จะพิมพ์ได้ แต่ส่วนนั้นจะว่าง)</b>${warn.map(w=>`<div class="mini">${escHTML(w)}</div>`).join('')}</div>`:''}
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0">
+      <label style="display:flex;gap:6px;align-items:center">กระดาษ <select onchange="woSetPaper(this.value)" style="width:auto"><option value="A4" ${paper==='A4'?'selected':''}>A4</option><option value="A5" ${paper==='A5'?'selected':''}>A5</option></select></label>
+      <button class="primary" onclick="woDoPrint()">🖨 พิมพ์ ${list.length} ใบ</button>
+      <button class="ghost" onclick="$('modal').style.display='none'">ปิด</button>
+    </div>
+    <div style="max-height:62vh;overflow:auto;background:#ddd;padding:10px">${woPrintHTML_}</div>`);
 }
 async function cancelPO(id){
   if(!await confirmModal('ยกเลิกคำสั่งผลิต '+id+' ? ถ้ามอบหมายพนักงานไว้แล้ว ระบบจะแจ้งเตือนทาง LINE ให้ด้วย'))return;
