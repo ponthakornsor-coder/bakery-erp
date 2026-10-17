@@ -4571,6 +4571,62 @@ function startKiosk(){
     const b=document.getElementById('kioskErrClose'); if(b) b.onclick=kioskCloseModal;
   }
   let actionBusy=false, lastJobs=[], products=[], productsLoaded=false;
+  // v9.109: ตารางงานพนักงานวันนี้ (มาพร้อมคำตอบ stationqueue) — แท็บ "ตารางงานวันนี้" + ป้ายตามตารางบนการ์ดงานในคิว
+  let view='queue', schedule={date:'',blocks:[]};
+  function kioskNowMin(){ if(!schedule.date||schedule.date!==todayISO()) return -1; const d=new Date(); return d.getHours()*60+d.getMinutes(); }
+  function kioskBlocks(){
+    return (schedule.blocks||[]).map(b=>{
+      const s=normStaffTime_(b.startTime), e=normSchedEnd_(normStaffTime_(b.endTime));
+      return {name:b.name||b.user||'',sku:b.sku||'',productName:b.productName||b.sku||'',imageUrl:b.imageUrl||'',note:b.note||'',start:s,end:e,sMin:timeToMin_(s),eMin:timeToMin_(e)};
+    }).filter(b=>b.start&&b.end&&b.eMin>b.sMin&&(b.sku||b.note)).sort((a,b)=>a.sMin-b.sMin||a.eMin-b.eMin);
+  }
+  // ช่วงงานของสินค้านี้ตามตาราง: อันที่กำลังอยู่ในช่วงเวลา > อันถัดไป > อันแรกของวัน
+  function kioskSchedFor(sku){
+    const now=kioskNowMin(), bl=kioskBlocks().filter(b=>b.sku&&b.sku===sku);
+    if(!bl.length) return null;
+    return bl.find(b=>now>=b.sMin&&now<b.eMin)||bl.find(b=>b.sMin>now)||bl[0];
+  }
+  function kioskSchedTag(sku){
+    const b=kioskSchedFor(sku); if(!b) return '';
+    return `<div style="font-size:16px;margin-top:8px;color:#fbbf24">🗓 ตามตาราง: <b>${escHTML(b.name)}</b> ${escHTML(b.start)}–${escHTML(b.end)}</div>`;
+  }
+  function renderSchedule(){
+    const body=$('kioskBody'); if(!body||view!=='schedule') return;
+    const bl=kioskBlocks(), now=kioskNowMin();
+    const nowTxt=now>=0?String(Math.floor(now/60)).padStart(2,'0')+':'+String(now%60).padStart(2,'0'):'';
+    const head=`<div style="padding:6px 28px 0;font-size:16px;opacity:.7">ตารางงานวันที่ ${escHTML(schedule.date||'-')}${nowTxt?' · ตอนนี้ '+nowTxt:''}</div>`;
+    if(!bl.length){ body.innerHTML=head+'<div style="margin:auto;text-align:center;opacity:.7"><div style="font-size:80px">🗓</div><div style="font-size:26px;font-weight:800">ยังไม่มีตารางงานของวันนี้</div></div>'; return; }
+    const queued={}; (lastJobs||[]).filter(j=>j.status!=='Completed'&&j.status!=='Cancelled').forEach(j=>{ queued[j.sku]=(queued[j.sku]||0)+(+j.qty||0); });
+    const byUser={}; bl.forEach(b=>{ (byUser[b.name||'-']=byUser[b.name||'-']||[]).push(b); });
+    body.innerHTML=head+Object.keys(byUser).sort((a,b)=>a.localeCompare(b)).map(name=>{
+      let nextMarked=false;
+      return `<div style="background:#262a3c;border-radius:24px;padding:20px 26px;margin:12px 24px">
+        <div style="font-size:28px;font-weight:800;margin-bottom:10px">👤 ${escHTML(name)}</div>
+        ${byUser[name].map(b=>{
+          const isNow=now>=0&&now>=b.sMin&&now<b.eMin, isPast=now>=0&&now>=b.eMin;
+          const isNext=!isNow&&!isPast&&!nextMarked; if(isNext) nextMarked=true;
+          const chip=(txt,bg)=>`<span style="display:inline-block;background:${bg};border-radius:999px;padding:3px 12px;font-size:14px;font-weight:700;margin-left:8px">${txt}</span>`;
+          return `<div style="display:flex;align-items:center;gap:16px;padding:12px 14px;margin-top:8px;border-radius:16px;background:${isNow?'#df651833':'#1c1f2e'};${isNow?'border:2px solid #df6518;':'border:2px solid transparent;'}opacity:${isPast?0.4:1}">
+            <div style="font-size:24px;font-weight:800;white-space:nowrap;min-width:150px">${escHTML(b.start)}–${escHTML(b.end)}</div>
+            ${b.sku?(b.imageUrl?`<img src="${escHTML(b.imageUrl)}" style="width:56px;height:56px;object-fit:cover;border-radius:12px;flex:0 0 auto">`:'<div style="width:56px;height:56px;border-radius:12px;background:#3a3f57;display:flex;align-items:center;justify-content:center;font-size:26px;flex:0 0 auto">📦</div>'):'<div style="width:56px;height:56px;border-radius:12px;background:#3a3f57;display:flex;align-items:center;justify-content:center;font-size:26px;flex:0 0 auto">📝</div>'}
+            <div style="flex:1;min-width:0">
+              <div style="font-size:24px;font-weight:700">${escHTML(b.sku?b.productName:b.note)}${isNow?chip('กำลังอยู่ในช่วงนี้','#df6518'):isNext?chip('ถัดไป','#2563eb'):''}${b.sku&&queued[b.sku]?chip('📟 มีงานในคิว '+roundDisplay(queued[b.sku])+' ชิ้น','#059669'):''}</div>
+              ${b.sku&&b.note?`<div style="font-size:16px;opacity:.7;margin-top:2px">${escHTML(b.note)}</div>`:''}
+            </div></div>`;
+        }).join('')}
+      </div>`;
+    }).join('');
+  }
+  function styleKioskTabs(){
+    const tq=$('kioskTabQueue'), ts=$('kioskTabSched');
+    const on='background:#df6518;color:#fff', off='background:#3a3f57;color:#ddd';
+    if(tq) tq.style.cssText='border:0;font-size:16px;font-weight:800;border-radius:12px;padding:10px 18px;cursor:pointer;white-space:nowrap;'+(view==='queue'?on:off);
+    if(ts) ts.style.cssText='border:0;font-size:16px;font-weight:800;border-radius:12px;padding:10px 18px;cursor:pointer;white-space:nowrap;'+(view==='schedule'?on:off);
+  }
+  function setView(v){
+    view=v; styleKioskTabs();
+    if(v==='queue') renderQueue(lastJobs); else renderSchedule();
+  }
   function openAddJobModal(){
     kioskModal(`<div style="background:#262a3c;border-radius:20px;padding:28px;max-width:480px;width:100%;max-height:80vh;display:flex;flex-direction:column">
       <div style="font-size:22px;font-weight:800;margin-bottom:12px">เลือกสินค้าที่จะผลิต</div>
@@ -4680,6 +4736,7 @@ function startKiosk(){
     knownIds=new Set(openJobs.map(j=>j.po));
     const body=$('kioskBody');
     if(!body) return;
+    if(view!=='queue') return; // กำลังดูแท็บตารางงาน: ยังเช็คงานใหม่/เสียงเตือนข้างบนตามปกติ แต่ไม่วาดทับหน้าตาราง
     if(!openJobs.length){
       body.innerHTML='<div style="margin:auto;text-align:center;opacity:.7"><div style="font-size:80px">✅</div><div style="font-size:28px;font-weight:800">ไม่มีงานรอผลิตตอนนี้</div></div>';
       return;
@@ -4690,6 +4747,7 @@ function startKiosk(){
         <div style="font-size:34px;font-weight:800">${escHTML(j.productName||j.sku)}</div>
         <div style="font-size:20px;opacity:.75;margin-top:4px">${escHTML(j.sku)} ${j.remark?' · '+escHTML(j.remark):''}</div>
         <div style="font-size:16px;opacity:.55;margin-top:8px">${j.status==='In Progress'?'🟠 กำลังทำ':'⚪ รอเริ่มทำ'}</div>
+        ${kioskSchedTag(j.sku)}
       </div>
       <div style="font-size:56px;font-weight:900;color:#df6518;flex:0 0 auto">${roundDisplay(j.qty)}</div>
       <div style="flex:0 0 auto"><button class="kioskActBtn" data-po="${escHTML(j.po)}" data-sku="${escHTML(j.sku)}" data-qty="${+j.qty||0}" data-inprogress="${j.status==='In Progress'?'1':'0'}" style="border:0;background:${j.status==='In Progress'?'#059669':'#df6518'};color:#fff;font-size:18px;font-weight:800;border-radius:14px;padding:16px 22px;cursor:pointer;white-space:nowrap">${j.status==='In Progress'?'✅ จบงาน':'▶ เริ่มทำ'}</button></div>
@@ -4707,6 +4765,7 @@ function startKiosk(){
       const res=await apiGetOnce('stationqueue',{station:stationId,token:stationToken});
       products=res.products||products;
       productsLoaded=true;
+      if(res.schedule) schedule=res.schedule; // ไม่มีคีย์นี้ (หลังบ้านรุ่นเก่า) = เก็บของเดิม ไม่ทำให้ Kiosk พัง
       // v9.104: ถ้าหน้าต่าง "เพิ่มงานผลิต" เปิดค้างอยู่ตอนที่ยังโหลดสินค้าไม่เสร็จ (เช่นกดเร็วตั้งแต่เพิ่งเปิด
       // Kiosk) ให้รีเฟรชรายการในหน้าต่างนั้นให้เองทันทีที่ข้อมูลมาถึง ไม่ต้องปิด-เปิดใหม่เอง
       if(document.getElementById('kioskJobProductList')) renderJobProductList(document.getElementById('kioskJobSearch')?.value||'');
@@ -4717,6 +4776,7 @@ function startKiosk(){
         lastJobs=res.jobs||[];
         renderQueue(lastJobs);
       }
+      if(view==='schedule') renderSchedule(); // ตารางงาน (และไฮไลต์ "ตอนนี้") รีเฟรชทุกรอบโพล
       const status=$('kioskStatus'); if(status){ status.textContent='อัปเดตล่าสุด '+new Date().toLocaleTimeString('th-TH'); status.style.color='#8b755d'; }
     }catch(e){
       console.error(e);
@@ -4732,8 +4792,11 @@ function startKiosk(){
     if(unlocked) return; unlocked=true;
     try{ audioCtx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ console.error('AudioContext ไม่รองรับ',e); }
     requestWakeLock();
-    root.innerHTML=`<div style="padding:20px 28px;background:#15182280;display:flex;align-items:center;gap:16px;border-bottom:1px solid #2c2f42"><div style="font-size:22px;font-weight:800">📟 คิวงานผลิต — ${stationName?escHTML(stationName):'Station'}</div><button id="kioskAddJobBtn" style="border:0;background:#df6518;color:#fff;font-size:16px;font-weight:800;border-radius:12px;padding:10px 18px;cursor:pointer;white-space:nowrap">➕ เพิ่มงานผลิต</button><div id="kioskStatus" style="margin-left:auto;font-size:14px;color:#8b755d">กำลังโหลด...</div></div><div id="kioskBody" style="flex:1;display:flex;flex-direction:column;padding:8px 0"></div>`;
+    root.innerHTML=`<div style="padding:20px 28px;background:#15182280;display:flex;align-items:center;gap:16px;border-bottom:1px solid #2c2f42"><div style="font-size:22px;font-weight:800">📟 ${stationName?escHTML(stationName):'Station'}</div><button id="kioskTabQueue">📟 คิวงาน</button><button id="kioskTabSched">🗓 ตารางงานวันนี้</button><button id="kioskAddJobBtn" style="border:0;background:#df6518;color:#fff;font-size:16px;font-weight:800;border-radius:12px;padding:10px 18px;cursor:pointer;white-space:nowrap">➕ เพิ่มงานผลิต</button><div id="kioskStatus" style="margin-left:auto;font-size:14px;color:#8b755d">กำลังโหลด...</div></div><div id="kioskBody" style="flex:1;display:flex;flex-direction:column;padding:8px 0"></div>`;
     document.getElementById('kioskAddJobBtn').onclick=openAddJobModal;
+    document.getElementById('kioskTabQueue').onclick=()=>setView('queue');
+    document.getElementById('kioskTabSched').onclick=()=>setView('schedule');
+    styleKioskTabs(); // ห้ามเรียก setView/renderQueue ตรงนี้: renderQueue ตั้ง firstLoad=false ทำให้งานเดิมถูกนับเป็นงานใหม่แล้วส่งเสียงเตือนทั้งหมดตอนเปิดเครื่อง
     startPolling();
   }
   root.innerHTML=`<div style="margin:auto;text-align:center;padding:24px"><div style="font-size:70px">📟</div><h1 style="font-size:30px">พร้อมใช้งาน Kiosk${stationName?'<br><span style=\"font-size:20px;opacity:.75\">'+escHTML(stationName)+'</span>':''}</h1><p style="opacity:.75;max-width:420px;margin:8px auto 24px">กดปุ่มด้านล่างครั้งเดียวเพื่อเปิดเสียงแจ้งเตือนงานใหม่ จากนั้นจะทำงานเองตลอด ไม่ต้องแตะจออีก</p><button onclick="(function(){window.__kioskStart&&window.__kioskStart()})()" style="border:0;background:#df6518;color:#fff;font-size:22px;font-weight:800;border-radius:16px;padding:20px 40px;cursor:pointer">▶ เริ่มใช้งาน Kiosk</button></div>`;
