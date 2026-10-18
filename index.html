@@ -3795,7 +3795,9 @@ function fromSheetData(data){
     });
   }
   // v9.104: ตารางงานพนักงาน (อ้างอิงเท่านั้น ไม่ผูกกับ Production Order/Kiosk)
-  db.staffSchedule=(data.staffSchedule||[]).map(r=>({id:r.ScheduleID||'',username:r.Username||'',date:dateISO(r.Date)||String(r.Date||''),startTime:normStaffTime_(r.StartTime),endTime:normSchedEnd_(normStaffTime_(r.EndTime)),sku:r.SKU||'',note:r.Note||''})).filter(x=>x.id);
+  db.staffSchedule=(data.staffSchedule||[]).map(r=>({id:r.ScheduleID||'',username:r.Username||'',date:dateISO(r.Date)||String(r.Date||''),startTime:normStaffTime_(r.StartTime),endTime:normSchedEnd_(normStaffTime_(r.EndTime)),sku:r.SKU||'',note:r.Note||'',qty:+r.Qty||0,stationId:r.StationId||'',linkedPo:r.LinkedPO||''})).filter(x=>x.id);
+  // v9.110: ห้องประจำของพนักงาน {username(ตัวพิมพ์เล็ก): stationId} (ไม่มีคีย์นี้ในคำตอบ = เก็บของเดิมไว้)
+  if(Array.isArray(data.userStations)){ db.userStations={}; data.userStations.forEach(r=>{ if(r.Username&&r.StationId) db.userStations[String(r.Username).toLowerCase()]=String(r.StationId); }); }
   db.remote=db.remote||{}; db.remote.lastApiSync=now();
 }
 function saveCycleCount(){
@@ -4100,6 +4102,7 @@ function staffSchedulePage(m){
     if(!staffScheduleSelUser && activeUsers.length) staffScheduleSelUser=activeUsers[0].username;
     if(!staffScheduleSelDate) staffScheduleSelDate=todayISO();
     const date=staffScheduleSelDate, username=staffScheduleSelUser;
+    const homeStation=userStationOf_(username), activeStations=(db.stations||[]).filter(s=>s.status==='Active').sort((a,b)=>String(a.name).localeCompare(String(b.name)));
     const existing=(db.staffSchedule||[]).filter(s=>s.username===username && s.date===date).sort((a,b)=>timeToMin_(a.startTime)-timeToMin_(b.startTime));
     // แถวแรกของฟอร์มที่ยังว่างอยู่: ให้เวลาเริ่มต่อจากเวลาจบสุดท้ายของวันนั้นที่บันทึกไว้แล้ว (ยังแก้ไขได้)
     const lastEndMin=existing.reduce((mx,s)=>Math.max(mx,timeToMin_(s.endTime)),0);
@@ -4107,13 +4110,16 @@ function staffSchedulePage(m){
       const b0=staffScheduleBlocks[0];
       if(!b0.startTime && !b0.endTime && !b0.sku && !b0.note) b0.startTime=String(Math.floor(lastEndMin/60)).padStart(2,'0')+':'+String(lastEndMin%60).padStart(2,'0');
     }
-    m.innerHTML=head('จัดตารางงานพนักงาน','วางแผนว่าพนักงานแต่ละคนควรทำอะไรช่วงเวลาไหนในแต่ละวัน — เป็นตารางอ้างอิงสำหรับดูภาพรวมเท่านั้น ไม่ผูกกับคิวงานผลิตที่ Kiosk')+
+    m.innerHTML=head('จัดตารางงานพนักงาน','วางแผนว่าพนักงานแต่ละคนควรทำอะไรช่วงเวลาไหนในแต่ละวัน — ถ้าใส่ "จำนวน" ในช่วงงาน ระบบจะสั่งผลิตที่ห้องประจำของพนักงานคนนั้นให้ทันที (งานขึ้นที่ Kiosk ของห้อง) ถ้าเว้นว่างจะเป็นตารางอ้างอิงอย่างเดียว')+
     (activeUsers.length?`<div class="box"><div class="row3">
       <select id="ssUserSel" onchange="staffScheduleUserChanged()">${activeUsers.map(u=>`<option value="${escHTML(u.username)}" ${u.username===username?'selected':''}>${escHTML(u.displayName)} (${u.role})</option>`).join('')}</select>
       <input id="ssDateSel" type="date" value="${date}" onchange="staffScheduleDateChanged()">
       <span></span>
-    </div></div>`:'<div class="box"><p class="hint">ยังไม่มีพนักงานที่เปิดใช้งานในระบบ</p></div>')+
-    `<div class="box"><h2>ตารางงานที่ตั้งไว้แล้ว (${existing.length})</h2>${existing.length?`<table><tr><th>เวลา</th><th>งาน</th><th>หมายเหตุ</th><th></th></tr>${existing.map(s=>`<tr><td><b>${escHTML(s.startTime)} - ${escHTML(s.endTime)}</b></td><td>${s.sku?escHTML(itemName(s.sku))+' ('+escHTML(s.sku)+')':'<span class="mini">-</span>'}</td><td>${escHTML(s.note||'-')}</td><td class="actions">${s.sku?`<button class="small" data-sku="${escHTML(s.sku)}" data-sid="${escHTML(s.id)}" onclick="productionDetailFromEl(this)">สูตร/ขั้นตอน</button> `:''}<button class="small" onclick="editStaffScheduleModal('${s.id}')">แก้ไข</button> <button class="small danger" onclick="deleteStaffScheduleAction('${s.id}')">ลบ</button></td></tr>`).join('')}</table>`:'<p class="hint">ยังไม่มีตารางงานสำหรับวันนี้</p>'}</div>`+
+    </div>
+    <div style="margin-top:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap"><b>🏭 ห้องประจำ:</b>
+      <select id="ssHomeStation" onchange="setUserStationAction()" style="width:auto;min-width:240px"><option value="">— ยังไม่ตั้งห้องประจำ —</option>${activeStations.map(s=>`<option value="${escHTML(s.id)}" ${s.id===homeStation?'selected':''}>${escHTML(s.name)}</option>`).join('')}</select>
+      <span class="mini">${homeStation?'ช่วงงานที่ใส่ "จำนวน" จะสั่งผลิตที่ห้องนี้ทันที':'ตั้งห้องประจำก่อน จึงจะสั่งผลิตอัตโนมัติจากตารางงานได้'}</span></div></div>`:'<div class="box"><p class="hint">ยังไม่มีพนักงานที่เปิดใช้งานในระบบ</p></div>')+
+    `<div class="box"><h2>ตารางงานที่ตั้งไว้แล้ว (${existing.length})</h2>${existing.length?`<table><tr><th>เวลา</th><th>งาน</th><th>หมายเหตุ</th><th>สั่งผลิต</th><th></th></tr>${existing.map(s=>`<tr><td><b>${escHTML(s.startTime)} - ${escHTML(s.endTime)}</b></td><td>${s.sku?escHTML(itemName(s.sku))+' ('+escHTML(s.sku)+')':'<span class="mini">-</span>'}</td><td>${escHTML(s.note||'-')}</td><td>${ssPoCellHTML_(s)}</td><td class="actions">${s.sku?`<button class="small" data-sku="${escHTML(s.sku)}" data-sid="${escHTML(s.id)}" onclick="productionDetailFromEl(this)">สูตร/ขั้นตอน</button> `:''}<button class="small" onclick="editStaffScheduleModal('${s.id}')">แก้ไข</button> <button class="small danger" onclick="deleteStaffScheduleAction('${s.id}')">ลบ</button></td></tr>`).join('')}</table>`:'<p class="hint">ยังไม่มีตารางงานสำหรับวันนี้</p>'}</div>`+
     `<div class="box"><h2>เพิ่มช่วงเวลาใหม่</h2><p class="hint" style="margin-top:0">ใช้เวลาแบบ 24 ชั่วโมง — ถ้าจบที่เที่ยงคืนให้เลือกเวลาจบ 24:00 (เลือก 00:00 ก็ถือว่าเที่ยงคืนเหมือนกัน) · กด "+ เพิ่มช่วงเวลา" แล้วเวลาเริ่มจะต่อจากเวลาจบของแถวก่อนหน้าให้เอง (แก้ได้)</p><div id="ssBlockRows">${staffScheduleBlocks.map((b,i)=>staffScheduleBlockRowHTML(b,i)).join('')}</div>
       <button class="ghost" onclick="addStaffScheduleBlockRow()" style="margin-top:8px">+ เพิ่มช่วงเวลา</button>
       <div style="margin-top:12px"><button class="primary" onclick="saveStaffScheduleAction()">บันทึกตารางงาน</button></div>
@@ -4126,6 +4132,7 @@ function staffScheduleBlockRowHTML(b,i){
     <span class="mini">ถึง</span>
     ${ssTimePickerHTML_('ssEnd', b.endTime, true)}
     ${ssSkuPickerHTML_(b.sku, b.family)}
+    <input class="ssQty" type="number" min="0" step="any" placeholder="จำนวน (ชิ้น)" value="${escHTML(b.qty||'')}" style="width:130px" title="ใส่จำนวนเพื่อสั่งผลิตที่ห้องประจำของพนักงานทันที (เว้นว่าง = เป็นตารางอ้างอิงอย่างเดียว)">
     <input class="ssNote" placeholder="หมายเหตุ (ไม่บังคับ)" value="${escHTML(b.note||'')}" style="flex:1;min-width:140px">
     <button class="ghost" onclick="removeStaffScheduleBlockRow(${i})">ลบ</button>
   </div>`;
@@ -4137,7 +4144,8 @@ function syncStaffScheduleBlocksFromDom_(){
     endTime: row.querySelector('.ssEnd')?.value||'',
     family: row.querySelector('.ssFam')?.value||'',
     sku: row.querySelector('.ssSku')?.value||'',
-    note: row.querySelector('.ssNote')?.value||''
+    note: row.querySelector('.ssNote')?.value||'',
+    qty: row.querySelector('.ssQty')?.value||''
   }));
 }
 function addStaffScheduleBlockRow(){
@@ -4183,16 +4191,23 @@ async function saveStaffScheduleAction(){
     if(!(b.endTime||b.sku||b.note)) continue; // แถวว่าง (มีแค่เวลาเริ่มที่ระบบใส่ให้) ข้ามไป
     if(!b.startTime||!b.endTime||!(b.sku||b.note)) return toast('แถวที่ '+(i+1)+' ยังกรอกไม่ครบ (ต้องมีเวลาเริ่ม-จบ และสินค้าหรือหมายเหตุ)');
     if(!schedEndOk_(b.startTime,b.endTime)) return toast('แถวที่ '+(i+1)+': เวลาจบต้องหลังเวลาเริ่ม (ถ้าจบที่เที่ยงคืนให้เลือก 24:00)');
-    blocks.push({startTime:b.startTime,endTime:normSchedEnd_(b.endTime),sku:b.sku,note:b.note});
+    const qty=+b.qty||0;
+    if(b.qty!==''&&(!isFinite(+b.qty)||+b.qty<0)) return toast('แถวที่ '+(i+1)+': จำนวนต้องเป็นตัวเลขที่ไม่ติดลบ');
+    if(qty>0&&!b.sku) return toast('แถวที่ '+(i+1)+': ใส่จำนวนแล้วต้องเลือกสินค้าด้วย');
+    if(qty>0&&!userStationOf_(username)) return toast('ยังไม่ได้ตั้งห้องประจำให้พนักงานคนนี้ — เลือก "ห้องประจำ" ด้านบนก่อน หรือเว้นช่องจำนวนไว้');
+    blocks.push({startTime:b.startTime,endTime:normSchedEnd_(b.endTime),sku:b.sku,note:b.note,qty});
   }
   if(!blocks.length) return toast('เพิ่มช่วงเวลาอย่างน้อย 1 รายการ (ต้องมีเวลาเริ่ม-จบ และระบุสินค้าหรือหมายเหตุ)');
+  const poBlocks=blocks.filter(b=>b.qty>0);
+  // ใส่จำนวน = สั่งผลิตจริงทันที (งานขึ้น Kiosk + เสียงเตือน) จึงขอให้ยืนยันก่อนทุกครั้ง
+  if(poBlocks.length && !await confirmModal('ระบบจะสั่งผลิตทันที '+poBlocks.length+' ใบ ที่ '+(userStationName_(username)||'ห้องประจำ')+' (งานจะขึ้นที่ Kiosk ของห้องนั้นเลย):\n'+poBlocks.map(b=>'• '+(itemName(b.sku)||b.sku)+' '+roundDisplay(b.qty)+' ชิ้น ('+b.startTime+'-'+b.endTime+')').join('\n'),'ยืนยัน บันทึกและสั่งผลิต')) return;
   toast('กำลังบันทึก...');
   try{
     await apiPost({action:'addstaffschedulebatch',data:{username,date,blocks}});
     staffScheduleBlocks=[{startTime:'',endTime:'',sku:'',note:''}];
     await loadFromGoogleSheet();
     page='staffschedule'; render();
-    sheetDone('บันทึกตารางงานแล้ว ('+blocks.length+' ช่วงเวลา)');
+    sheetDone('บันทึกตารางงานแล้ว ('+blocks.length+' ช่วงเวลา)'+(poBlocks.length?' · สั่งผลิต '+poBlocks.length+' ใบที่ '+(userStationName_(username)||'ห้องประจำ'):''));
   }catch(e){console.error(e); alertModal('บันทึกไม่สำเร็จ: '+(e.message||e));}
 }
 function editStaffScheduleModal(scheduleId){
@@ -4204,9 +4219,16 @@ function editStaffScheduleModal(scheduleId){
       <span class="mini">ถึง</span>
       ${ssTimePickerHTML_('ssEnd', s.endTime, true)}
       ${ssSkuPickerHTML_(s.sku)}
+      <input class="ssQty" type="number" min="0" step="any" placeholder="จำนวน (ชิ้น)" value="${escHTML(s.qty||'')}" style="width:130px" title="ใส่จำนวน = สั่งผลิตที่ห้องประจำ / เว้นว่างหรือ 0 = ไม่สั่งผลิต">
       <input class="ssNote" placeholder="หมายเหตุ (ไม่บังคับ)" value="${escHTML(s.note||'')}" style="flex:1;min-width:140px">
     </div>
+    ${(()=>{ const po=s.linkedPo?(db.po||[]).find(x=>x.id===s.linkedPo):null; const started=po&&['In Progress','Completed'].includes(po.status);
+      if(po) return `<p class="hint" style="margin:0 0 10px">${started?'🔒':'🔗'} ผูกกับ <b>${escHTML(po.id)}</b> (${poStatusLabel(po).text})${started?' — เริ่มผลิตแล้ว แก้สินค้า/จำนวนไม่ได้ (แก้เวลาและหมายเหตุได้)':' — แก้สินค้า/จำนวนแล้ว PO จะปรับตาม · ใส่ 0 = ยกเลิก PO'}</p>`;
+      return s.qty>0?'':`<p class="hint" style="margin:0 0 10px">${userStationOf_(s.username)?'ใส่จำนวนเพื่อสั่งผลิตที่ '+escHTML(userStationName_(s.username)):'พนักงานคนนี้ยังไม่มีห้องประจำ (ตั้งที่ด้านบนของหน้านี้) จึงสั่งผลิตจากตารางไม่ได้'}</p>`; })()}
     <button class="primary" onclick="saveEditStaffSchedule('${escHTML(s.id)}')">บันทึก</button> <button class="ghost" onclick="$('modal').style.display='none'">ยกเลิก</button>`);
+  // PO ที่เริ่มผลิตแล้ว (หรือเสร็จแล้ว): ล็อกสินค้า/จำนวน (หลังบ้านก็ปฏิเสธเช่นกัน)
+  const lpo=s.linkedPo?(db.po||[]).find(x=>x.id===s.linkedPo):null;
+  if(lpo&&['In Progress','Completed'].includes(lpo.status)) document.querySelectorAll('.ssEditRow .ssFam, .ssEditRow .ssSku, .ssEditRow .ssQty').forEach(el=>{ el.disabled=true; });
 }
 async function saveEditStaffSchedule(scheduleId){
   const row=document.querySelector('.ssEditRow'); if(!row) return;
@@ -4214,20 +4236,51 @@ async function saveEditStaffSchedule(scheduleId){
   const endRaw=row.querySelector('.ssEnd')?.value||'';
   const sku=row.querySelector('.ssSku')?.value||'';
   const note=(row.querySelector('.ssNote')?.value||'').trim();
+  const qtyRaw=row.querySelector('.ssQty')?.value||'';
   if(!startTime||!endRaw) return toast('ใส่เวลาเริ่มและเวลาจบก่อน');
   if(!sku&&!note) return toast('เลือกสินค้าหรือใส่หมายเหตุก่อน');
+  const qty=+qtyRaw||0;
+  if(qtyRaw!==''&&(!isFinite(+qtyRaw)||+qtyRaw<0)) return toast('จำนวนต้องเป็นตัวเลขที่ไม่ติดลบ');
+  if(qty>0&&!sku) return toast('ใส่จำนวนแล้วต้องเลือกสินค้าด้วย');
+  const cur=(db.staffSchedule||[]).find(x=>x.id===scheduleId)||{};
+  if(qty>0&&!cur.linkedPo&&!userStationOf_(cur.username)) return toast('พนักงานคนนี้ยังไม่มีห้องประจำ — ตั้งที่ด้านบนของหน้านี้ก่อน หรือเว้นช่องจำนวนไว้');
   if(!schedEndOk_(startTime,endRaw)) return toast('เวลาจบต้องหลังเวลาเริ่ม (ถ้าจบที่เที่ยงคืนให้เลือก 24:00)');
   toast('กำลังบันทึก...');
   try{
-    await apiPost({action:'updatestaffschedule',data:{scheduleId,startTime,endTime:normSchedEnd_(endRaw),sku,note}});
+    const res=await apiPost({action:'updatestaffschedule',data:{scheduleId,startTime,endTime:normSchedEnd_(endRaw),sku,note,qty}});
     $('modal').style.display='none';
     await loadFromGoogleSheet();
     page='staffschedule'; render();
-    sheetDone('แก้ไขตารางงานแล้ว');
+    sheetDone('แก้ไขตารางงานแล้ว'+((res&&res.message&&res.message.indexOf(' · ')>=0)?' · '+res.message.split(' · ').slice(1).join(' · '):''));
   }catch(e){console.error(e); alertModal('แก้ไขไม่สำเร็จ: '+(e.message||e));}
 }
+// ห้องประจำของพนักงาน (ใช้สั่งผลิตอัตโนมัติจากตารางงาน) เก็บเป็น {username ตัวพิมพ์เล็ก: stationId}
+function userStationOf_(username){ return (db.userStations&&db.userStations[String(username||'').toLowerCase()])||''; }
+function userStationName_(username){ const id=userStationOf_(username); const st=(db.stations||[]).find(x=>x.id===id); return st?st.name:''; }
+function ssPoCellHTML_(s){
+  if(!(s.qty>0)) return '<span class="mini">-</span>';
+  const po=s.linkedPo?(db.po||[]).find(x=>x.id===s.linkedPo):null;
+  const st=s.stationId?((db.stations||[]).find(x=>x.id===s.stationId)||{}).name||'':'';
+  return `<b>${roundDisplay(s.qty)} ชิ้น</b><div class="mini">${escHTML(s.linkedPo||'-')}${st?' · '+escHTML(st):''}</div>${po?`<div style="margin-top:3px">${poStatusPillNew(po)}</div>`:''}`;
+}
+async function setUserStationAction(){
+  syncStaffScheduleBlocksFromDom_(); // เก็บค่าที่กรอกค้างไว้ในฟอร์ม ก่อนวาดหน้าใหม่
+  const username=staffScheduleSelUser, stationId=$('ssHomeStation')?.value||'';
+  if(!username) return;
+  toast('กำลังบันทึกห้องประจำ...');
+  try{
+    await apiPost({action:'setuserstation',data:{username,stationId}});
+    db.userStations=db.userStations||{};
+    if(stationId) db.userStations[username.toLowerCase()]=stationId; else delete db.userStations[username.toLowerCase()];
+    staffSchedulePage($('main'));
+    sheetDone(stationId?'ตั้งห้องประจำแล้ว: '+(userStationName_(username)||stationId):'ล้างห้องประจำแล้ว');
+  }catch(e){console.error(e); alertModal('ตั้งห้องประจำไม่สำเร็จ: '+(e.message||e)); staffSchedulePage($('main'));}
+}
 async function deleteStaffScheduleAction(scheduleId){
-  if(!await confirmModal('ลบรายการนี้ออกจากตารางงาน?')) return;
+  const sch=(db.staffSchedule||[]).find(x=>x.id===scheduleId)||{};
+  const lpo=sch.linkedPo?(db.po||[]).find(x=>x.id===sch.linkedPo):null;
+  const poNote=lpo?(lpo.status==='Open'?'\n\nPO '+lpo.id+' ที่สั่งผลิตไว้ (ยังไม่เริ่มผลิต) จะถูกยกเลิกด้วย':(lpo.status==='In Progress'?'\n\nPO '+lpo.id+' เริ่มผลิตแล้ว จะไม่ถูกยกเลิก (ลบเฉพาะช่วงงานในตาราง)':'')):'';
+  if(!await confirmModal('ลบรายการนี้ออกจากตารางงาน?'+poNote)) return;
   toast('กำลังลบ...');
   try{
     await apiPost({action:'deletestaffschedule',scheduleId});
@@ -4269,7 +4322,7 @@ function productionDetailModal(sku, scheduleId){
   const canEdit=isAdmin()&&!VIEWER_ONLY;
   modal(`<h2 style="margin-bottom:2px">${escHTML(itemName(sku)||sku)}</h2>
     <p class="hint" style="margin-top:0">${escHTML(sku)}${(()=>{const it=(db.items||[]).find(x=>String(x.sku)===sku); return it&&it.product?' · '+escHTML(it.product):'';})()}</p>
-    ${blk?`<div class="box" style="margin:10px 0;padding:12px 14px">👤 <b>${escHTML(who)}</b> · ⏰ <b>${escHTML(blk.startTime)} - ${escHTML(blk.endTime)}</b> (${fmtMinutes_(blkMin)})${blk.note?`<div class="mini" style="margin-top:4px">หมายเหตุ: ${escHTML(blk.note)}</div>`:''}</div>`:''}
+    ${blk?`<div class="box" style="margin:10px 0;padding:12px 14px">👤 <b>${escHTML(who)}</b> · ⏰ <b>${escHTML(blk.startTime)} - ${escHTML(blk.endTime)}</b> (${fmtMinutes_(blkMin)})${blk.note?`<div class="mini" style="margin-top:4px">หมายเหตุ: ${escHTML(blk.note)}</div>`:''}${blk.linkedPo?`<div class="mini" style="margin-top:4px">🏭 สั่งผลิตแล้ว: <b>${escHTML(blk.linkedPo)}</b> · ${roundDisplay(blk.qty)} ชิ้น${blk.stationId?' · '+escHTML(((db.stations||[]).find(x=>x.id===blk.stationId)||{}).name||''):''}</div>`:''}</div>`:''}
     <h3 style="margin:14px 0 4px">🧾 สูตรการผลิต</h3>
     ${prodLines.length?`<p class="hint" style="margin:0 0 6px">${yieldN>1?`สูตรต่อ 1 Batch → ได้ ${yieldN} ชิ้น`:'สูตรต่อ 1 ชิ้น'}</p><table><tr><th>ส่วนผสม</th><th style="text-align:right">ปริมาณ</th><th>หน่วย</th></tr>${prodLines.map(rmRow).join('')}</table>`:'<p class="hint">ยังไม่ได้ตั้งสูตร (BOM) ของสินค้านี้</p>'}
     ${packLines.length?`<p class="hint" style="margin:10px 0 6px">วัสดุแพ็ค (ต่อ 1 ชิ้น)</p><table><tr><th>วัสดุ</th><th style="text-align:right">ปริมาณ</th><th>หน่วย</th></tr>${packLines.map(rmRow).join('')}</table>`:''}
